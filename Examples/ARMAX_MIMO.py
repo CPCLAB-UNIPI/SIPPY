@@ -8,8 +8,8 @@ case 3 outputs x 4 inputs
 
 """
 from __future__ import division
-#Checking path to access other files
 from past.utils import old_div
+#Checking path to access other files
 try:
     from sys_identification import *
 except ModuleNotFoundError:
