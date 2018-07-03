@@ -6,10 +6,6 @@ Created on Sat Nov 04 2017
 """
 from __future__ import print_function
 from __future__ import absolute_import
-from __future__ import division
-from builtins import range
-from builtins import object
-from past.utils import old_div
 from .functionsetSIM import *
 import scipy as sc
 
@@ -181,10 +177,10 @@ def PARSIM_K(y,u,f=20,p=20,threshold=0.1,max_order=np.NaN,fixed_order=np.NaN,D_r
             x0=vect[n*m::,:].reshape((n,1))
             B_K=B-np.dot(K,D)
         for j in range(m):
-            B_K[:,j]=old_div(B_K[:,j],Ustd[j])
-            D[:,j]=old_div(D[:,j],Ustd[j])
+            B_K[:,j]=B_K[:,j]/Ustd[j]
+            D[:,j]=D[:,j]/Ustd[j]
         for j in range(l):
-            K[:,j]=old_div(K[:,j],Ystd[j])
+            K[:,j]=K[:,j]/Ystd[j]
             C[j,:]=C[j,:]*Ystd[j]
             D[j,:]=D[j,:]*Ystd[j]
         B=B_K+np.dot(K,D)
@@ -277,10 +273,10 @@ def select_order_PARSIM_K(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
             x0=vect[n*m::,:].reshape((n,1))
             B_K=B-np.dot(K,D)
         for j in range(m):
-            B_K[:,j]=old_div(B_K[:,j],Ustd[j])
-            D[:,j]=old_div(D[:,j],Ustd[j])
+            B_K[:,j]=B_K[:,j]/Ustd[j]
+            D[:,j]=D[:,j]/Ustd[j]
         for j in range(l):
-            K[:,j]=old_div(K[:,j],Ystd[j])
+            K[:,j]=K[:,j]/Ystd[j]
             C[j,:]=C[j,:]*Ystd[j]
             D[j,:]=D[j,:]*Ystd[j]
         B=B_K+np.dot(K,D)
@@ -328,10 +324,10 @@ def PARSIM_S(y,u,f=20,p=20,threshold=0.1,max_order=np.NaN,fixed_order=np.NaN,D_r
             D=np.zeros((l,m))
             x0=vect[n*m::,:].reshape((n,1))
         for j in range(m):
-            B_K[:,j]=old_div(B_K[:,j],Ustd[j])
-            D[:,j]=old_div(D[:,j],Ustd[j])
+            B_K[:,j]=B_K[:,j]/Ustd[j]
+            D[:,j]=D[:,j]/Ustd[j]
         for j in range(l):
-            K[:,j]=old_div(K[:,j],Ystd[j])
+            K[:,j]=K[:,j]/Ystd[j]
             C[j,:]=C[j,:]*Ystd[j]
             D[j,:]=D[j,:]*Ystd[j]
         B=B_K+np.dot(K,D)
@@ -404,10 +400,10 @@ def select_order_PARSIM_S(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
             D=np.zeros((l,m))
             x0=vect[n*m::,:].reshape((n,1))
         for j in range(m):
-            B_K[:,j]=old_div(B_K[:,j],Ustd[j])
-            D[:,j]=old_div(D[:,j],Ustd[j])
+            B_K[:,j]=B_K[:,j]/Ustd[j]
+            D[:,j]=D[:,j]/Ustd[j]
         for j in range(l):
-            K[:,j]=old_div(K[:,j],Ystd[j])
+            K[:,j]=K[:,j]/Ystd[j]
             C[j,:]=C[j,:]*Ystd[j]
             D[j,:]=D[j,:]*Ystd[j]
         B=B_K+np.dot(K,D)
@@ -453,10 +449,10 @@ def PARSIM_P(y,u,f=20,p=20,threshold=0.1,max_order=np.NaN,fixed_order=np.NaN,D_r
             D=np.zeros((l,m))
             x0=vect[n*m::,:].reshape((n,1))
         for j in range(m):
-            B_K[:,j]=old_div(B_K[:,j],Ustd[j])
-            D[:,j]=old_div(D[:,j],Ustd[j])
+            B_K[:,j]=B_K[:,j]/Ustd[j]
+            D[:,j]=D[:,j]/Ustd[j]
         for j in range(l):
-            K[:,j]=old_div(K[:,j],Ystd[j])
+            K[:,j]=K[:,j]/Ystd[j]
             C[j,:]=C[j,:]*Ystd[j]
             D[j,:]=D[j,:]*Ystd[j]
         B=B_K+np.dot(K,D)
@@ -527,17 +523,17 @@ def select_order_PARSIM_P(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
             D=np.zeros((l,m))
             x0=vect[n*m::,:].reshape((n,1))
         for j in range(m):
-            B_K[:,j]=old_div(B_K[:,j],Ustd[j])
-            D[:,j]=old_div(D[:,j],Ustd[j])
+            B_K[:,j]=B_K[:,j]/Ustd[j]
+            D[:,j]=D[:,j]/Ustd[j]
         for j in range(l):
-            K[:,j]=old_div(K[:,j],Ystd[j])
+            K[:,j]=K[:,j]/Ystd[j]
             C[j,:]=C[j,:]*Ystd[j]
             D[j,:]=D[j,:]*Ystd[j]
         B=B_K+np.dot(K,D)
         return A_K,C,B_K,D,K,A,B,x0,Vn
 
 #creating object SS model
-class SS_PARSIM_model(object):
+class SS_PARSIM_model:
     def __init__(self,A,B,C,D,K,A_K,B_K,x0,ts,Vn):
         self.n=A[:,0].size
         self.A=A

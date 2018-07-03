@@ -4,7 +4,9 @@ ARMAX Example
 
 @author: Giuseppe Armenise
 """
+from __future__ import division
 #Checking path to access other files
+from past.utils import old_div
 try:
     from sys_identification import *
 except ModuleNotFoundError:
@@ -19,7 +21,7 @@ ts=1.
 
 # time 
 tfin = 400
-npts = int(tfin/ts) + 1
+npts = int(old_div(tfin,ts)) + 1
 Time = np.linspace(0, tfin, npts)
 # input sequence
 Usim =fset.PRBS_seq(npts,0.08)

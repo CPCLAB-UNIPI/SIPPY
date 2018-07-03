@@ -6,7 +6,6 @@ Created on Wed Dec 06
 """
 from __future__ import print_function
 
-from builtins import range
 import numpy as np
 
 def system_identification(y,u,id_method,centering='None',IC='None',\

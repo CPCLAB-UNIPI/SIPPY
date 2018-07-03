@@ -10,7 +10,9 @@ Using method='N4SID','MOESP' or 'CVA', if the message
 that the package slycot is not well-installed.
 
 """
+from __future__ import division
 #Checking path to access other files
+from past.utils import old_div
 try:
     from sys_identification import *
 except ModuleNotFoundError:
@@ -31,7 +33,7 @@ D = np.array([[0.0]])
 
 
 tfin = 500
-npts = int(tfin/ts) + 1
+npts = int(old_div(tfin,ts)) + 1
 Time = np.linspace(0, tfin, npts)
 
 #Input sequence

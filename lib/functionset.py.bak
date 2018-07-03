@@ -5,10 +5,7 @@ Created on Sun Sep 10 2017
 @author: Giuseppe Armenise
 """
 from __future__ import print_function
-from __future__ import division
 
-from builtins import range
-from past.utils import old_div
 import control as cnt
 import numpy as np
 import math
@@ -67,7 +64,7 @@ def white_noise_var(L,Var):
 # and thestandard deviation: ex [Ystd,Y]=rescale(Y)
 def rescale(y):
     ystd=np.std(y)
-    y_scaled=old_div(y,ystd)
+    y_scaled=y/ystd
     return ystd,y_scaled
 
 def information_criterion(K,N,Variance,method='AIC'):

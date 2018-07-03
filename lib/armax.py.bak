@@ -6,10 +6,6 @@ Created on Fri Jul 28 2017
 """
 from __future__ import print_function
 from __future__ import absolute_import
-from __future__ import division
-from builtins import range
-from builtins import object
-from past.utils import old_div
 from .functionset import *
 
 def ARMAX_id(y,u,na,nb,nc,theta,max_iterations):
@@ -36,16 +32,16 @@ def ARMAX_id(y,u,na,nb,nc,theta,max_iterations):
         for i in range(N):
             PHI[i,na+nb:na+nb+nc]=eps[val+i-1::-1][0:nc]
         THETA=np.dot(np.linalg.pinv(PHI),y[val::])
-        Vn=old_div((np.linalg.norm(y[val::]-np.dot(PHI,THETA),2)**2),(2*N))
+        Vn=(np.linalg.norm(y[val::]-np.dot(PHI,THETA),2)**2)/(2*N)
         THETA_new=THETA
         lambdak=0.5
         while Vn>Vn_old:
             THETA=np.dot(ID_THETA*lambdak,THETA_new) + np.dot(ID_THETA*(1-lambdak),THETA_old)
-            Vn=old_div((np.linalg.norm(y[val::]-np.dot(PHI,THETA),2)**2),(2*N))
+            Vn=(np.linalg.norm(y[val::]-np.dot(PHI,THETA),2)**2)/(2*N)
             if lambdak<np.finfo(np.float32).eps:
                 THETA=THETA_old
                 Vn=Vn_old
-            lambdak=old_div(lambdak,2.)
+            lambdak=lambdak/2.
         eps[val::]=y[val::]-np.dot(PHI,THETA)
     if iterations>=max_iterations:
         print("Warning! Reached maximum iterations")
@@ -102,7 +98,7 @@ def select_order_ARMAX(y,u,tsample=1.,na_ord=[0,5],nb_ord=[1,5],nc_ord=[0,5],del
         return na_min,nb_min,nc_min,theta_min,g_identif,h_identif,NUMG,DENG,NUMH,DENH,Vn
 
 #creating object ARMAX model
-class ARMAX_model(object):
+class ARMAX_model:
     def __init__(self,na,nb,nc,theta,ts,NUMERATOR,DENOMINATOR,NUMERATOR_H,DENOMINATOR_H,G,H,Vn):
         self.na=na
         self.nb=nb

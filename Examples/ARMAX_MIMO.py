@@ -7,13 +7,17 @@ example armax mimo
 case 3 outputs x 4 inputs
 
 """
+from __future__ import division
 #Checking path to access other files
+from past.utils import old_div
 try:
     from sys_identification import *
 except ModuleNotFoundError:
     import os
-    os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir))  
+    os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir)) 
+    from sys_identification import *
 
+import numpy as np
 import control as cnt
 from lib import functionset as fset
 import matplotlib.pyplot as plt
@@ -98,7 +102,7 @@ H_sample3=cnt.tf(H3,DEN3,ts)
 
 # 
 tfin = 400
-npts = int(tfin/ts) + 1
+npts = int(old_div(tfin,ts)) + 1
 Time = np.linspace(0, tfin, npts)
 #                                   #INPUT#
 Usim=np.zeros((4,npts))
@@ -313,7 +317,7 @@ plt.grid()
 
 
 tfin = 400
-npts = int(tfin/ts) + 1
+npts = int(old_div(tfin,ts)) + 1
 Time = np.linspace(0, tfin, npts)
 #                                   #INPUT#
 Usim=np.zeros((4,npts))

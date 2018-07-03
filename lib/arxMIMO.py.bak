@@ -6,11 +6,7 @@ Created on Sat Aug 12 2017
 """
 from __future__ import print_function
 from __future__ import absolute_import
-from __future__ import division
 
-from builtins import range
-from builtins import object
-from past.utils import old_div
 from .functionset import *
 
 def ARX_MISO_id(y,u,na,nb,theta):
@@ -41,7 +37,7 @@ def ARX_MISO_id(y,u,na,nb,theta):
                 phi[na+np.sum(nb[0:nb_i]):na+np.sum(nb[0:nb_i+1])]=u[nb_i,:][val+k-1::-1][theta[nb_i]:nb[nb_i]+theta[nb_i]]
             PHI[k,:]=phi
         THETA=np.dot(np.linalg.pinv(PHI),y[val::])
-        Vn=old_div((np.linalg.norm((np.dot(PHI,THETA)-y[val::]),2)**2),(2*N))
+        Vn=(np.linalg.norm((np.dot(PHI,THETA)-y[val::]),2)**2)/(2*N)
         DEN=np.zeros((udim,val+1))
         NUMH=np.zeros((1,val+1))
         NUMH[0,0]=1.
@@ -91,7 +87,7 @@ def ARX_MIMO_id(y,u,na,nb,theta,tsample=1.):
         return DENOMINATOR,NUMERATOR,G,H,Vn_tot
 
 #creating object ARX MIMO model
-class ARX_MIMO_model(object):
+class ARX_MIMO_model:
     def __init__(self,na,nb,theta,ts,NUMERATOR,DENOMINATOR,G,H,Vn):
         self.na=na
         self.nb=nb
