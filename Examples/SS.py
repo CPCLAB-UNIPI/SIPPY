@@ -10,9 +10,14 @@ Using method='N4SID','MOESP' or 'CVA', if the message
 that the package slycot is not well-installed.
 
 """
+#Checking path to access other files
+try:
+    from sys_identification import *
+except ModuleNotFoundError:
+    import os
+    os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir))  
 
 import numpy as np
-from sys_identification import *
 from lib import functionset as fset
 from lib import functionsetSIM as fsetSIM
 import matplotlib.pyplot as plt

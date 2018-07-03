@@ -7,7 +7,13 @@ example armax mimo
 case 3 outputs x 4 inputs
 
 """
-from sys_identification import *
+#Checking path to access other files
+try:
+    from sys_identification import *
+except ModuleNotFoundError:
+    import os
+    os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir))  
+
 import control as cnt
 from lib import functionset as fset
 import matplotlib.pyplot as plt

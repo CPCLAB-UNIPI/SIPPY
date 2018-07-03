@@ -4,7 +4,13 @@ ARMAX Example
 
 @author: Giuseppe Armenise
 """
-from sys_identification import *
+#Checking path to access other files
+try:
+    from sys_identification import *
+except ModuleNotFoundError:
+    import os
+    os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir))  
+
 from lib import functionset as fset
 import control as cnt
 import matplotlib.pyplot as plt
