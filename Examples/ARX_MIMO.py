@@ -12,7 +12,7 @@ from past.utils import old_div
 #Checking path to access other files
 try:
     from sys_identification import *
-except ModuleNotFoundError:
+except ImportError:
     import os
     os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir))  
     from sys_identification import *
@@ -149,7 +149,7 @@ Ytot[0,:]=Ytot1+err_outputH[0,:]
 Ytot[1,:]=Ytot2+err_outputH[1,:]
 Ytot[2,:]=Ytot3+err_outputH[2,:]
 
-
+Ytot = np.column_stack([ Ytot, np.ones((3,1))])
 ##identification parameters
 ordersna=[na1,na2,na3]
 ordersnb=[[nb11,nb12,nb13,nb14],[nb21,nb22,nb23,nb24],[nb31,nb32,nb33,nb34]]

@@ -12,6 +12,7 @@ from past.utils import old_div
 import control as cnt
 import numpy as np
 import math
+import sys
 
 #function that generates a sequence of inputs PRBS
 #length_arg: number of wished inputs
@@ -45,7 +46,8 @@ def white_noise(y,A_rel):
     scale=np.abs(A_rel*Ystd)
     if scale<np.finfo(np.float32).eps:
         scale=np.finfo(np.float32).eps
-        print("Warning: A_rel may be too small, setted to the lowest value default")
+        sys.stdout.write("\033[0;35m")
+        print("Warning: A_rel may be too small, its value set to the lowest default one"); sys.stdout.write(" ")  
     errors=np.random.normal(0.,scale,num)
     y_err=y+errors
     return errors,y_err
@@ -59,7 +61,8 @@ def white_noise_var(L,Var):
     for i in range(n):
         if Var[i]<np.finfo(np.float32).eps:
             Var[i]=np.finfo(np.float32).eps
-            print("Warning: Var[",i,"] may be too small, setted to the lowest value default")
+            sys.stdout.write("\033[0;35m")
+            print("Warning: Var[",i,"] may be too small, its value set to the lowest default one"); sys.stdout.write(" ")                        
         noise[i,:]=np.random.normal(0.,Var[i]**0.5,L)
     return noise
 
@@ -78,7 +81,7 @@ def information_criterion(K,N,Variance,method='AIC'):
             IC=N*np.log(Variance)+2*K+2*K*(K+1)/(N-K-1)
         else:
             IC=np.inf
-            print('Number of data is less than the number of parameters, AICc doesn\'t work')
+            sys.exit('Number of data is less than the number of parameters, AICc cannot be applied')
     elif method=='BIC':
         IC=N*np.log(Variance)+K*np.log(N)
     return IC

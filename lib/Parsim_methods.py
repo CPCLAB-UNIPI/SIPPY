@@ -12,6 +12,7 @@ from builtins import object
 from past.utils import old_div
 from .functionsetSIM import *
 import scipy as sc
+import sys
 
 def recalc_K(A,C,D,u):
     y_sim=[]
@@ -200,14 +201,17 @@ def select_order_PARSIM_K(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
         return np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.inf
     else:
         if min_ord<1:
-            print("Warning: The minimum model order will be setted to 1")
+            sys.stdout.write("\033[0;35m")
+            print("Warning: The minimum model order will be setted to 1") ; sys.stdout.write(" ")
             min_ord=1
         max_ord=max(orders)+1
         if f<min_ord:
-            print('Warning! The horizon must be larger than the model order, min_order setted as f')
+            sys.stdout.write("\033[0;35m")
+            print('Warning! The horizon must be larger than the model order, min_order setted as f') ; sys.stdout.write(" ")
             min_ord=f
         if f<max_ord-1:
-            print('Warning! The horizon must be larger than the model order, max_order setted as f')
+            sys.stdout.write("\033[0;35m")
+            print('Warning! The horizon must be larger than the model order, max_order setted as f'); sys.stdout.write(" ")
             max_ord=f+1
         IC_old=np.inf
         N=L-f-p+1
@@ -249,7 +253,7 @@ def select_order_PARSIM_K(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
             if IC<IC_old:
                 n_min=i
                 IC_old=IC
-        print("suggested order is: n=",n_min)
+        print("The suggested order is: n=",n_min)
         U_n,S_n,V_n=reducingOrder(U_n0,S_n0,V_n0,0.0,n_min)
         n=S_n.size
         S_n=np.diag(S_n)
@@ -347,15 +351,18 @@ def select_order_PARSIM_S(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
         return np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.inf
     else:
         if min_ord<1:
-            print("Warning: The minimum model order will be setted to 1")
+            sys.stdout.write("\033[0;35m")
+            print("Warning: The minimum model order will be setted to 1") ; sys.stdout.write(" ")
             min_ord=1
         max_ord=max(orders)+1
         if f<min_ord:
-            print('Warning! The horizon must be larger than the model order, min_order setted as f')
+            sys.stdout.write("\033[0;35m")
+            print('Warning! The horizon must be larger than the model order, min_order setted as f') ; sys.stdout.write(" ")
             min_ord=f
         if f<max_ord-1:
-            print('Warning! The horizon must be larger than the model order, max_order setted as f')
-            max_ord=f+1
+            sys.stdout.write("\033[0;35m")
+            print('Warning! The horizon must be larger than the model order, max_order setted as f'); sys.stdout.write(" ")
+            max_ord=f+1    
         IC_old=np.inf
         N=L-f-p+1
         Ustd=np.zeros(m)
@@ -390,7 +397,7 @@ def select_order_PARSIM_S(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
             if IC<IC_old:
                 n_min=i
                 IC_old=IC
-        print("suggested order is: n=",n_min)
+        print("The suggested order is: n=",n_min)
         U_n,S_n,V_n=reducingOrder(U_n0,S_n0,V_n0,0.0,n_min)
         A,C,A_K,K,n=AK_C_estimating_S_P(U_n,S_n,V_n,l,f,m,Zp,Uf,Yf)
         y_sim=simulations_sequence_S(A_K,C,L,K,y,u,l,m,n,D_required)
@@ -472,14 +479,17 @@ def select_order_PARSIM_P(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
         return np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.inf
     else:
         if min_ord<1:
-            print("Warning: The minimum model order will be setted to 1")
+            sys.stdout.write("\033[0;35m")
+            print("Warning: The minimum model order will be set to 1") ; sys.stdout.write(" ")
             min_ord=1
         max_ord=max(orders)+1
         if f<min_ord:
-            print('Warning! The horizon must be larger than the model order, min_order setted as f')
+            sys.stdout.write("\033[0;35m")
+            print('Warning! The horizon must be larger than the model order, min_order set as f') ; sys.stdout.write(" ")
             min_ord=f
         if f<max_ord-1:
-            print('Warning! The horizon must be larger than the model order, max_order setted as f')
+            sys.stdout.write("\033[0;35m")
+            print('Warning! The horizon must be larger than the model order, max_order set as f'); sys.stdout.write(" ")
             max_ord=f+1
         IC_old=np.inf
         N=L-f-p+1
@@ -513,7 +523,7 @@ def select_order_PARSIM_P(y,u,f=20,p=20,method='AIC',orders=[1,10],D_required=Fa
             if IC<IC_old:
                 n_min=i
                 IC_old=IC
-        print("suggested order is: n=",n_min)
+        print("The suggested order is: n=",n_min)
         U_n,S_n,V_n=reducingOrder(U_n0,S_n0,V_n0,0.0,n_min)
         A,C,A_K,K,n=AK_C_estimating_S_P(U_n,S_n,V_n,l,f,m,Zp,Uf,Yf)
         y_sim=simulations_sequence_S(A_K,C,L,K,y,u,l,m,n,D_required)

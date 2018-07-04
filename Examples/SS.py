@@ -15,7 +15,7 @@ from past.utils import old_div
 #Checking path to access other files
 try:
     from sys_identification import *
-except ModuleNotFoundError:
+except ImportError:
     import os
     os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir))  
     from sys_identification import *

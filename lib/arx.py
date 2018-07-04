@@ -12,6 +12,7 @@ from builtins import range
 from builtins import object
 from past.utils import old_div
 from .functionset import *
+import sys
 
 def ARX_id(y,u,na,nb,theta):
     val=max(na,nb+theta)
@@ -41,11 +42,11 @@ def select_order_ARX(y,u,tsample=1.,na_ord=[0,5],nb_ord=[1,5],delays=[0,5],metho
     theta_Min=min(delays)
     theta_Max=max(delays)+1
     if (np.issubdtype(np.sum(na_Min+na_MAX+nb_Min+nb_MAX+theta_Min+theta_Max),int) and na_Min>=0 and nb_Min>0 and theta_Min>=0)==False:
-        print("Error! na, theta must be positive integers, nb must be strictly positive integer")
-        return 0.,0.,0.,0.,0.,0.,0.,np.inf
+        sys.exit("Error! na, theta must be positive integers, nb must be strictly positive integer")
+#        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     elif y.size!=u.size:
-        print("Error! y and u must have tha same length")
-        return 0.,0.,0.,0.,0.,0.,0.,np.inf
+        sys.exit("Error! y and u must have tha same length")
+#        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     else:
         ystd,y=rescale(y)
         Ustd,u=rescale(u)

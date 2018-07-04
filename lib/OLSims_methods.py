@@ -12,6 +12,7 @@ from builtins import object
 from past.utils import old_div
 from .functionsetSIM import *
 import scipy as sc
+import sys
 
 def SVD_weighted(y,u,f,l,weights='N4SID'):
     Yf,Yp=ordinate_sequence(y,f,f)
@@ -114,14 +115,17 @@ def select_order_SIM(y,u,f=20,weights='N4SID',method='AIC',orders=[1,10],D_requi
         return np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.array([[0.0]]),np.inf,[],[],[],[]
     else:
         if min_ord<1:
-            print("Warning: The minimum model order will be setted to 1")
+            sys.stdout.write("\033[0;35m")
+            print("Warning: The minimum model order will be set to 1") ; sys.stdout.write(" ")
             min_ord=1
         max_ord=max(orders)+1
         if f<min_ord:
-            print('Warning! The horizon must be larger than the model order, min_order setted as f')
+            sys.stdout.write("\033[0;35m")
+            print('Warning! The horizon must be larger than the model order, min_order set as f') ; sys.stdout.write(" ")
             min_ord=f
         if f<max_ord-1:
-            print('Warning! The horizon must be larger than the model order, max_order setted as f')
+            sys.stdout.write("\033[0;35m")
+            print('Warning! The horizon must be larger than the model order, max_order set as f'); sys.stdout.write(" ")
             max_ord=f+1
         IC_old=np.inf
         N=L-2*f+1
@@ -150,7 +154,7 @@ def select_order_SIM(y,u,f=20,weights='N4SID',method='AIC',orders=[1,10],D_requi
             if IC<IC_old:
                 n_min=i
                 IC_old=IC
-        print("suggested order is: n=",n_min)
+        print("The suggested order is: n=",n_min)
         Ob,X_fd,M,n,residuals=algorithm_1(y,u,l,m,f,N,U_n,S_n,V_n,W1,O_i,0.0,n_min,D_required)
         if A_stability==True:
             M,residuals[0:n,:],useless=forcing_A_stability(M,n,Ob,l,X_fd,N,u,f)

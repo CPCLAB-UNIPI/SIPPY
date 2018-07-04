@@ -11,6 +11,7 @@ from builtins import range
 from builtins import object
 from past.utils import old_div
 from .functionset import *
+import sys
 
 def ARMAX_id(y,u,na,nb,nc,theta,max_iterations):
     val=max(na,nb+theta,nc)
@@ -73,11 +74,11 @@ def select_order_ARMAX(y,u,tsample=1.,na_ord=[0,5],nb_ord=[1,5],nc_ord=[0,5],del
     nc_Min=min(nc_ord)
     nc_MAX=max(nc_ord)+1
     if (type(na_Min+na_MAX+nb_Min+nb_MAX+theta_Min+theta_Max+nc_Min+nc_MAX)==int and na_Min>=0 and nb_Min>0 and nc_Min>=0 and theta_Min>=0)==False:
-        print("Error! na, nc, theta must be positive integers, nb must be strictly positive integer")
-        return 0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,np.inf
+        sys.exit("Error! na, nc, theta must be positive integers, nb must be strictly positive integer")
+#        return 0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,np.inf
     elif y.size!=u.size:
-        print("Error! y and u must have tha same length")
-        return 0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,np.inf
+        sys.exit("Error! y and u must have tha same length")
+#        return 0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,np.inf
     else:
         ystd,y=rescale(y)
         Ustd,u=rescale(u)

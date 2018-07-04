@@ -12,6 +12,7 @@ from builtins import range
 from builtins import object
 from past.utils import old_div
 from .functionset import *
+import sys
 
 def ARX_MISO_id(y,u,na,nb,theta):
     nb=np.array(nb)
@@ -21,11 +22,11 @@ def ARX_MISO_id(y,u,na,nb,theta):
     ystd,y=rescale(y)
     [udim,ulength]=u.shape
     if nb.size!=udim:
-        print("Error! nb must be a matrix, whose dimensions must be equal to yxu")
-        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
+        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+#        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
     elif theta.size!=udim:
-        print("Error! theta matrix must have yxu dimensions")
-        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
+        sys.exit("Error! theta matrix must have yxu dimensions")
+#        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
     else:
         nbth=nb+theta
         Ustd=np.zeros(udim)
@@ -62,17 +63,17 @@ def ARX_MIMO_id(y,u,na,nb,theta,tsample=1.):
     [udim,ulength]=u.shape
     [th1,th2]=theta.shape
     if na.size!=ydim:
-        print("Error! na must be a vector, whose length must be equal to y dimension")
-        return 0.,0.,0.,0.,np.inf
+        sys.exit("Error! na must be a vector, whose length must be equal to y dimension")
+#        return 0.,0.,0.,0.,np.inf
     elif nb[:,0].size!=ydim:
-        print("Error! nb must be a matrix, whose dimensions must be equal to yxu")
-        return 0.,0.,0.,0.,np.inf
+        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+#        return 0.,0.,0.,0.,np.inf
     elif th1!=ydim:
-        print("Error! theta matrix must have yxu dimensions")
-        return 0.,0.,0.,0.,np.inf
+        sys.exit("Error! theta matrix must have yxu dimensions")
+#        return 0.,0.,0.,0.,np.inf
     elif (np.issubdtype((np.sum(nb)+np.sum(na)+np.sum(theta)),int) and np.min(nb)>=0 and np.min(na)>=0 and np.min(theta)>=0)==False:
-        print("Error! na, nb, theta must contain only positive integer elements")
-        return 0.,0.,0.,0.,np.inf
+        sys.exit("Error! na, nb, theta must contain only positive integer elements")
+#        return 0.,0.,0.,0.,np.inf
     else:
         Vn_tot=0.
         NUMERATOR=[]
