@@ -16,13 +16,13 @@ from past.utils import old_div
 try:
     from sys_identification import *
 except ImportError:
-    import os
-    os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir))  
-    from sys_identification import *
+    import sys, os
+    sys.path.append(os.pardir)
+    from SIPPY import *
 
 import numpy as np
-from lib import functionset as fset
-from lib import functionsetSIM as fsetSIM
+from SIPPY import functionset as fset
+from SIPPY import functionsetSIM as fsetSIM
 import matplotlib.pyplot as plt
 
 ts=1.0
@@ -71,3 +71,5 @@ plt.plot(Time,U[0])
 plt.ylabel("input")
 plt.grid()
 plt.xlabel("Time")
+
+plt.show()
