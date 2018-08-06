@@ -14,7 +14,7 @@ from __future__ import division
 from past.utils import old_div
 #Checking path to access other files
 try:
-    from sys_identification import *
+    from SIPPY import *
 except ImportError:
     import sys, os
     sys.path.append(os.pardir)
