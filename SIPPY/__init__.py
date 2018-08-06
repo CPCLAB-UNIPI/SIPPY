@@ -71,14 +71,14 @@ def system_identification(y,u,id_method,centering='None',IC='None',\
                 na=ARX_orders[0]
                 nb=ARX_orders[1]
                 theta=ARX_orders[2]
-                import arxMIMO
+                from . import arxMIMO
                 DENOMINATOR,NUMERATOR,G,H,Vn_tot=arxMIMO.ARX_MIMO_id(y,u,na,nb,theta,tsample)
                 identified_system=arxMIMO.ARX_MIMO_model(na,nb,theta,tsample,NUMERATOR,DENOMINATOR,G,H,Vn_tot)
             elif (type(ARX_orders[0])==int and type(ARX_orders[1])==int and type(ARX_orders[2])==int):
                 na=(ARX_orders[0]*np.ones((ydim,),dtype=np.int)).tolist()
                 nb=(ARX_orders[1]*np.ones((ydim,udim),dtype=np.int)).tolist()
                 theta=(ARX_orders[2]*np.ones((ydim,udim),dtype=np.int)).tolist()
-                import arxMIMO
+                from . import arxMIMO
                 DENOMINATOR,NUMERATOR,G,H,Vn_tot=arxMIMO.ARX_MIMO_id(y,u,na,nb,theta,tsample)
                 identified_system=arxMIMO.ARX_MIMO_model(na,nb,theta,tsample,NUMERATOR,DENOMINATOR,G,H,Vn_tot)
             else:
@@ -93,7 +93,7 @@ def system_identification(y,u,id_method,centering='None',IC='None',\
                 nb=ARMAX_orders[1]
                 nc=ARMAX_orders[2]
                 theta=ARMAX_orders[3]
-                import armaxMIMO
+                from . import armaxMIMO
                 DENOMINATOR,NUMERATOR,DENOMINATOR_H,NUMERATOR_H,G,H,Vn_tot=armaxMIMO.ARMAX_MIMO_id(y,u,na,nb,nc,theta,tsample,ARMAX_max_iterations)
                 identified_system=armaxMIMO.ARMAX_MIMO_model(na,nb,nc,theta,tsample,NUMERATOR,DENOMINATOR,NUMERATOR_H,DENOMINATOR_H,G,H,Vn_tot)
             elif (type(ARMAX_orders[0])==int and type(ARMAX_orders[1])==int and type(ARMAX_orders[2])==int and type(ARMAX_orders[3])==int):
