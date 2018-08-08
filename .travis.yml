@@ -10,7 +10,7 @@ python:
   - "3.6-dev"
   - "3.7-dev"
 before_install:
-  - sudo apt-get install gfortran
+  - sudo apt-get install gfortran libopenblas-dev
 install:
   - python setup.py install
 script:
