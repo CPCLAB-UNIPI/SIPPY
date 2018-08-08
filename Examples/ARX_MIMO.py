@@ -20,7 +20,6 @@ except ImportError:
 import numpy as np
 import control as cnt
 from SIPPY import functionset as fset
-import matplotlib.pyplot as plt
 #generating transfer functions in z-transf.
 var_list=[50.,100.,1.]
 ts=1.
@@ -165,58 +164,62 @@ Yout_id, Time, Xsim = cnt.lsim(Id_sys.G, Usim.T, Time)
 
 
 ######plot
-#    
-plt.close('all')
-plt.figure(0)
-plt.subplot(4,1,1)
-plt.plot(Time,Usim[0,:])
-plt.grid()
-plt.ylabel("Input 1 PRBS")
-plt.xlabel("Time")
-plt.title("Input (Switch probability=0.03)")
+#  
+import os
+if 'DISPLAY' in os.environ:
+	import matplotlib.pyplot as plt
+  
+	plt.close('all')
+	plt.figure(0)
+	plt.subplot(4,1,1)
+	plt.plot(Time,Usim[0,:])
+	plt.grid()
+	plt.ylabel("Input 1 PRBS")
+	plt.xlabel("Time")
+	plt.title("Input (Switch probability=0.03)")
 
-plt.subplot(4,1,2)
-plt.plot(Time,Usim[1,:])
-plt.grid()
-plt.ylabel("Input 2 PRBS")
-plt.xlabel("Time")
+	plt.subplot(4,1,2)
+	plt.plot(Time,Usim[1,:])
+	plt.grid()
+	plt.ylabel("Input 2 PRBS")
+	plt.xlabel("Time")
 
-plt.subplot(4,1,3)
-plt.plot(Time,Usim[2,:])
-plt.ylabel("Input 3 PRBS")
-plt.xlabel("Time")
-plt.grid()
+	plt.subplot(4,1,3)
+	plt.plot(Time,Usim[2,:])
+	plt.ylabel("Input 3 PRBS")
+	plt.xlabel("Time")
+	plt.grid()
 
-plt.subplot(4,1,4)
-plt.plot(Time,Usim[3,:])
-plt.ylabel("Input 4 PRBS")
-plt.xlabel("Time")
-plt.grid()
+	plt.subplot(4,1,4)
+	plt.plot(Time,Usim[3,:])
+	plt.ylabel("Input 4 PRBS")
+	plt.xlabel("Time")
+	plt.grid()
 
-plt.figure(3)
-plt.subplot(3,1,1)
-plt.plot(Time,Ytot1[0,:])
-plt.plot(Time,Yout_id[0,:])
-plt.ylabel("y_1,out")
-plt.grid()
-plt.xlabel("Time")
-plt.title("Gu (identification data)")
-plt.legend(['Original system','Identified system'])
+	plt.figure(3)
+	plt.subplot(3,1,1)
+	plt.plot(Time,Ytot1[0,:])
+	plt.plot(Time,Yout_id[0,:])
+	plt.ylabel("y_1,out")
+	plt.grid()
+	plt.xlabel("Time")
+	plt.title("Gu (identification data)")
+	plt.legend(['Original system','Identified system'])
 
-plt.subplot(3,1,2)
-plt.plot(Time,Ytot2[0,:])
-plt.plot(Time,Yout_id[1,:])
-plt.ylabel("y_2,out")
-plt.grid()
-plt.xlabel("Time")
-plt.legend(['Original system','Identified system'])
+	plt.subplot(3,1,2)
+	plt.plot(Time,Ytot2[0,:])
+	plt.plot(Time,Yout_id[1,:])
+	plt.ylabel("y_2,out")
+	plt.grid()
+	plt.xlabel("Time")
+	plt.legend(['Original system','Identified system'])
 
-plt.subplot(3,1,3)
-plt.plot(Time,Ytot3[0,:])
-plt.plot(Time,Yout_id[2,:])
-plt.ylabel("y_3,out")
-plt.grid()
-plt.xlabel("Time")
-plt.legend(['Original system','Identified system'])
+	plt.subplot(3,1,3)
+	plt.plot(Time,Ytot3[0,:])
+	plt.plot(Time,Yout_id[2,:])
+	plt.ylabel("y_3,out")
+	plt.grid()
+	plt.xlabel("Time")
+	plt.legend(['Original system','Identified system'])
 
-plt.show()
+	plt.show()

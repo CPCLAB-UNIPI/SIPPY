@@ -17,7 +17,6 @@ except ImportError:
 import numpy as np
 from SIPPY import functionset as fset
 import control as cnt
-import matplotlib.pyplot as plt
 #tsampling
 ts=1.
 
@@ -74,78 +73,82 @@ Yidvalid1, Time, Xsim = cnt.lsim(Id_sys.G, U_valid, Time)
 Yidvalid2, Time, Xsim = cnt.lsim(Id_sys.H, e_valid, Time)
 Yidtotvalid=Yidvalid1+Yidvalid2
 
-plt.close('all')
-plt.figure(0)
-plt.plot(Time,Ytot[0])
-plt.plot(Time,Y_idTot[0])
-plt.grid()
-plt.xlabel("Time")
-plt.ylabel("y_tot")
-plt.title("Gu+He (identification data)")
-plt.legend(['Original system','Identified system'])
+import os
+if 'DISPLAY' in os.environ:
+	import matplotlib.pyplot as plt
 
-plt.figure(1)
-plt.plot(Time,Y1[0])
-plt.plot(Time,Y_id1[0])
-plt.ylabel("y_out")
-plt.grid()
-plt.xlabel("Time")
-plt.title("Gu (identification data)")
-plt.legend(['Original system','Identified system'])
+	plt.close('all')
+	plt.figure(0)
+	plt.plot(Time,Ytot[0])
+	plt.plot(Time,Y_idTot[0])
+	plt.grid()
+	plt.xlabel("Time")
+	plt.ylabel("y_tot")
+	plt.title("Gu+He (identification data)")
+	plt.legend(['Original system','Identified system'])
 
-##    #
-plt.figure(2)
-plt.plot(Time,Y2[0])
-plt.plot(Time,Y_hid1[0])
-plt.ylabel("y_err")
-plt.grid()
-plt.xlabel("Time")
-plt.title("He (identification data)")
-plt.legend(['Original system','Identified system'])
+	plt.figure(1)
+	plt.plot(Time,Y1[0])
+	plt.plot(Time,Y_id1[0])
+	plt.ylabel("y_out")
+	plt.grid()
+	plt.xlabel("Time")
+	plt.title("Gu (identification data)")
+	plt.legend(['Original system','Identified system'])
 
-
-plt.figure(3)
-plt.plot(Time,Usim)
-plt.ylabel("Input PRBS")
-plt.xlabel("Time")
-plt.title("Input, identification data (Switch probability=0.08)")
-plt.grid()
-#    
-#    
-plt.figure(4)
-plt.plot(Time,Ytotvalid[0])
-plt.plot(Time,Yidtotvalid[0])
-plt.xlabel("Time")
-plt.ylabel("y_tot")
-plt.title("Gu+He (Validation)")
-plt.legend(['Original system','Identified system'])
-plt.grid()
+	##    #
+	plt.figure(2)
+	plt.plot(Time,Y2[0])
+	plt.plot(Time,Y_hid1[0])
+	plt.ylabel("y_err")
+	plt.grid()
+	plt.xlabel("Time")
+	plt.title("He (identification data)")
+	plt.legend(['Original system','Identified system'])
 
 
-plt.figure(5)
-plt.plot(Time,Yvalid1[0])
-plt.plot(Time,Yidvalid1[0])
-plt.grid()
-plt.xlabel("Time")
-plt.ylabel("y_out")
-plt.title("Gu (Validation)")
-plt.legend(['Original system','Identified system'])
+	plt.figure(3)
+	plt.plot(Time,Usim)
+	plt.ylabel("Input PRBS")
+	plt.xlabel("Time")
+	plt.title("Input, identification data (Switch probability=0.08)")
+	plt.grid()
+	#    
+	#    
+	plt.figure(4)
+	plt.plot(Time,Ytotvalid[0])
+	plt.plot(Time,Yidtotvalid[0])
+	plt.xlabel("Time")
+	plt.ylabel("y_tot")
+	plt.title("Gu+He (Validation)")
+	plt.legend(['Original system','Identified system'])
+	plt.grid()
 
-plt.figure(6)
-plt.plot(Time,Yvalid2[0])
-plt.plot(Time,Yidvalid2[0])
-plt.grid()
-plt.xlabel("Time")
-plt.ylabel("y_err")
-plt.title("He (Validation)")
-plt.legend(['Original system','Identified system'])
+
+	plt.figure(5)
+	plt.plot(Time,Yvalid1[0])
+	plt.plot(Time,Yidvalid1[0])
+	plt.grid()
+	plt.xlabel("Time")
+	plt.ylabel("y_out")
+	plt.title("Gu (Validation)")
+	plt.legend(['Original system','Identified system'])
+
+	plt.figure(6)
+	plt.plot(Time,Yvalid2[0])
+	plt.plot(Time,Yidvalid2[0])
+	plt.grid()
+	plt.xlabel("Time")
+	plt.ylabel("y_err")
+	plt.title("He (Validation)")
+	plt.legend(['Original system','Identified system'])
 
 
-plt.figure(7)
-plt.plot(Time,U_valid)
-plt.ylabel("Input PRBS")
-plt.xlabel("Time")
-plt.title("Input, validation data (Switch probability=0.07)")
-plt.grid()
+	plt.figure(7)
+	plt.plot(Time,U_valid)
+	plt.ylabel("Input PRBS")
+	plt.xlabel("Time")
+	plt.title("Input, validation data (Switch probability=0.07)")
+	plt.grid()
 
-plt.show()
+	plt.show()

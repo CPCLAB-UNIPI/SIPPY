@@ -10,5 +10,10 @@ before_install:
   - sudo apt-get install gfortran libopenblas-dev
 install:
   - python setup.py install
+before_script:
+  - cd Examples
 script:
-  - cd Examples; python SS.py
+  - python ARMAX_MIMO.py
+  - python ARMAX.py
+  - python ARX_MIMO.py
+  - python SS.py
