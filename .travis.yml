@@ -2,12 +2,10 @@ sudo: required
 language: python
 python:
   - "2.7"
-  - "3.4"
   - "3.5"
   - "3.5-dev"
   - "3.6"
   - "3.6-dev"
-  - "3.7-dev"
 before_install:
   - sudo apt-get install gfortran libopenblas-dev
 install:

@@ -23,7 +23,6 @@ except ImportError:
 import numpy as np
 from SIPPY import functionset as fset
 from SIPPY import functionsetSIM as fsetSIM
-import matplotlib.pyplot as plt
 
 ts=1.0
 
@@ -56,22 +55,24 @@ method='N4SID'
 sys_id=system_identification(y_tot,U,method,SS_fixed_order=2)
 xid,yid=fsetSIM.SS_lsim_process_form(sys_id.A,sys_id.B,sys_id.C,sys_id.D,U,sys_id.x0)
 
-plt.close("all")
-plt.figure(1)
-plt.plot(Time,y_tot[0])
-plt.plot(Time,yid[0])
-plt.ylabel("y_tot")
-plt.grid()
-plt.xlabel("Time")
-plt.title("Ytot")
-plt.legend(['Original system','Identified system, '+method])
-
-plt.figure(2)
-plt.plot(Time,U[0])
-plt.ylabel("input")
-plt.grid()
-plt.xlabel("Time")
-
 import os
 if 'DISPLAY' in os.environ:
+	import matplotlib.pyplot as plt
+
+	plt.close("all")
+	plt.figure(1)
+	plt.plot(Time,y_tot[0])
+	plt.plot(Time,yid[0])
+	plt.ylabel("y_tot")
+	plt.grid()
+	plt.xlabel("Time")
+	plt.title("Ytot")
+	plt.legend(['Original system','Identified system, '+method])
+
+	plt.figure(2)
+	plt.plot(Time,U[0])
+	plt.ylabel("input")
+	plt.grid()
+	plt.xlabel("Time")
+
 	plt.show()
