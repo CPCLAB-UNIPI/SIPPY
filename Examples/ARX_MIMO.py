@@ -11,15 +11,15 @@ from __future__ import division
 from past.utils import old_div
 #Checking path to access other files
 try:
-    from sys_identification import *
+    from SIPPY import *
 except ImportError:
-    import os
-    os.chdir(os.path.normpath(os.getcwd() + os.sep + os.pardir))  
-    from sys_identification import *
+    import sys, os
+    sys.path.append(os.pardir)
+    from SIPPY import *
 
 import numpy as np
 import control as cnt
-from lib import functionset as fset
+from SIPPY import functionset as fset
 import matplotlib.pyplot as plt
 #generating transfer functions in z-transf.
 var_list=[50.,100.,1.]
@@ -218,3 +218,5 @@ plt.ylabel("y_3,out")
 plt.grid()
 plt.xlabel("Time")
 plt.legend(['Original system','Identified system'])
+
+plt.show()
