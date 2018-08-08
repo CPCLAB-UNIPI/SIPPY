@@ -8,8 +8,8 @@ setuptools.setup(
 	version="0.1.0",
 	author="Giuseppe Armenise",
 	description="Systems Identification Package for Python",
-	long_description=readme
-	long_description_content_type='text/markdown'
+	long_description=readme,
+	long_description_content_type='text/markdown',
 	url="https://github.com/CPCLAB-UNIPI/SIPPY",
 	packages=setuptools.find_packages(),
 	python_requires="==2.7,>=3.5,<=3.6",
