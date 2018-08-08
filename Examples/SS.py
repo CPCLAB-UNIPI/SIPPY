@@ -72,4 +72,6 @@ plt.ylabel("input")
 plt.grid()
 plt.xlabel("Time")
 
-plt.show()
+import os
+if 'DISPLAY' in os.environ:
+	plt.show()
