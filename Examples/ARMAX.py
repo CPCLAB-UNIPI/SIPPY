@@ -16,7 +16,7 @@ except ImportError:
 
 import numpy as np
 from SIPPY import functionset as fset
-import control as cnt
+import control.matlab as cnt
 #tsampling
 ts=1.
 

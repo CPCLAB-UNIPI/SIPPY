@@ -18,7 +18,7 @@ except ImportError:
     from SIPPY import *
 
 import numpy as np
-import control as cnt
+import control.matlab as cnt
 from SIPPY import functionset as fset
 #generating transfer functions in z-transf.
 var_list=[50.,100.,1.]
