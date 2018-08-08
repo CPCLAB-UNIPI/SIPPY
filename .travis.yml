@@ -12,5 +12,6 @@ python:
 before_install:
   - sudo apt-get install gfortran
 script:
+  - ls
   - python setup.py install
   - cd Examples; for script in *.py; do python $script; done
