@@ -119,10 +119,9 @@ err_inputH = np.zeros((4, npts))
 
 err_inputH = fset.white_noise_var(npts, var_list)
 
-err_outputH = np.ones((3, npts))
-err_outputH[0, :], Time, Xsim = cnt.lsim(H_sample1, err_inputH[0, :], Time)
-err_outputH[1, :], Time, Xsim = cnt.lsim(H_sample2, err_inputH[1, :], Time)
-err_outputH[2, :], Time, Xsim = cnt.lsim(H_sample3, err_inputH[2, :], Time)
+err_outputH1, Time, Xsim = cnt.lsim(H_sample1, err_inputH[0, :], Time)
+err_outputH2, Time, Xsim = cnt.lsim(H_sample2, err_inputH[1, :], Time)
+err_outputH3, Time, Xsim = cnt.lsim(H_sample3, err_inputH[2, :], Time)
 
 # OUTPUTS
 Yout = np.zeros((3, npts))
@@ -146,9 +145,9 @@ Ytot3 = Yout31 + Yout32 + Yout33 + Yout34
 
 Ytot = np.zeros((3, npts))
 
-Ytot[0, :] = Ytot1 + err_outputH[0, :]
-Ytot[1, :] = Ytot2 + err_outputH[1, :]
-Ytot[2, :] = Ytot3 + err_outputH[2, :]
+Ytot[0, :] = (Ytot1 + err_outputH1).squeeze()
+Ytot[1, :] = (Ytot2 + err_outputH2).squeeze()
+Ytot[2, :] = (Ytot3 + err_outputH3).squeeze()
 
 ##identification parameters
 ordersna = [na1, na2, na3]
@@ -233,8 +232,8 @@ if 'DISPLAY' in os.environ:
 
     plt.figure(3)
     plt.subplot(3, 1, 1)
-    plt.plot(Time, Ytot1[0, :])
-    plt.plot(Time, Yout_id11[0, :] + Yout_id12[0, :] + Yout_id13[0, :] + Yout_id14[0, :])
+    plt.plot(Time, Ytot1)
+    plt.plot(Time, Yout_id11 + Yout_id12 + Yout_id13 + Yout_id14)
     plt.ylabel("y_1,out")
     plt.grid()
     plt.xlabel("Time")
@@ -242,16 +241,16 @@ if 'DISPLAY' in os.environ:
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 2)
-    plt.plot(Time, Ytot2[0, :])
-    plt.plot(Time, Yout_id21[0, :] + Yout_id22[0, :] + Yout_id23[0, :] + Yout_id24[0, :])
+    plt.plot(Time, Ytot2)
+    plt.plot(Time, Yout_id21 + Yout_id22 + Yout_id23 + Yout_id24)
     plt.ylabel("y_2,out")
     plt.grid()
     plt.xlabel("Time")
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 3)
-    plt.plot(Time, Ytot3[0, :])
-    plt.plot(Time, Yout_id31[0, :] + Yout_id32[0, :] + Yout_id33[0, :] + Yout_id34[0, :])
+    plt.plot(Time, Ytot3)
+    plt.plot(Time, Yout_id31 + Yout_id32 + Yout_id33 + Yout_id34)
     plt.ylabel("y_3,out")
     plt.grid()
     plt.xlabel("Time")
@@ -259,8 +258,8 @@ if 'DISPLAY' in os.environ:
 
     plt.figure(5)
     plt.subplot(3, 1, 1)  #
-    plt.plot(Time, err_outputH[0, :])
-    plt.plot(Time, Yerr1[0, :])
+    plt.plot(Time, err_outputH1)
+    plt.plot(Time, Yerr1)
     plt.ylabel("y_1,err")
     plt.grid()
     plt.title("He (identification data)")
@@ -268,16 +267,16 @@ if 'DISPLAY' in os.environ:
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 2)
-    plt.plot(Time, err_outputH[1, :])
-    plt.plot(Time, Yerr2[0, :])
+    plt.plot(Time, err_outputH2)
+    plt.plot(Time, Yerr2)
     plt.ylabel("y_2,err")
     plt.grid()
     plt.xlabel("Time")
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 3)
-    plt.plot(Time, err_outputH[2, :])
-    plt.plot(Time, Yerr3[0, :])
+    plt.plot(Time, err_outputH3)
+    plt.plot(Time, Yerr3)
     plt.ylabel("y_3,err")
     plt.grid()
     plt.xlabel("Time")
@@ -285,9 +284,9 @@ if 'DISPLAY' in os.environ:
 
     plt.figure(6)
     plt.subplot(3, 1, 1)
-    plt.plot(Time, Ytot[0, :])
+    plt.plot(Time, Ytot[0, :].squeeze())
     plt.plot(Time,
-             Yout_id11[0, :] + Yout_id12[0, :] + Yout_id13[0, :] + Yout_id14[0, :] + Yerr1[0, :])
+             Yout_id11 + Yout_id12 + Yout_id13 + Yout_id14 + Yerr1)
     plt.xlabel("Time")
     plt.ylabel("y_1,tot")
     plt.title("Gu+He (identification data)")
@@ -297,7 +296,7 @@ if 'DISPLAY' in os.environ:
     plt.subplot(3, 1, 2)
     plt.plot(Time, Ytot[1, :])
     plt.plot(Time,
-             Yout_id21[0, :] + Yout_id22[0, :] + Yout_id23[0, :] + Yout_id24[0, :] + Yerr2[0, :])
+             Yout_id21 + Yout_id22 + Yout_id23 + Yout_id24 + Yerr2)
     plt.xlabel("Time")
     plt.ylabel("y_2,tot")
 
@@ -308,7 +307,7 @@ if 'DISPLAY' in os.environ:
     plt.subplot(3, 1, 3)
     plt.plot(Time, Ytot[2, :])
     plt.plot(Time,
-             Yout_id31[0, :] + Yout_id32[0, :] + Yout_id33[0, :] + Yout_id34[0, :] + Yerr3[0, :])
+             Yout_id31 + Yout_id32 + Yout_id33 + Yout_id34 + Yerr3)
     plt.xlabel("Time")
     plt.ylabel("y_3,tot")
 
@@ -337,10 +336,9 @@ err_inputH = np.zeros((4, npts))
 
 err_inputH = fset.white_noise_var(npts, var_list)
 
-err_outputH = np.ones((3, npts))
-err_outputH[0, :], Time, Xsim = cnt.lsim(H_sample1, err_inputH[0, :], Time)
-err_outputH[1, :], Time, Xsim = cnt.lsim(H_sample2, err_inputH[1, :], Time)
-err_outputH[2, :], Time, Xsim = cnt.lsim(H_sample3, err_inputH[2, :], Time)
+err_outputH1, Time, Xsim = cnt.lsim(H_sample1, err_inputH[0, :], Time)
+err_outputH2, Time, Xsim = cnt.lsim(H_sample2, err_inputH[1, :], Time)
+err_outputH3, Time, Xsim = cnt.lsim(H_sample3, err_inputH[2, :], Time)
 
 Yout = np.zeros((3, npts))
 
@@ -363,9 +361,9 @@ Ytot3 = Yout31 + Yout32 + Yout33 + Yout34
 
 Ytot = np.zeros((3, npts))  #
 
-Ytot[0, :] = Ytot1 + err_outputH[0, :]
-Ytot[1, :] = Ytot2 + err_outputH[1, :]
-Ytot[2, :] = Ytot3 + err_outputH[2, :]
+Ytot[0, :] = (Ytot1 + err_outputH1).squeeze()
+Ytot[1, :] = (Ytot2 + err_outputH2).squeeze()
+Ytot[2, :] = (Ytot3 + err_outputH3).squeeze()
 
 ###############################################################################plot
 
@@ -389,8 +387,8 @@ Yerr3, Time, Xsim = cnt.lsim(hid3, err_inputH[2, :], Time)
 if 'DISPLAY' in os.environ:
     plt.figure(7)
     plt.subplot(3, 1, 1)
-    plt.plot(Time, Ytot1[0, :])
-    plt.plot(Time, Yout_id11[0, :] + Yout_id12[0, :] + Yout_id13[0, :] + Yout_id14[0, :])
+    plt.plot(Time, Ytot1)
+    plt.plot(Time, Yout_id11 + Yout_id12 + Yout_id13 + Yout_id14)
     plt.ylabel("y_1,out")
     plt.grid()
     plt.xlabel("Time")
@@ -398,16 +396,16 @@ if 'DISPLAY' in os.environ:
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 2)
-    plt.plot(Time, Ytot2[0, :])
-    plt.plot(Time, Yout_id21[0, :] + Yout_id22[0, :] + Yout_id23[0, :] + Yout_id24[0, :])
+    plt.plot(Time, Ytot2)
+    plt.plot(Time, Yout_id21 + Yout_id22 + Yout_id23 + Yout_id24)
     plt.ylabel("y_2,out")
     plt.grid()
     plt.xlabel("Time")
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 3)
-    plt.plot(Time, Ytot3[0, :])
-    plt.plot(Time, Yout_id31[0, :] + Yout_id32[0, :] + Yout_id33[0, :] + Yout_id34[0, :])
+    plt.plot(Time, Ytot3)
+    plt.plot(Time, Yout_id31 + Yout_id32 + Yout_id33 + Yout_id34)
     plt.ylabel("y_3,out")
     plt.grid()
     plt.xlabel("Time")
@@ -415,8 +413,8 @@ if 'DISPLAY' in os.environ:
 
     plt.figure(8)
     plt.subplot(3, 1, 1)  #
-    plt.plot(Time, err_outputH[0, :])
-    plt.plot(Time, Yerr1[0, :])
+    plt.plot(Time, err_outputH1)
+    plt.plot(Time, Yerr1)
     plt.ylabel("y_1,err")
     plt.grid()
     plt.title("He (validation data)")
@@ -424,16 +422,16 @@ if 'DISPLAY' in os.environ:
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 2)
-    plt.plot(Time, err_outputH[1, :])
-    plt.plot(Time, Yerr2[0, :])
+    plt.plot(Time, err_outputH2)
+    plt.plot(Time, Yerr2)
     plt.ylabel("y_2,err")
     plt.grid()
     plt.xlabel("Time")
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 3)
-    plt.plot(Time, err_outputH[2, :])
-    plt.plot(Time, Yerr3[0, :])
+    plt.plot(Time, err_outputH3)
+    plt.plot(Time, Yerr3)
     plt.ylabel("y_3,err")
     plt.grid()
     plt.xlabel("Time")
@@ -441,9 +439,9 @@ if 'DISPLAY' in os.environ:
 
     plt.figure(9)
     plt.subplot(3, 1, 1)
-    plt.plot(Time, Ytot[0, :])
+    plt.plot(Time, Ytot[0, :].squeeze())
     plt.plot(Time,
-             Yout_id11[0, :] + Yout_id12[0, :] + Yout_id13[0, :] + Yout_id14[0, :] + Yerr1[0, :])
+             Yout_id11 + Yout_id12 + Yout_id13 + Yout_id14 + Yerr1)
     plt.xlabel("Time")
     plt.ylabel("y_1,tot")
     plt.title("Gu+He (validation data)")
@@ -453,7 +451,7 @@ if 'DISPLAY' in os.environ:
     plt.subplot(3, 1, 2)
     plt.plot(Time, Ytot[1, :])
     plt.plot(Time,
-             Yout_id21[0, :] + Yout_id22[0, :] + Yout_id23[0, :] + Yout_id24[0, :] + Yerr2[0, :])
+             Yout_id21 + Yout_id22 + Yout_id23 + Yout_id24 + Yerr2)
     plt.xlabel("Time")
     plt.ylabel("y_2,tot")
 
@@ -464,7 +462,7 @@ if 'DISPLAY' in os.environ:
     plt.subplot(3, 1, 3)
     plt.plot(Time, Ytot[2, :])
     plt.plot(Time,
-             Yout_id31[0, :] + Yout_id32[0, :] + Yout_id33[0, :] + Yout_id34[0, :] + Yerr3[0, :])
+             Yout_id31 + Yout_id32 + Yout_id33 + Yout_id34 + Yerr3)
     plt.xlabel("Time")
     plt.ylabel("y_3,tot")
     plt.legend(['Original system', 'Identified system'])
