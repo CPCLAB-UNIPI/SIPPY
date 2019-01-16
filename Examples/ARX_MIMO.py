@@ -116,17 +116,11 @@ Usim[3, :] = fset.PRBS_seq(npts, 0.03, [8., 11.5])
 err_inputH = np.zeros((4, npts))
 
 err_inputH = fset.white_noise_var(npts, var_list)
-err_inputH = err_inputH[0, :][0]
-inputt = np.zeros(Time.shape)
-inputt[0] = np.asarray(err_inputH).squeeze()
 
 err_outputH = np.ones((3, npts))
-err_outputH[0, :], Time, Xsim = cnt.lsim(H_sample1, inputt, Time)
-err_outputH[1, :], Time, Xsim = cnt.lsim(H_sample2, err_inputH, Time)
-err_outputH[2, :], Time, Xsim = cnt.lsim(H_sample3, err_inputH, Time)
-
-# OUTPUTS
-Yout = np.zeros((3, npts))
+err_outputH1, Time, Xsim = cnt.lsim(H_sample1, err_inputH[0, :], Time)
+err_outputH2, Time, Xsim = cnt.lsim(H_sample2, err_inputH[1, :], Time)
+err_outputH3, Time, Xsim = cnt.lsim(H_sample3, err_inputH[2, :], Time)
 
 Yout11, Time, Xsim = cnt.lsim(g_sample11, Usim[0, :], Time)
 Yout12, Time, Xsim = cnt.lsim(g_sample12, Usim[1, :], Time)
@@ -141,15 +135,15 @@ Yout32, Time, Xsim = cnt.lsim(g_sample32, Usim[1, :], Time)
 Yout33, Time, Xsim = cnt.lsim(g_sample33, Usim[2, :], Time)
 Yout34, Time, Xsim = cnt.lsim(g_sample34, Usim[3, :], Time)
 
-Ytot1 = Yout11 + Yout12 + Yout13 + Yout14
-Ytot2 = Yout21 + Yout22 + Yout23 + Yout24
-Ytot3 = Yout31 + Yout32 + Yout33 + Yout34
+Ytot1 = Yout11 + Yout12 + Yout13 + Yout14 + err_outputH1
+Ytot2 = Yout21 + Yout22 + Yout23 + Yout24 + err_outputH2
+Ytot3 = Yout31 + Yout32 + Yout33 + Yout34 + err_outputH3
 
 Ytot = np.zeros((3, npts))
 
-Ytot[0, :] = Ytot1 + err_outputH[0, :]
-Ytot[1, :] = Ytot2 + err_outputH[1, :]
-Ytot[2, :] = Ytot3 + err_outputH[2, :]
+Ytot[0, :] = Ytot1.squeeze()
+Ytot[1, :] = Ytot2.squeeze()
+Ytot[2, :] = Ytot3.squeeze()
 
 Ytot = np.column_stack([Ytot, np.ones((3, 1))])
 ##identification parameters
@@ -201,8 +195,8 @@ if 'DISPLAY' in os.environ:
 
     plt.figure(3)
     plt.subplot(3, 1, 1)
-    plt.plot(Time, Ytot1[0, :])
-    plt.plot(Time, Yout_id[0, :])
+    plt.plot(Time, Ytot1)
+    plt.plot(Time, Yout_id[:, 0])
     plt.ylabel("y_1,out")
     plt.grid()
     plt.xlabel("Time")
@@ -210,16 +204,16 @@ if 'DISPLAY' in os.environ:
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 2)
-    plt.plot(Time, Ytot2[0, :])
-    plt.plot(Time, Yout_id[1, :])
+    plt.plot(Time, Ytot2)
+    plt.plot(Time, Yout_id[:, 1])
     plt.ylabel("y_2,out")
     plt.grid()
     plt.xlabel("Time")
     plt.legend(['Original system', 'Identified system'])
 
     plt.subplot(3, 1, 3)
-    plt.plot(Time, Ytot3[0, :])
-    plt.plot(Time, Yout_id[2, :])
+    plt.plot(Time, Ytot3)
+    plt.plot(Time, Yout_id[:, 2])
     plt.ylabel("y_3,out")
     plt.grid()
     plt.xlabel("Time")
