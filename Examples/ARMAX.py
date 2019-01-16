@@ -44,16 +44,12 @@ theta = 11
 g_sample = cnt.tf(NUM, DEN, ts)
 h_sample = cnt.tf(NUM_H, DEN, ts)
 # Input responses
-print(Usim)
-print(Time)
 Y1, Time, Xsim = cnt.lsim(g_sample, Usim, Time)
 e_t = fset.white_noise_var(Y1[0].size, [0.005])
 e_t = e_t[0]
-inputt = np.zeros(Time.shape)
-inputt[0] = np.asarray(e_t).squeeze()
-print(inputt)
-print(np.asarray(Time).squeeze())
-Y2, Time, Xsim = cnt.lsim(h_sample, inputt, Time)
+input_vector = np.zeros(Time.shape)
+input_vector[0] = np.asarray(e_t).squeeze()
+Y2, Time, Xsim = cnt.lsim(h_sample, input_vector, Time)
 Ytot = Y1 + Y2
 
 # System identification from collected data
@@ -63,7 +59,7 @@ Id_sys = system_identification(Ytot, Usim, 'ARMAX', IC='BIC', na_ord=[2, 5], \
 
 # Output of the identified system
 Y_id1, Time, Xsim = cnt.lsim(Id_sys.G, Usim, Time)
-Y_hid1, Time, Xsim = cnt.lsim(Id_sys.H, inputt, Time)
+Y_hid1, Time, Xsim = cnt.lsim(Id_sys.H, input_vector, Time)
 Y_idTot = Y_id1 + Y_hid1
 
 # Validation of the identified system
