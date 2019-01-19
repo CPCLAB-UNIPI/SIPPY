@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function
 import control as cnt
 import sys
 from builtins import object
+import warnings
 
 from .functionset import *
 
@@ -49,7 +50,7 @@ def ARMAX_id(y, u, na, nb, nc, theta, max_iterations):
             lambdak = old_div(lambdak, 2.)
         eps[val::] = y[val::] - np.dot(PHI, THETA)
     if iterations >= max_iterations:
-        print("Warning! Reached maximum iterations")
+        warnings.warn("[ARMAX_id] Reached maximum iterations.")
         Reached_max = True
     NUMG = np.zeros(val)
     DENG = np.zeros(val + 1)
@@ -75,14 +76,12 @@ def select_order_ARMAX(y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], nc_ord=[0
     theta_Max = max(delays) + 1
     nc_Min = min(nc_ord)
     nc_MAX = max(nc_ord) + 1
-    if (type(
-            na_Min + na_MAX + nb_Min + nb_MAX + theta_Min + theta_Max + nc_Min + nc_MAX) == int and na_Min >= 0 and nb_Min > 0 and nc_Min >= 0 and theta_Min >= 0) == False:
-        sys.exit(
-                "Error! na, nc, theta must be positive integers, nb must be strictly positive integer")
-    #        return 0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,np.inf
+    if (isinstance(na_Min + na_MAX + nb_Min + nb_MAX + theta_Min + theta_Max + nc_Min + nc_MAX, int)
+       and na_Min >= 0 and nb_Min > 0 and nc_Min >= 0 and theta_Min >= 0) is False:
+        raise ValueError("Error! na, nc, theta must be positive integers, "
+                         "nb must be strictly positive integer")
     elif y.size != u.size:
-        sys.exit("Error! y and u must have tha same length")
-    #        return 0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,np.inf
+        raise ValueError("Error! y and u must have tha same length")
     else:
         ystd, y = rescale(y)
         Ustd, u = rescale(u)
