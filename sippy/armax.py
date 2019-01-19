@@ -12,6 +12,17 @@ import warnings
 
 from .functionset import *
 
+class ARMAX_model(object):
+    def __init__(self, na, nb, nc, theta, ts, G, H, Vn):
+        self.na = na
+        self.nb = nb
+        self.nc = nc
+        self.theta = theta
+        self.ts = ts
+        self.G = G
+        self.H = H
+        self.Vn = Vn
+
 
 def ARMAX_id(y, u, na, nb, nc, theta, max_iterations):
     val = max(na, nb + theta, nc)
@@ -107,21 +118,3 @@ def select_order_ARMAX(y, u, tsample=1., na_ord=(0, 5), nb_ord=(1, 5), nc_ord=(0
         g_identif = cnt.tf(NUMG, DENG, tsample)
         h_identif = cnt.tf(NUMH, DENH, tsample)
         return na_min, nb_min, nc_min, theta_min, g_identif, h_identif, NUMG, DENG, NUMH, DENH, Vn
-
-
-# creating object ARMAX model
-class ARMAX_model(object):
-    def __init__(self, na, nb, nc, theta, ts, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G,
-                 H, Vn):
-        self.na = na
-        self.nb = nb
-        self.nc = nc
-        self.theta = theta
-        self.ts = ts
-        self.NUMERATOR = NUMERATOR
-        self.DENOMINATOR = DENOMINATOR
-        self.NUMERATOR_H = NUMERATOR_H
-        self.DENOMINATOR_H = DENOMINATOR_H
-        self.G = G
-        self.H = H
-        self.Vn = Vn

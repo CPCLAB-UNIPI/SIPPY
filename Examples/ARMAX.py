@@ -8,8 +8,8 @@ ARMAX Example
 
 from __future__ import division
 from past.utils import old_div
-from SIPPY import functionset as fset
-from SIPPY import *
+from sippy import functionset as fset
+from sippy import *
 import numpy as np
 import control.matlab as cnt
 import matplotlib.pyplot as plt

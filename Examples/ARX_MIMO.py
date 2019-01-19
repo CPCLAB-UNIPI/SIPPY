@@ -13,16 +13,16 @@ from past.utils import old_div
 
 # Checking path to access other files
 try:
-    from SIPPY import *
+    from sippy import *
 except ImportError:
     import sys, os
 
     sys.path.append(os.pardir)
-    from SIPPY import *
+    from sippy import *
 
 import numpy as np
 import control.matlab as cnt
-from SIPPY import functionset as fset
+from sippy import functionset as fset
 
 # generating transfer functions in z-transf.
 var_list = [50., 100., 1.]

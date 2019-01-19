@@ -16,16 +16,16 @@ from past.utils import old_div
 
 # Checking path to access other files
 try:
-    from SIPPY import *
+    from sippy import *
 except ImportError:
     import sys, os
 
     sys.path.append(os.pardir)
-    from SIPPY import *
+    from sippy import *
 
 import numpy as np
-from SIPPY import functionset as fset
-from SIPPY import functionsetSIM as fsetSIM
+from sippy import functionset as fset
+from sippy import functionsetSIM as fsetSIM
 
 ts = 1.0
 

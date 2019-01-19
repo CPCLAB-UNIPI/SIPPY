@@ -175,10 +175,11 @@ def system_identification(y, u, id_method, centering='None', IC='None', \
                                               g_identif, h_identif, Vn)
         elif id_method == 'ARMAX':
             from . import armax
-            na, nb, nc, theta, g_identif, h_identif, NUMG, DENG, NUMH, DENH, Vn = armax.select_order_ARMAX(
+            na, nb, nc, theta, g_identif, h_identif, _, _, _, _, Vn = armax.select_order_ARMAX(
                     y[0], u[0], tsample, na_ord, nb_ord, nc_ord, delays, IC, ARMAX_max_iterations)
-            identified_system = armax.ARMAX_model(na, nb, nc, theta, tsample, NUMG, DENG, NUMH,
-                                                  DENH, g_identif, h_identif, Vn)
+            identified_system = armax.ARMAX_model(na, nb, nc, theta, tsample,
+                                                  g_identif, h_identif,
+                                                  Vn)
         elif id_method == 'N4SID' or id_method == 'MOESP' or id_method == 'CVA':
             from . import OLSims_methods
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(y, u, SS_f, id_method, IC,
