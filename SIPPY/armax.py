@@ -41,8 +41,8 @@ def ARMAX_id(y, u, na, nb, nc, theta, max_iterations):
         THETA_new = THETA
         lambdak = 0.5
         while Vn > Vn_old:
-            THETA = np.dot(ID_THETA * lambdak, THETA_new) + np.dot(ID_THETA * (1 - lambdak),
-                                                                   THETA_old)
+            THETA = np.dot(ID_THETA * lambdak, THETA_new) + \
+                    np.dot(ID_THETA * (1 - lambdak), THETA_old)
             Vn = old_div((np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2), (2 * N))
             if lambdak < np.finfo(np.float32).eps:
                 THETA = THETA_old
@@ -66,8 +66,8 @@ def ARMAX_id(y, u, na, nb, nc, theta, max_iterations):
     return NUMG, DENG, NUMH, DENH, Vn, Reached_max
 
 
-def select_order_ARMAX(y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], nc_ord=[0, 5], delays=[0, 5],
-                       method='AIC', max_iterations=100):
+def select_order_ARMAX(y, u, tsample=1., na_ord=(0, 5), nb_ord=(1, 5), nc_ord=(0, 5),
+                       delays=(0, 5), method='AIC', max_iterations=100):
     na_Min = min(na_ord)
     na_MAX = max(na_ord) + 1
     nb_Min = min(nb_ord)
@@ -90,10 +90,8 @@ def select_order_ARMAX(y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], nc_ord=[0
             for j in range(nb_Min, nb_MAX):
                 for k in range(theta_Min, theta_Max):
                     for l in range(nc_Min, nc_MAX):
-                        useless1, useless2, useless3, useless4, Vn, Reached_max = ARMAX_id(y, u, i,
-                                                                                           j, l, k,
-                                                                                           max_iterations)
-                        if Reached_max == True:
+                        _, _, _, _, Vn, Reached_max = ARMAX_id(y, u, i, j, l, k, max_iterations)
+                        if Reached_max is True:
                             print("at Na=", i, " Nb=", j, " Nc=", l, " Delay:", k)
                             print("-------------------------------------")
                         IC = information_criterion(i + j + l, y.size - max(i, j + k, l), Vn * 2,
@@ -103,7 +101,7 @@ def select_order_ARMAX(y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], nc_ord=[0
                             IC_old = IC
         print("suggested orders are: Na=", na_min, "; Nb=", nb_min, "; Nc=", nc_min, "Delay: ",
               theta_min)
-        NUMG, DENG, NUMH, DENH, Vn, useless1 = ARMAX_id(y, u, na_min, nb_min, nc_min, theta_min,
+        NUMG, DENG, NUMH, DENH, Vn, _ = ARMAX_id(y, u, na_min, nb_min, nc_min, theta_min,
                                                         max_iterations)
         NUMG[theta_min:nb_min + theta_min] = NUMG[theta_min:nb_min + theta_min] * ystd / Ustd
         g_identif = cnt.tf(NUMG, DENG, tsample)
