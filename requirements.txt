@@ -3,3 +3,4 @@ scipy
 control
 slycot
 future
+pytest

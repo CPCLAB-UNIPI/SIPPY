@@ -91,3 +91,7 @@ def information_criterion(K, N, Variance, method='AIC'):
     elif method == 'BIC':
         IC = N * np.log(Variance) + K * np.log(N)
     return IC
+
+
+def mean_square_error(predictions, targets):
+    return ((predictions - targets) ** 2).mean()
