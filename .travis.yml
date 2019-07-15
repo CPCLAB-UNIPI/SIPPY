@@ -1,0 +1,19 @@
+sudo: required
+language: python
+python:
+  - "2.7"
+  - "3.5"
+  - "3.5-dev"
+  - "3.6"
+  - "3.6-dev"
+before_install:
+  - sudo apt-get install gfortran libopenblas-dev
+install:
+  - python setup.py install
+before_script:
+  - cd Examples
+script:
+  - python ARMAX_MIMO.py
+  - python ARMAX.py
+  - python ARX_MIMO.py
+  - python SS.py
