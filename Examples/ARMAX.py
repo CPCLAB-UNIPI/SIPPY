@@ -52,22 +52,24 @@ h_sample = cnt.tf(NUM_H, DEN, sampling_time)
 # ### Input reponse
 
 Y1, Time, Xsim = cnt.lsim(g_sample, Usim, Time)
-plt.figure()
+plt.figure(0)
 plt.plot(Time, Usim)
 plt.plot(Time, Y1)
 plt.xlabel("Time")
 plt.title("Time response y(t)=g*u(t)")
+plt.legend(['u(t)', 'y(t)'])
 plt.grid()
 plt.show()
 
 # ### Noise response
 
 Y2, Time, Xsim = cnt.lsim(h_sample, e_t, Time)
-plt.figure()
+plt.figure(1)
 plt.plot(Time, e_t)
 plt.plot(Time, Y2)
 plt.xlabel("Time")
 plt.title("Time response y(t)=h*e(t)")
+plt.legend(['e(t)', 'y(t)'])
 plt.grid()
 plt.show()
 
@@ -76,11 +78,12 @@ plt.show()
 
 Ytot = Y1 + Y2
 Utot = Usim + e_t
-plt.figure()
-plt.plot(Time, Ytot)
+plt.figure(2)
 plt.plot(Time, Utot)
+plt.plot(Time, Ytot)
 plt.xlabel("Time")
 plt.title("Time response y_t(t)=g*u(t) + h*e(t)")
+plt.legend(['u(t) + e(t)', 'y_t(t)'])
 plt.grid()
 
 # ## Perform system identification from collected data
@@ -94,7 +97,7 @@ Y_id1, Time, Xsim = cnt.lsim(Id_sys.G, Usim, Time)
 Y_hid1, Time, Xsim = cnt.lsim(Id_sys.H, e_t, Time)
 Y_idTot = Y_id1 + Y_hid1
 
-plt.figure(0)
+plt.figure(3)
 plt.plot(Time, Usim)
 plt.ylabel("Input PRBS")
 plt.xlabel("Time")
@@ -102,7 +105,7 @@ plt.title("Input, validation data (Switch probability=0.08)")
 plt.grid()
 plt.show()
 
-plt.figure(1)
+plt.figure(4)
 plt.plot(Time, Ytot)
 plt.plot(Time, Y_idTot)
 plt.grid()
@@ -112,7 +115,7 @@ plt.title("Gu+He (identification data)")
 plt.legend(['Original system', 'Identified system'])
 plt.show()
 
-plt.figure(2)
+plt.figure(5)
 plt.plot(Time, Y1)
 plt.plot(Time, Y_id1)
 plt.ylabel("y_out")
@@ -121,7 +124,7 @@ plt.xlabel("Time")
 plt.title("Gu (identification data)")
 plt.legend(['Original system', 'Identified system'])
 
-plt.figure(3)
+plt.figure(6)
 plt.plot(Time, Y2)
 plt.plot(Time, Y_hid1)
 plt.ylabel("y_err")
@@ -154,7 +157,7 @@ Yidtotvalid = Yidvalid1 + Yidvalid2
 
 # ## Check responses are almost equal
 
-plt.figure(4)
+plt.figure(7)
 plt.plot(Time, U_valid)
 plt.ylabel("Input PRBS")
 plt.xlabel("Time")
@@ -162,7 +165,7 @@ plt.title("Input, validation data (Switch probability=0.07)")
 plt.grid()
 plt.show()
 
-plt.figure(5)
+plt.figure(8)
 plt.plot(Time, Ytotvalid)
 plt.plot(Time, Yidtotvalid)
 plt.xlabel("Time")
@@ -174,7 +177,7 @@ plt.show()
 rmse = np.round(np.sqrt(np.mean((Ytotvalid - Yidtotvalid) ** 2)), 2)
 plt.title("Validation: Gu+He | RMSE = {}".format(rmse))
 
-plt.figure(6)
+plt.figure(9)
 plt.plot(Time, Yvalid1)
 plt.plot(Time, Yidvalid1)
 plt.grid()
@@ -184,7 +187,7 @@ plt.title("Gu (Validation)")
 plt.legend(['Original system', 'Identified system'])
 plt.show()
 
-plt.figure(7)
+plt.figure(10)
 plt.plot(Time, Yvalid2)
 plt.plot(Time, Yidvalid2)
 plt.grid()
@@ -194,10 +197,10 @@ plt.title("He (Validation)")
 plt.legend(['Original system', 'Identified system'])
 plt.show()
 
-plt.figure()
+plt.figure(11)
 _ = cnt.bode([h_sample, Id_sys.H])
 plt.show()
 
-plt.figure()
+plt.figure(12)
 _ = cnt.bode([g_sample, Id_sys.G])
 plt.show()

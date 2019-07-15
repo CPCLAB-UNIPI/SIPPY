@@ -202,7 +202,7 @@ plt.ylabel("Input 4 PRBS")
 plt.xlabel("Time")
 plt.grid()
 
-plt.figure(3)
+plt.figure(1)
 plt.subplot(3, 1, 1)
 plt.plot(Time, Ytot1)
 plt.plot(Time, Yout_id[:, 0])

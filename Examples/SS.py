@@ -59,7 +59,7 @@ xid, yid = fsetSIM.SS_lsim_process_form(sys_id.A, sys_id.B, sys_id.C, sys_id.D, 
 import matplotlib.pyplot as plt
 
 plt.close("all")
-plt.figure(1)
+plt.figure(0)
 plt.plot(Time, y_tot[0])
 plt.plot(Time, yid[0])
 plt.ylabel("y_tot")
@@ -68,7 +68,7 @@ plt.xlabel("Time")
 plt.title("Ytot")
 plt.legend(['Original system', 'Identified system, ' + method])
 
-plt.figure(2)
+plt.figure(1)
 plt.plot(Time, U[0])
 plt.ylabel("input")
 plt.grid()
