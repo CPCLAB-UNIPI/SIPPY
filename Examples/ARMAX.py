@@ -24,7 +24,7 @@ Time = np.linspace(0, end_time, npts)
 # ## Define pseudo random binary sequence as input signal and white noise as noise signal
 
 switch_probability = 0.08  # [0..1]
-Usim = fset.PRBS_seq(npts, switch_probability)
+Usim = fset.GBN_seq(npts, switch_probability)
 white_noise_variance = [0.005]
 e_t = fset.white_noise_var(Usim.size, white_noise_variance)[0]
 
@@ -139,7 +139,7 @@ plt.show()
 
 switch_probability = 0.07  # [0..1]
 input_range = [0.5, 1.5]
-U_valid = fset.PRBS_seq(npts, switch_probability, input_range)
+U_valid = fset.GBN_seq(npts, switch_probability, input_range)
 white_noise_variance = [0.01]
 e_valid = fset.white_noise_var(U_valid.size, white_noise_variance)[0]
 

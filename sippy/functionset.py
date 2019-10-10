@@ -17,7 +17,7 @@ from past.utils import old_div
 # length_arg: number of wished inputs
 # prob_switch: probability of switching (no switch: 0<x<1 :always switch)
 # Range: range of the inputs, example: Range=[3.,15.]
-def PRBS_seq(length_arg, prob_switch, Range=[-1.0, 1.0]):
+def GBN_seq(length_arg, prob_switch, Range=[-1.0, 1.0]):
     min_Range = min(Range)
     max_Range = max(Range)
     prbs = np.ones(length_arg)
