@@ -99,7 +99,7 @@ Y_idTot = Y_id1 + Y_hid1
 
 plt.figure(3)
 plt.plot(Time, Usim)
-plt.ylabel("Input PRBS")
+plt.ylabel("Input GBN")
 plt.xlabel("Time")
 plt.title("Input, validation data (Switch probability=0.08)")
 plt.grid()
@@ -159,7 +159,7 @@ Yidtotvalid = Yidvalid1 + Yidvalid2
 
 plt.figure(7)
 plt.plot(Time, U_valid)
-plt.ylabel("Input PRBS")
+plt.ylabel("Input GBN")
 plt.xlabel("Time")
 plt.title("Input, validation data (Switch probability=0.07)")
 plt.grid()
