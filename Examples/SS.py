@@ -34,7 +34,7 @@ B = np.array([[0.3], [2.5]])
 C = np.array([[0.7, 1.]])
 D = np.array([[0.0]])
 
-tfin = 500
+tfin = 500000
 npts = int(old_div(tfin, ts)) + 1
 Time = np.linspace(0, tfin, npts)
 
