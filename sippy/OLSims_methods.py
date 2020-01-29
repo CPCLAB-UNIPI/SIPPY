@@ -10,6 +10,7 @@ import sys
 from builtins import object
 
 import scipy as sc
+from numpy.linalg import pinv
 
 from .functionsetSIM import *
 
@@ -18,19 +19,25 @@ def SVD_weighted(y, u, f, l, weights='N4SID'):
     Yf, Yp = ordinate_sequence(y, f, f)
     Uf, Up = ordinate_sequence(u, f, f)
     Zp = impile(Up, Yp)
-    PI_Uf, PIort_Uf = PI_PIort(Uf)
-    O_i = np.dot(np.dot(np.dot(Yf, PIort_Uf), np.linalg.pinv(np.dot(Zp, PIort_Uf))), Zp)
+    O_i = np.dot(np.dot((Yf - np.dot(np.dot(Yf,Uf.T),pinv(Uf.T))),pinv(Zp - np.dot(np.dot(Zp,Uf.T),pinv(Uf.T)))),Zp)
     if weights == 'MOESP':
-        W1 = np.identity(f * l)
-        W2 = 1. * PIort_Uf
+        # PI_Uf, PIort_Uf = PI_PIort(Uf)
+        # W1 = None
+        # W2 = 1. * PIort_Uf
+        # U_n, S_n, V_n = np.linalg.svd(np.dot(O_i, W2),full_matrices=False) #full matrices not used
+        W1 = None
+        U_n, S_n, V_n = np.linalg.svd(O_i - np.dot(np.dot(O_i,Uf.T),pinv(Uf.T)),full_matrices=False)
     elif weights == 'CVA':
+        #todo, makes this memory effective if it is possible to due so.
+        PI_Uf, PIort_Uf = PI_PIort(Uf)
         W1 = np.linalg.inv(
             sc.linalg.sqrtm(np.dot(np.dot(Yf, PIort_Uf), np.dot(Yf, PIort_Uf).T)).real)
         W2 = 1. * PIort_Uf
+        U_n, S_n, V_n = np.linalg.svd(np.dot(np.dot(W1, O_i), W2),full_matrices=False) #full matrices not used
     elif weights == 'N4SID':
-        W1 = np.identity(f * l)
-        W2 = np.identity(PIort_Uf[:, 0].size)
-    U_n, S_n, V_n = np.linalg.svd(np.dot(np.dot(W1, O_i), W2))
+        W1 = None #is identity
+        W2 = None #not used in 'N4SID'
+        U_n, S_n, V_n = np.linalg.svd(O_i,full_matrices=False) #full matrices not used
     return U_n, S_n, V_n, W1, O_i
 
 
@@ -39,7 +46,10 @@ def algorithm_1(y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, 
     V_n = V_n.T
     n = S_n.size
     S_n = np.diag(S_n)
-    Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
+    if W1==None: #W1 is identity
+        Ob = np.dot(U_n, sc.linalg.sqrtm(S_n))
+    else:
+        Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
     X_fd = np.dot(np.linalg.pinv(Ob), O_i)
     Sxterm = impile(X_fd[:, 1:N], y[:, f:f + N - 1])
     Dxterm = impile(X_fd[:, 0:N - 1], u[:, f:f + N - 1])

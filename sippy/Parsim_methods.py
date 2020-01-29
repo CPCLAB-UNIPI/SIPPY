@@ -51,7 +51,7 @@ def estimating_y_S(H_K, Uf, Yf, i, m, l):
 
 
 def SVD_weighted_K(Uf, Zp, Gamma_L):
-    PI_Uf, PIort_Uf = PI_PIort(Uf)
+    PI_Uf, PIort_Uf = PI_PIort(Uf) #warning: memory inefficient, creats a N_sample^2 matrix 
     W2 = sc.linalg.sqrtm(np.dot(np.dot(Zp, PIort_Uf), Zp.T)).real
     U_n, S_n, V_n = np.linalg.svd(np.dot(Gamma_L, W2))
     return U_n, S_n, V_n
