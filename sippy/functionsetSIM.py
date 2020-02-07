@@ -20,12 +20,39 @@ def ordinate_sequence(y, f, p):
         Yp[l * (i - 1):l * i] = y[:, i - 1:L - f - p + i]
     return Yf, Yp
 
+def Z_dot_PIort(z, X):
+    """
+    Compute the scalar product between a vector z and $I - x^T \cdot pinv(X^T)$, avoiding the direct computation of the matrix
+    
+    PI = np.dot(X.T, np.linalg.pinv(X.T)), causing high memory usage
+    
+    
+    Parameters
+    ----------
+    z : (...) vector array_like
+    
+    X : (...) matrix array_like
+  
+    """
+        
+    Z_dot_PIort = (z - np.dot(np.dot(z, X.T), np.linalg.pinv(X.T)))
+    return Z_dot_PIort
 
-def PI_PIort(X):
-    PI = np.dot(X.T, np.linalg.pinv(X.T))
-    PIort = np.identity((PI[:, 0].size)) - PI
-    return PI, PIort
-
+def Vn_mat(y,yest):
+    """
+    Compute the variance of the model residuals
+    
+    Parameters
+    ----------
+    y : (l X L) or (L*l,1) matrix of output of the process
+    
+    yest : (l X L) or (L*l,1) matrix of output of the estimated model
+  
+    """    
+    eps = y.flatten()-yest.flatten()
+    Vn = (eps@eps)/(2.*max(y.shape))   # @ is dot
+    return Vn
+    
 
 def impile(M1, M2):
     M = np.zeros((M1[:, 0].size + M2[:, 0].size, M1[0, :].size))

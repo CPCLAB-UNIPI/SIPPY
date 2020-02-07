@@ -12,6 +12,7 @@ from builtins import object
 import scipy as sc
 
 from .functionsetSIM import *
+from numpy.linalg import pinv  
 
 
 def recalc_K(A, C, D, u):
@@ -51,9 +52,9 @@ def estimating_y_S(H_K, Uf, Yf, i, m, l):
 
 
 def SVD_weighted_K(Uf, Zp, Gamma_L):
-    PI_Uf, PIort_Uf = PI_PIort(Uf) #warning: memory inefficient, creats a N_sample^2 matrix 
-    W2 = sc.linalg.sqrtm(np.dot(np.dot(Zp, PIort_Uf), Zp.T)).real
-    U_n, S_n, V_n = np.linalg.svd(np.dot(Gamma_L, W2))
+    W2 = sc.linalg.sqrtm(np.dot((Zp - np.dot(np.dot(Zp,Uf.T),pinv(Uf.T))), Zp.T)).real
+ 
+    U_n, S_n, V_n = np.linalg.svd(np.dot(Gamma_L, W2), full_matrices=False)
     return U_n, S_n, V_n
 
 
@@ -178,8 +179,10 @@ def PARSIM_K(y, u, f=20, p=20, threshold=0.1, max_order=np.NaN, fixed_order=np.N
         C = Ob_K[0:l, :]
         y_sim = simulations_sequence(A_K, C, L, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-        Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                   (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+        
+        Y_estimate = np.dot(y_sim, vect).T
+        Vn = Vn_mat(y, Y_estimate)
+
         B_K = vect[0:n * m, :].reshape((n, m))
         if D_required == True:
             D = vect[n * m:n * m + l * m, :].reshape((l, m))
@@ -193,8 +196,10 @@ def PARSIM_K(y, u, f=20, p=20, threshold=0.1, max_order=np.NaN, fixed_order=np.N
         if B_recalc == True:
             y_sim = recalc_K(A, C, D, u)
             vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                       (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+            
+            Y_estimate=np.dot(y_sim, vect)
+            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+                                       
             B = vect[0:n * m, :].reshape((n, m))
             x0 = vect[n * m::, :].reshape((n, 1))
             B_K = B - np.dot(K, D)
@@ -209,8 +214,8 @@ def PARSIM_K(y, u, f=20, p=20, threshold=0.1, max_order=np.NaN, fixed_order=np.N
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
-def select_order_PARSIM_K(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_required=False,
-                          B_recalc=False):
+def select_order_PARSIM_K(y, u, f=20, p=20, method = 'AIC', orders = [1, 10], D_required = False,
+                          B_recalc = False):
     y = 1. * np.atleast_2d(y)
     u = 1. * np.atleast_2d(u)
     min_ord = min(orders)
@@ -270,8 +275,12 @@ def select_order_PARSIM_K(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
             C = Ob_K[0:l, :]
             y_sim = simulations_sequence(A_K, C, L, y, u, l, m, n, D_required)
             vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                       (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+            Y_estimate=np.dot(y_sim, vect)
+            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+#            eps_tmp = np.dot(y_sim, vect).flatten() - y.flatten()
+#            Vn = (eps_tmp@eps_tmp)/(2.*L) 
+#            Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
+#                                       (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
             K_par = 2 * n * l + m * n
             if D_required == True:
                 K_par = K_par + l * m
@@ -288,8 +297,10 @@ def select_order_PARSIM_K(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
         C = Ob_K[0:l, :]
         y_sim = simulations_sequence(A_K, C, L, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-        Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                   (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+
+        Y_estimate=np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+
         B_K = vect[0:n * m, :].reshape((n, m))
         if D_required == True:
             D = vect[n * m:n * m + l * m, :].reshape((l, m))
@@ -303,8 +314,10 @@ def select_order_PARSIM_K(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
         if B_recalc == True:
             y_sim = recalc_K(A, C, D, u)
             vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                       (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+
+            Y_estimate=np.dot(y_sim, vect)
+            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+
             B = vect[0:n * m, :].reshape((n, m))
             x0 = vect[n * m::, :].reshape((n, 1))
             B_K = B - np.dot(K, D)
@@ -354,8 +367,10 @@ def PARSIM_S(y, u, f=20, p=20, threshold=0.1, max_order=np.NaN, fixed_order=np.N
         A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
         y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-        Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                   (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+
+        Y_estimate=np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+
         B_K = vect[0:n * m, :].reshape((n, m))
         if D_required == True:
             D = vect[n * m:n * m + l * m, :].reshape((l, m))
@@ -428,8 +443,10 @@ def select_order_PARSIM_S(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
             A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
             y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
             vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                       (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+
+            Y_estimate=np.dot(y_sim, vect)
+            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+
             K_par = 2 * n * l + m * n
             if D_required == True:
                 K_par = K_par + l * m
@@ -442,8 +459,10 @@ def select_order_PARSIM_S(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
         A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
         y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-        Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                   (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+
+        Y_estimate=np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+
         B_K = vect[0:n * m, :].reshape((n, m))
         if D_required == True:
             D = vect[n * m:n * m + l * m, :].reshape((l, m))
@@ -495,8 +514,10 @@ def PARSIM_P(y, u, f=20, p=20, threshold=0.1, max_order=np.NaN, fixed_order=np.N
         A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
         y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-        Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                   (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+
+        Y_estimate=np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+
         B_K = vect[0:n * m, :].reshape((n, m))
         if D_required == True:
             D = vect[n * m:n * m + l * m, :].reshape((l, m))
@@ -565,8 +586,10 @@ def select_order_PARSIM_P(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
             A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
             y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
             vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                       (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+
+            Y_estimate=np.dot(y_sim, vect)
+            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)            
+            
             K_par = 2 * n * l + m * n
             if D_required == True:
                 K_par = K_par + l * m
@@ -579,8 +602,10 @@ def select_order_PARSIM_P(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
         A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
         y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-        Vn = 0.5 * np.trace(np.dot(np.dot(y_sim, vect) - y.reshape((L * l, 1)),
-                                   (np.dot(y_sim, vect) - y.reshape((L * l, 1))).T)) / L
+
+        Y_estimate=np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+
         B_K = vect[0:n * m, :].reshape((n, m))
         if D_required == True:
             D = vect[n * m:n * m + l * m, :].reshape((l, m))

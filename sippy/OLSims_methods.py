@@ -10,7 +10,7 @@ import sys
 from builtins import object
 
 import scipy as sc
-from numpy.linalg import pinv
+from numpy.linalg import pinv  
 
 from .functionsetSIM import *
 
@@ -19,25 +19,28 @@ def SVD_weighted(y, u, f, l, weights='N4SID'):
     Yf, Yp = ordinate_sequence(y, f, f)
     Uf, Up = ordinate_sequence(u, f, f)
     Zp = impile(Up, Yp)
-    O_i = np.dot(np.dot((Yf - np.dot(np.dot(Yf,Uf.T),pinv(Uf.T))),pinv(Zp - np.dot(np.dot(Zp,Uf.T),pinv(Uf.T)))),Zp)
+    
+    YfdotPIort_Uf = Z_dot_PIort(Yf,Uf)
+    ZpdotPIort_Uf = Z_dot_PIort(Zp,Uf)
+    O_i = np.dot(np.dot(YfdotPIort_Uf,pinv(ZpdotPIort_Uf)),Zp) 
+
     if weights == 'MOESP':
-        # PI_Uf, PIort_Uf = PI_PIort(Uf)
-        # W1 = None
-        # W2 = 1. * PIort_Uf
-        # U_n, S_n, V_n = np.linalg.svd(np.dot(O_i, W2),full_matrices=False) #full matrices not used
         W1 = None
-        U_n, S_n, V_n = np.linalg.svd(O_i - np.dot(np.dot(O_i,Uf.T),pinv(Uf.T)),full_matrices=False)
-    elif weights == 'CVA':
-        #todo, makes this memory effective if it is possible to due so.
-        PI_Uf, PIort_Uf = PI_PIort(Uf)
-        W1 = np.linalg.inv(
-            sc.linalg.sqrtm(np.dot(np.dot(Yf, PIort_Uf), np.dot(Yf, PIort_Uf).T)).real)
-        W2 = 1. * PIort_Uf
-        U_n, S_n, V_n = np.linalg.svd(np.dot(np.dot(W1, O_i), W2),full_matrices=False) #full matrices not used
+        W2 = None
+        OidotPIort_Uf = Z_dot_PIort(O_i,Uf)
+        U_n, S_n, V_n = np.linalg.svd(OidotPIort_Uf, full_matrices=False)
+                
+    elif weights == 'CVA':        
+        W1 = np.linalg.inv(sc.linalg.sqrtm(np.dot(YfdotPIort_Uf,YfdotPIort_Uf.T)).real)
+        W1dotOi = np.dot(W1, O_i)
+        W1_dot_Oi_dot_PIort_Uf = Z_dot_PIort(W1dotOi,Uf) 
+        U_n, S_n, V_n = np.linalg.svd(W1_dot_Oi_dot_PIort_Uf, full_matrices=False)  
+   
     elif weights == 'N4SID':
-        W1 = None #is identity
-        W2 = None #not used in 'N4SID'
+        W1 = None # is identity
+        W2 = None # not used in 'N4SID'
         U_n, S_n, V_n = np.linalg.svd(O_i,full_matrices=False) #full matrices not used
+    
     return U_n, S_n, V_n, W1, O_i
 
 
@@ -46,10 +49,12 @@ def algorithm_1(y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, 
     V_n = V_n.T
     n = S_n.size
     S_n = np.diag(S_n)
-    if W1==None: #W1 is identity
+    
+    if W1 is None: #W1 is identity
         Ob = np.dot(U_n, sc.linalg.sqrtm(S_n))
     else:
         Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
+        
     X_fd = np.dot(np.linalg.pinv(Ob), O_i)
     Sxterm = impile(X_fd[:, 1:N], y[:, f:f + N - 1])
     Dxterm = impile(X_fd[:, 0:N - 1], u[:, f:f + N - 1])
@@ -113,7 +118,9 @@ def OLSims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.NaN, fixed_orde
         R = Covariances[n::, n::]
         S = Covariances[0:n, n::]
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
-        Vn = old_div(np.trace(np.dot((y - Y_estimate), (y - Y_estimate).T)), (2 * L))
+                
+        Vn = Vn_mat(y,Y_estimate)
+        
         K, K_calculated = K_calc(A, C, Q, R, S)
         for j in range(m):
             B[:, j] = old_div(B[:, j], Ustd[j])
@@ -173,7 +180,9 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
             A, B, C, D = extracting_matrices(M, n)
             Covariances = old_div(np.dot(residuals, residuals.T), (N - 1))
             X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
-            Vn = old_div(np.trace(np.dot((y - Y_estimate), (y - Y_estimate).T)), (2 * L))
+
+            Vn = Vn_mat(y,Y_estimate)
+
             K_par = n * l + m * n
             if D_required == True:
                 K_par = K_par + l * m
@@ -189,7 +198,9 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
         A, B, C, D = extracting_matrices(M, n)
         Covariances = old_div(np.dot(residuals, residuals.T), (N - 1))
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
-        Vn = old_div(np.trace(np.dot((y - Y_estimate), (y - Y_estimate).T)), (2 * L))
+ 
+        Vn = Vn_mat(y,Y_estimate)
+ 
         Q = Covariances[0:n, 0:n]
         R = Covariances[n::, n::]
         S = Covariances[0:n, n::]
