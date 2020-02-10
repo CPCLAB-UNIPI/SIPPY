@@ -117,7 +117,7 @@ def OLSims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.NaN, fixed_orde
         S = Covariances[0:n, n::]
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
                 
-        Vn = Vn_mat(y.flatten(), Y_estimate.flatten())
+        Vn = Vn_mat(y, Y_estimate)
         
         K, K_calculated = K_calc(A, C, Q, R, S)
         for j in range(m):
@@ -179,7 +179,7 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
             Covariances = old_div(np.dot(residuals, residuals.T), (N - 1))
             X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
 
-            Vn = Vn_mat(y.flatten(), Y_estimate.flatten())
+            Vn = Vn_mat(y, Y_estimate)
 
             K_par = n * l + m * n
             if D_required == True:
@@ -197,7 +197,7 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
         Covariances = old_div(np.dot(residuals, residuals.T), (N - 1))
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
  
-        Vn = Vn_mat(y.flatten(), Y_estimate.flatten())
+        Vn = Vn_mat(y, Y_estimate)
  
         Q = Covariances[0:n, 0:n]
         R = Covariances[n::, n::]
