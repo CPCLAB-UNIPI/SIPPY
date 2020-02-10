@@ -44,13 +44,15 @@ def Vn_mat(y,yest):
     
     Parameters
     ----------
-    y : (l X L) or (L*l,1) matrix of output of the process
+    y : (L*l,1) vectorized matrix of output of the process
     
-    yest : (l X L) or (L*l,1) matrix of output of the estimated model
+    yest : (L*l,1) vectorized matrix of output of the estimated model
   
-    """    
-    eps = y.flatten()-yest.flatten()
-    Vn = (eps@eps)/(2.*max(y.shape))   # @ is dot
+    """ 
+    y = y.flatten()    
+    yest = yest.flatten()
+    eps = y.flatten() - yest.flatten()
+    Vn = (eps@eps)/(max(y.shape))   # @ is dot
     return Vn
     
 

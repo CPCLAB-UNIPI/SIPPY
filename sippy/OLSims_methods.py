@@ -26,8 +26,8 @@ def SVD_weighted(y, u, f, l, weights='N4SID'):
 
     if weights == 'MOESP':
         W1 = None
-        W2 = None
-        OidotPIort_Uf = Z_dot_PIort(O_i,Uf)
+        #        W2 = PIort_Uf
+        OidotPIort_Uf = Z_dot_PIort(O_i, Uf)  # np.dot(O_i, W2)
         U_n, S_n, V_n = np.linalg.svd(OidotPIort_Uf, full_matrices=False)
                 
     elif weights == 'CVA':        
@@ -49,12 +49,10 @@ def algorithm_1(y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, 
     V_n = V_n.T
     n = S_n.size
     S_n = np.diag(S_n)
-    
     if W1 is None: #W1 is identity
         Ob = np.dot(U_n, sc.linalg.sqrtm(S_n))
     else:
         Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
-        
     X_fd = np.dot(np.linalg.pinv(Ob), O_i)
     Sxterm = impile(X_fd[:, 1:N], y[:, f:f + N - 1])
     Dxterm = impile(X_fd[:, 0:N - 1], u[:, f:f + N - 1])
@@ -119,7 +117,7 @@ def OLSims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.NaN, fixed_orde
         S = Covariances[0:n, n::]
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
                 
-        Vn = Vn_mat(y,Y_estimate)
+        Vn = Vn_mat(y.flatten(), Y_estimate.flatten())
         
         K, K_calculated = K_calc(A, C, Q, R, S)
         for j in range(m):
@@ -181,12 +179,12 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
             Covariances = old_div(np.dot(residuals, residuals.T), (N - 1))
             X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
 
-            Vn = Vn_mat(y,Y_estimate)
+            Vn = Vn_mat(y.flatten(), Y_estimate.flatten())
 
             K_par = n * l + m * n
             if D_required == True:
                 K_par = K_par + l * m
-            IC = information_criterion(K_par, L, Vn * 2. / l, method)
+            IC = information_criterion(K_par, L, Vn, method)
             if IC < IC_old:
                 n_min = i
                 IC_old = IC
@@ -199,7 +197,7 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
         Covariances = old_div(np.dot(residuals, residuals.T), (N - 1))
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
  
-        Vn = Vn_mat(y,Y_estimate)
+        Vn = Vn_mat(y.flatten(), Y_estimate.flatten())
  
         Q = Covariances[0:n, 0:n]
         R = Covariances[n::, n::]
