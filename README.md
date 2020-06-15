@@ -39,7 +39,7 @@ identifications.
 * `Examples/arxMIMO.py`: example of usage of the Identification_code for ARX systems (multi input-multi output case).
 * `Examples/armax.py`: example of usage of the Identification_code for ARMAX systems (single input-single output case, using the information criteria).
 * `Examples/SS.py`: example of usage of the Identification_code for State-space systems.
-* `Examples/example_CST.py`: example of usage of the Identification_code for a Continuos Stirred Tank system.
+* `Examples/example_CST.py`: example of usage of the Identification_code for a Continuous Stirred Tank system.
 * `sippy/functionset.py`:  file containing most of the functions used by the identification functions
 and other useful functions (see the user_guide for the usage).
 * `sippy/functionsetSIM.py`: additional functions used by the Subspace identification functions
