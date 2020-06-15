@@ -33,7 +33,7 @@ in order to gather all the required packages all together.
 
 SIPPY is distributed as packed file SIPPY.zip (download it from [here](https://github.com/CPCLAB-UNIPI/SIPPY)) that contains the following items:
 * `user_guide.pdf`: documentation for Identification_code usage.
-* `SIPPY/__init__.py`: main file containing the function that has to be recalled to perform the
+* `sippy/__init__.py`: main file containing the function that has to be recalled to perform the
 identifications.
 * `Examples/armaxMIMO.py`: example of usage of the Identification_code for ARMAX systems (multi input-multi output case).
 * `Examples/arxMIMO.py`: example of usage of the Identification_code for ARX systems (multi input-multi output case).
@@ -41,8 +41,8 @@ identifications.
 * `Examples/SS.py`: example of usage of the Identification_code for State-space systems.
 * `SIPPY/functionset.py`:  file containing most of the functions used by the identification functions
 and other useful functions (see the user_guide for the usage).
-* `SIPPY/functionsetSIM.py`: additional functions used by the Subspace identification functions
+* `sippy/functionsetSIM.py`: additional functions used by the Subspace identification functions
 and other useful functions for state space models (see the user_guide for the usage).
 
-In the folder `SIPPY/` there are other files `.py`, that are called by the main file, so the user has
+In the folder `sippy/` there are other files `.py`, that are called by the main file, so the user has
 not to use them.
