@@ -13,25 +13,39 @@ import numpy as np
 from past.utils import old_div
 
 
-# function that generates a sequence of inputs PRBS
+# function that generates a sequence of inputs GBN
 # length_arg: number of wished inputs
 # prob_switch: probability of switching (no switch: 0<x<1 :always switch)
 # Range: range of the inputs, example: Range=[3.,15.]
 def GBN_seq(length_arg, prob_switch, Range=[-1.0, 1.0]):
     min_Range = min(Range)
     max_Range = max(Range)
-    prbs = np.ones(length_arg)
+    gbn = np.ones(length_arg)
     for i in range(length_arg - 1):
         prob = np.random.random()
-        prbs[i + 1] = prbs[i]
+        gbn[i + 1] = gbn[i]
         if prob < prob_switch:
-            prbs[i + 1] = -prbs[i + 1]
+            gbn[i + 1] = -gbn[i + 1]
     for i in range(length_arg):
-        if prbs[i] > 0.:
-            prbs[i] = max_Range
+        if gbn[i] > 0.:
+            gbn[i] = max_Range
         else:
-            prbs[i] = min_Range
-    return prbs
+            gbn[i] = min_Range
+    return gbn
+
+# function which generates a sequence of inputs as Random walk
+# length_arg: time length of desidered input
+# sigma: standard deviation (mobility) of randow walk
+# rw0: initial value    
+def RW_seq(length_arg,rw0, sigma = 1):
+    rw = rw0*np.ones(length_arg)
+    for i in range (length_arg-1):
+        # return random sample from a normal (Gaussian) distribution with:
+        # mean = 0.0, standard deviation = sigma, and length = 1
+        delta = np.random.normal(0., sigma, 1)
+        # refresh input
+        rw[i+1] = rw[i] + delta
+    return rw 
 
 
 # this function adds a white noise to a signal

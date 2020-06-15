@@ -8,6 +8,8 @@ from __future__ import absolute_import, print_function
 import control as cnt
 import math
 from .functionset import *
+# from functionset import *
+
 
 
 def ordinate_sequence(y, f, p):

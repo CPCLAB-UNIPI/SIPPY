@@ -5,11 +5,12 @@ Created on Sat Aug 12 2017
 @author: Giuseppe Armenise
 """
 from __future__ import absolute_import, division, print_function
-
+import control as cnt
 import sys
 from builtins import object
-import control as cnt
+
 from .functionset import *
+# from functionset import *
 
 
 def ARX_MISO_id(y, u, na, nb, theta):
@@ -19,6 +20,7 @@ def ARX_MISO_id(y, u, na, nb, theta):
     ylength = y.size
     ystd, y = rescale(y)
     [udim, ulength] = u.shape
+    # checking dimension
     if nb.size != udim:
         sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
@@ -30,8 +32,10 @@ def ARX_MISO_id(y, u, na, nb, theta):
         Ustd = np.zeros(udim)
         for j in range(udim):
             Ustd[j], u[j] = rescale(u[j])
+        # max predictable dimension 
         val = max(na, np.max(nbth))
         N = ylength - val
+        # regressor matrix
         phi = np.zeros(na + np.sum(nb[:]))
         PHI = np.zeros((N, na + np.sum(nb[:])))
         for k in range(N):
@@ -42,8 +46,14 @@ def ARX_MISO_id(y, u, na, nb, theta):
                                                                            theta[nb_i]:nb[nb_i] +
                                                                                        theta[nb_i]]
             PHI[k, :] = phi
+        # coefficient vector
         THETA = np.dot(np.linalg.pinv(PHI), y[val::])
-        Vn = old_div((np.linalg.norm((np.dot(PHI, THETA) - y[val::]), 2) ** 2), (2 * N))
+        # model output
+        y_id0 = np.dot(PHI,THETA)
+        # estimated error norm
+        Vn = old_div((np.linalg.norm((y_id0 - y[val::]), 2) ** 2), (2 * N))
+        # adding non-identified outputs
+        y_id = np.hstack((y[:val], y_id0))*ystd    
         DEN = np.zeros((udim, val + 1))
         NUMH = np.zeros((1, val + 1))
         NUMH[0, 0] = 1.
@@ -56,7 +66,7 @@ def ARX_MISO_id(y, u, na, nb, theta):
                                                                    Ustd[k]
             NUM[k, theta[k]:theta[k] + nb[k]] = THETA[na + np.sum(nb[0:k]):na + np.sum(nb[0:k + 1])]
             DEN[k, 1:na + 1] = THETA[0:na]
-        return DEN, NUM, NUMH, Vn
+        return DEN, NUM, NUMH, Vn, y_id
 
 
 # MIMO function
@@ -67,6 +77,7 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.):
     [ydim, ylength] = y.shape
     [udim, ulength] = u.shape
     [th1, th2] = theta.shape
+    # check dimensions
     if na.size != ydim:
         sys.exit("Error! na must be a vector, whose length must be equal to y dimension")
     #        return 0.,0.,0.,0.,np.inf
@@ -81,26 +92,32 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.):
         sys.exit("Error! na, nb, theta must contain only positive integer elements")
     #        return 0.,0.,0.,0.,np.inf
     else:
+        # preallocation
         Vn_tot = 0.
         NUMERATOR = []
         DENOMINATOR = []
         DENOMINATOR_H = []
         NUMERATOR_H = []
+        Y_id = np.zeros((ydim, ylength))
+        # identification in MISO approach
         for i in range(ydim):
-            DEN, NUM, NUMH, Vn = ARX_MISO_id(y[i, :], u, na[i], nb[i, :], theta[i, :])
+            DEN, NUM, NUMH, Vn, y_id = ARX_MISO_id(y[i, :], u, na[i], nb[i, :], theta[i, :])
+            # append values to vectors
             DENOMINATOR.append(DEN.tolist())
             NUMERATOR.append(NUM.tolist())
             NUMERATOR_H.append(NUMH.tolist())
             DENOMINATOR_H.append([DEN.tolist()[0]])
             Vn_tot = Vn_tot + Vn
+            Y_id[i,:] = y_id 
+        # FdT
         G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
         H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
-        return DENOMINATOR, NUMERATOR, G, H, Vn_tot
+        return DENOMINATOR, NUMERATOR, G, H, Vn_tot, Y_id
 
 
 # creating object ARX MIMO model
 class ARX_MIMO_model(object):
-    def __init__(self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn):
+    def __init__(self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid):
         self.na = na
         self.nb = nb
         self.theta = theta
@@ -110,3 +127,4 @@ class ARX_MIMO_model(object):
         self.G = G
         self.H = H
         self.Vn = Vn
+        self.Yid = Yid

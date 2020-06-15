@@ -10,6 +10,7 @@ from builtins import object
 import warnings
 
 from .functionset import *
+# from functionset import *
 
 
 class Armax(object):
@@ -78,8 +79,10 @@ class Armax(object):
 
         self.G = None
         self.H = None
-        self.variance = None
+        self.Vn = None
+        self.Yid = None
         self.max_reached = None
+        
 
     def __repr__(self):
         na_bounds = [min(self.na_range), max(self.na_range)]
@@ -103,7 +106,8 @@ class Armax(object):
                "- Output:\n" \
                "  G: {} \n" \
                "  H: {} \n" \
-               "  Variance: {} \n" \
+               "  Vn: {} \n" \
+               "  Model Output: {} \n" \
                "  Max reached: {}".format(self.na, min(self.na_range), max(self.na_range),
                                           self.nb, min(self.nb_range), max(self.nb_range),
                                           self.nc, min(self.nc_range), max(self.nc_range),
@@ -113,7 +117,8 @@ class Armax(object):
                                           self.max_iterations,
                                           self.G,
                                           self.H,
-                                          self.variance,
+                                          self.Vn,
+                                          self.Yid,
                                           self.max_reached)
 
     @staticmethod
@@ -147,8 +152,10 @@ class Armax(object):
         :rtype H_num: float array
         :return H_den: Denominator of H
         :rtype H_den: float array
-        :return variance: variance between y and the estimated output data (X*beta_hat)
-        :rtype variance: float
+        :return Vn: variance between y and the estimated output data (X*beta_hat)
+        :rtype Vn: float
+        :return Yid: estimated output data (X*beta_hat)
+        :rtype Yid: float array
         :return max_reached: Whether the algorithm reached maximum number of iterations or not.
         :rtype max_reached: boolean
         """
@@ -166,7 +173,7 @@ class Armax(object):
             X[i, 0:na] = -y[i + max_order - 1::-1][0:na]
             X[i, na:na + nb] = u[max_order + i - 1::-1][delay:nb + delay]
 
-        variance, variance_old = np.inf, np.inf
+        Vn, Vn_old = np.inf, np.inf
         beta_hat = np.zeros(sum_order)
         I_beta = np.identity(beta_hat.size)
         iterations = 0
@@ -174,33 +181,36 @@ class Armax(object):
 
         # Stay in this loop while variance has not converged or max iterations has not been
         # reached yet.
-        while (variance_old > variance or iterations == 0) and iterations < max_iterations:
+        while (Vn_old > Vn or iterations == 0) and iterations < max_iterations:
             beta_hat_old = beta_hat
-            variance_old = variance
+            Vn_old = Vn
             iterations = iterations + 1
             for i in range(N):
                 X[i, na + nb:na + nb + nc] = noise_hat[max_order + i - 1::-1][0:nc]
             beta_hat = np.dot(np.linalg.pinv(X), y[max_order::])
-            variance = mean_square_error(y[max_order::], np.dot(X, beta_hat))
+            Vn = mean_square_error(y[max_order::], np.dot(X, beta_hat))
 
             # If solution found is not better than before, perform a binary search to find a better
             # solution.
             beta_hat_new = beta_hat
             interval_length = 0.5
-            while variance > variance_old:
+            while Vn > Vn_old:
                 beta_hat = np.dot(I_beta * interval_length, beta_hat_new) + \
                         np.dot(I_beta * (1 - interval_length), beta_hat_old)
-                variance = mean_square_error(y[max_order::], np.dot(X, beta_hat))
+                Vn = mean_square_error(y[max_order::], np.dot(X, beta_hat))
 
                 # Stop the binary search when the interval length is minor than smallest float
                 if interval_length < np.finfo(np.float32).eps:
                     beta_hat = beta_hat_old
-                    variance = variance_old
+                    Vn = Vn_old
                 interval_length = interval_length / 2.
 
             # Update estimated noise based on best solution found from currently considered
             # noise.
             noise_hat[max_order::] = y[max_order::] - np.dot(X, beta_hat)
+            # adding non-identified outputs
+            y_id = np.hstack((y[:max_order], np.dot(X,beta_hat)))
+            
         if iterations >= max_iterations:
             warnings.warn("[ARMAX_id] Reached maximum iterations.")
             max_reached = True
@@ -220,7 +230,7 @@ class Armax(object):
         H_den[0] = 1.
         H_den[1:na + 1] = beta_hat[0:na]
 
-        return G_num, G_den, H_num, H_den, variance, max_reached
+        return G_num, G_den, H_num, H_den, Vn, y_id, max_reached
 
     def find_best_estimate(self, y, u):
         """ Find best estimate
@@ -247,18 +257,18 @@ class Armax(object):
                     for delay in self.delay_range:
                         G_num, G_den, \
                             H_num, H_den, \
-                            variance, max_reached = Armax._identify(y, u, na, nb, nc, delay,
+                            Vn, y_id, max_reached = Armax._identify(y, u, na, nb, nc, delay,
                                                                     self.max_iterations)
                         if max_reached is True:
                             warnings.warn("[ARMAX ID] Max reached for:na: {} | nb: {} | nc: {} | "
                                           "delay: {}".format(na, nb, nc, delay))
                         IC = information_criterion(na + nb + delay,
                                                    y.size - max(na, nb + delay, nc),
-                                                   variance, self.method)
+                                                   Vn, self.method)
                         if IC < IC_old:
                             self.na, self.nb, self.nc, self.delay, IC_old = na, nb, nc, delay, IC
                             G_num_opt, G_den_opt, H_num_opt, H_den_opt = G_num, G_den, H_num, H_den
-                            self.variance, self.max_reached = variance, max_reached
+                            self.Vn, self.Yid, self.max_reached = Vn, np.atleast_2d(y_id) * y_std, max_reached  
 
         G_num_opt[self.delay:self.nb + self.delay] = \
             G_num_opt[self.delay:self.nb + self.delay] * y_std / u_std
