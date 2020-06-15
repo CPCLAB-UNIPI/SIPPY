@@ -23,7 +23,7 @@ different algorithms are available (also with the information criteria):
 * PARSIM-K.
 
 ### Installation and package content 
-The code has been implemented in Python 2.7, compatible with Python 3.6, (download it [here](https://www.python.org/downloads/)) and requires the following packages:
+The code has been implemented in Python 2.7, compatible with Python 3.7, (download it [here](https://www.python.org/downloads/)) and requires the following packages:
 NumPy, SciPy, control, math, Slycot, Future (See installation instruction [here](http://python-future.org/quickstart.html#installation)).
 The Slycot package is available [here](https://pypi.python.org/pypi/slycot/0.2.0) or alternatively the binaries can be found [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/).
 
@@ -39,7 +39,8 @@ identifications.
 * `Examples/arxMIMO.py`: example of usage of the Identification_code for ARX systems (multi input-multi output case).
 * `Examples/armax.py`: example of usage of the Identification_code for ARMAX systems (single input-single output case, using the information criteria).
 * `Examples/SS.py`: example of usage of the Identification_code for State-space systems.
-* `SIPPY/functionset.py`:  file containing most of the functions used by the identification functions
+* `Examples/example_CST.py`: example of usage of the Identification_code for a Continuos Stirred Tank system.
+* `sippy/functionset.py`:  file containing most of the functions used by the identification functions
 and other useful functions (see the user_guide for the usage).
 * `sippy/functionsetSIM.py`: additional functions used by the Subspace identification functions
 and other useful functions for state space models (see the user_guide for the usage).
