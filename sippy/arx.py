@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 from builtins import object
-import control as cnt
+import control.matlab as cnt
 from .functionset import *
 # from functionset import *
 

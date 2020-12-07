@@ -17,25 +17,10 @@ from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
 from sippy import *
 #
-# import functionset as fset
-# import functionsetSIM as fsetSIM
-# from __init__ import *
 #
 import numpy as np
-import control
 import control.matlab as cnt
 import matplotlib.pyplot as plt
-
-from distutils.version import StrictVersion
-
-if StrictVersion(control.__version__) >= StrictVersion('0.8.2'):
-	lsim = cnt.lsim
-else:
-	def lsim(sys, U = 0.0, T = None, X0 = 0.0):
-		U_ = U
-		if isinstance(U_, (np.ndarray, list)):
-			U_ = U_.T
-		return cnt.lsim(sys, U_, T, X0)
 
 # sampling time
 ts = 1.         # [min]
@@ -104,13 +89,13 @@ prob_switch_1 = 0.05
 F_min = 0.4
 F_max = 0.6 
 Range_GBN_1 = [F_min,F_max]
-U[0,:] = fset.GBN_seq(npts, prob_switch_1, Range = Range_GBN_1)    
+[U[0,:],_,_] = fset.GBN_seq(npts, prob_switch_1, Range = Range_GBN_1)    
 # Steam Flow rate W = U[1]          [kg/min]
 prob_switch_2 = 0.05
 W_min = 20
 W_max = 40
 Range_GBN_2 = [W_min,W_max]
-U[1,:] = fset.GBN_seq(npts, prob_switch_2, Range = Range_GBN_2)
+[U[1,:],_,_] = fset.GBN_seq(npts, prob_switch_2, Range = Range_GBN_2)
 
 # disturbance inputs as RW (random-walk)
 
@@ -226,4 +211,113 @@ for i in range(p):
     plt.xlabel("Time")
     if i == 0:
         plt.title('identification')
+        
+ 
+#### VALIDATION STAGE
 
+# Build new input sequences 
+U_val = np.zeros((m,npts))
+  
+# manipulated inputs as GBN
+# Input Flow rate Fin = F = U[0]    [m^3/min]
+prob_switch_1 = 0.05
+F_min = 0.4
+F_max = 0.6 
+Range_GBN_1 = [F_min,F_max]
+[U_val[0,:],_,_] = fset.GBN_seq(npts, prob_switch_1, Range = Range_GBN_1)  
+# Steam Flow rate W = U[1]          [kg/min]
+prob_switch_2 = 0.05
+W_min = 20
+W_max = 40
+Range_GBN_2 = [W_min,W_max]
+[U_val[1,:],_,_] = fset.GBN_seq(npts, prob_switch_2, Range = Range_GBN_2)
+
+# disturbance inputs as RW (random-walk)
+# Input Concentration Ca_in = U[2]  [kg salt/m^3 solution]
+Ca_0 = 10.0                         # initial condition
+sigma_Ca = 0.02                      # variation
+U_val[2,:] = fset.RW_seq(npts, Ca_0, sigma = sigma_Ca)
+# Input Temperature T_in            [°C]
+Tin_0 = 25.0                        # initial condition
+sigma_T = 0.1                       # variation
+U_val[3,:] = fset.RW_seq(npts, Tin_0, sigma = sigma_T)
+
+#### COLLECT DATA
+
+# Output Initial conditions
+Caout_0 = Ca_0
+Tout_0 = (ro*cp*U[0,0]*Tin_0 + U[1,0]*Lam)/(ro*cp*U[0,0])
+Xo1 = Caout_0*np.ones((1,npts))
+Xo2 = Tout_0*np.ones((1,npts))
+X_val = np.vstack((Xo1,Xo2))
+
+# Run Simulation
+for j in range(npts-1):  
+    # Explicit Runge-Kutta 4 (TC dynamics is integrateed by hand)        
+    Mx = 5                  # Number of elements in each time step
+    dt = ts/Mx              # integration step
+    # Output & Input
+    X0k = X_val[:,j]
+    Uk = U_val[:,j]
+    # Integrate the model
+    for i in range(Mx):         
+        k1 = Fdyn(X0k, Uk)
+        k2 = Fdyn(X0k + dt/2.0*k1, Uk)
+        k3 = Fdyn(X0k + dt/2.0*k2, Uk)
+        k4 = Fdyn(X0k + dt*k3, Uk)
+        Xk_1 = X0k + (dt/6.0)*(k1 + 2.0*k2 + 2.0*k3 + k4)
+    X_val[:,j+1] = Xk_1
+
+# Add noise (with assigned variances)
+var = [0.01, 0.05]    
+noise_val = fset.white_noise_var(npts,var)    
+
+# Build Output
+Y_val = X_val + noise_val
+
+
+# MODEL VALIDATION   
+        
+# ARX 
+Yv_arx = fset.validation(Id_ARX,U_val,Y_val,Time)
+
+# ARMAX
+Yv_armax = fset.validation(Id_ARMAX,U_val,Y_val,Time)
+
+
+# SS
+x_ss, Yv_ss = fsetSIM.SS_lsim_process_form(Id_SS.A,Id_SS.B,Id_SS.C,Id_SS.D,U_val,Id_SS.x0)
+
+
+##### PLOTS
+
+# Input
+plt.figure(3)
+str_input = ['F [m$^3$/min]', 'W [kg/min]', 'Ca$_{in}$ [kg/m$^3$]', 'T$_{in}$ [$^o$C]']
+for i in range(m):  
+    plt.subplot(m,1,i+1)
+    plt.plot(Time,U_val[i,:])
+    # plt.ylabel("Input " + str(i+1))
+    plt.ylabel(str_input[i])
+    plt.grid()
+    plt.xlabel("Time")
+    plt.axis([0, tfin, 0.95*np.amin(U_val[i,:]), 1.05*np.amax(U_val[i,:])])
+    if i == 0:
+        plt.title('validation')
+
+# Output
+plt.figure(4)
+str_output = ['Ca [kg/m$^3$]', 'T [$^o$C]']
+for i in range(p): 
+    plt.subplot(p,1,i+1)
+    plt.plot(Time,Y_val[i,:],'b')
+    plt.plot(Time,Yv_arx[i,:],'g')
+    plt.plot(Time,Yv_armax[i,:],'r')
+    plt.plot(Time,Yv_ss[i,:],'m')
+    # plt.ylabel("Output " + str(i+1))
+    plt.ylabel(str_output[i])
+    plt.legend(['Data','ARX','ARMAX','SS'])
+    plt.grid()
+    plt.xlabel("Time")
+    if i == 0:
+        plt.title('validation')

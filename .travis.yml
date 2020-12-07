@@ -19,3 +19,4 @@ script:
   - python ARMAX.py
   - python ARX_MIMO.py
   - python SS.py
+  - python example_CST.py

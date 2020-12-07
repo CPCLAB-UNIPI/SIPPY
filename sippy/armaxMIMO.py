@@ -5,7 +5,7 @@ Created on Sun Sep 10 2017
 @author: Giuseppe Armenise
 """
 from __future__ import absolute_import, division, print_function
-import control as cnt
+import control.matlab as cnt
 import sys
 from builtins import object
 

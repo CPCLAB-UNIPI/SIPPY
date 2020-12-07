@@ -21,20 +21,9 @@ except ImportError:
     from sippy import *
 
 import numpy as np
-import control
 import control.matlab as cnt
 from sippy import functionset as fset
-from distutils.version import StrictVersion
 
-if StrictVersion(control.__version__) >= StrictVersion('0.8.2'):
-	lsim = cnt.lsim
-else:
-	def lsim(sys, U = 0.0, T = None, X0 = 0.0):
-		U_ = U
-		if isinstance(U_, (np.ndarray, list)):
-			U_ = U_.T
-		return cnt.lsim(sys, U_, T, X0)
-		
 
 # generating transfer functions in z-transf.
 var_list = [50., 100., 1.]
@@ -119,10 +108,10 @@ Time = np.linspace(0, tfin, npts)
 #                                   #INPUT#
 Usim = np.zeros((4, npts))
 Usim_noise = np.zeros((4, npts))
-Usim[0, :] = fset.GBN_seq(npts, 0.03, [-0.33, 0.1])
-Usim[1, :] = fset.GBN_seq(npts, 0.03)
-Usim[2, :] = fset.GBN_seq(npts, 0.03, [2.3, 5.7])
-Usim[3, :] = fset.GBN_seq(npts, 0.03, [8., 11.5])
+[Usim[0, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [-0.33, 0.1])
+[Usim[1, :],_,_] = fset.GBN_seq(npts, 0.03)
+[Usim[2, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [2.3, 5.7])
+[Usim[3, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [8., 11.5])
 
 # Adding noise
 err_inputH = np.zeros((4, npts))
@@ -130,22 +119,22 @@ err_inputH = np.zeros((4, npts))
 err_inputH = fset.white_noise_var(npts, var_list)
 
 err_outputH = np.ones((3, npts))
-err_outputH1, Time, Xsim = lsim(H_sample1, err_inputH[0, :], Time)
-err_outputH2, Time, Xsim = lsim(H_sample2, err_inputH[1, :], Time)
-err_outputH3, Time, Xsim = lsim(H_sample3, err_inputH[2, :], Time)
+err_outputH1, Time, Xsim = cnt.lsim(H_sample1, err_inputH[0, :], Time)
+err_outputH2, Time, Xsim = cnt.lsim(H_sample2, err_inputH[1, :], Time)
+err_outputH3, Time, Xsim = cnt.lsim(H_sample3, err_inputH[2, :], Time)
 
-Yout11, Time, Xsim = lsim(g_sample11, Usim[0, :], Time)
-Yout12, Time, Xsim = lsim(g_sample12, Usim[1, :], Time)
-Yout13, Time, Xsim = lsim(g_sample13, Usim[2, :], Time)
-Yout14, Time, Xsim = lsim(g_sample14, Usim[3, :], Time)
-Yout21, Time, Xsim = lsim(g_sample21, Usim[0, :], Time)
-Yout22, Time, Xsim = lsim(g_sample22, Usim[1, :], Time)
-Yout23, Time, Xsim = lsim(g_sample23, Usim[2, :], Time)
-Yout24, Time, Xsim = lsim(g_sample24, Usim[3, :], Time)
-Yout31, Time, Xsim = lsim(g_sample31, Usim[0, :], Time)
-Yout32, Time, Xsim = lsim(g_sample32, Usim[1, :], Time)
-Yout33, Time, Xsim = lsim(g_sample33, Usim[2, :], Time)
-Yout34, Time, Xsim = lsim(g_sample34, Usim[3, :], Time)
+Yout11, Time, Xsim = cnt.lsim(g_sample11, Usim[0, :], Time)
+Yout12, Time, Xsim = cnt.lsim(g_sample12, Usim[1, :], Time)
+Yout13, Time, Xsim = cnt.lsim(g_sample13, Usim[2, :], Time)
+Yout14, Time, Xsim = cnt.lsim(g_sample14, Usim[3, :], Time)
+Yout21, Time, Xsim = cnt.lsim(g_sample21, Usim[0, :], Time)
+Yout22, Time, Xsim = cnt.lsim(g_sample22, Usim[1, :], Time)
+Yout23, Time, Xsim = cnt.lsim(g_sample23, Usim[2, :], Time)
+Yout24, Time, Xsim = cnt.lsim(g_sample24, Usim[3, :], Time)
+Yout31, Time, Xsim = cnt.lsim(g_sample31, Usim[0, :], Time)
+Yout32, Time, Xsim = cnt.lsim(g_sample32, Usim[1, :], Time)
+Yout33, Time, Xsim = cnt.lsim(g_sample33, Usim[2, :], Time)
+Yout34, Time, Xsim = cnt.lsim(g_sample34, Usim[3, :], Time)
 
 Ytot1 = Yout11 + Yout12 + Yout13 + Yout14 + err_outputH1
 Ytot2 = Yout21 + Yout22 + Yout23 + Yout24 + err_outputH2
@@ -157,7 +146,6 @@ Ytot[0, :] = Ytot1.squeeze()
 Ytot[1, :] = Ytot2.squeeze()
 Ytot[2, :] = Ytot3.squeeze()
 
-Ytot = np.column_stack([Ytot, np.ones((3, 1))])
 ##identification parameters
 ordersna = [na1, na2, na3]
 ordersnb = [[nb11, nb12, nb13, nb14], [nb21, nb22, nb23, nb24], [nb31, nb32, nb33, nb34]]
@@ -169,7 +157,7 @@ Id_sys = system_identification(Ytot, Usim, 'ARX', ARX_orders=[ordersna, ordersnb
 # output of the identified model
 # you can build g11, g12, etc. separately using the NUMERATOR and DENOMINATOR attributes
 # see how in the armax_MIMO example
-Yout_id, Time, Xsim = lsim(Id_sys.G, Usim, Time)
+Yout_id, Time, Xsim = cnt.lsim(Id_sys.G, Usim, Time)
 
 ######plot
 #  

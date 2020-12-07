@@ -40,7 +40,7 @@ Time = np.linspace(0, tfin, npts)
 
 # Input sequence
 U = np.zeros((1, npts))
-U[0] = fset.GBN_seq(npts, 0.05)
+[U[0],_,_] = fset.GBN_seq(npts, 0.05)
 
 ##Output
 x, yout = fsetSIM.SS_lsim_process_form(A, B, C, D, U)
