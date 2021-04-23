@@ -2,7 +2,7 @@
 """
 Created on Fri Jan 19 2018
 
-@author: Giuseppe Armenise
+@author: Giuseppe Armenise, revised by RBdC
 
 In this test, no error occurs. 
 Using method='N4SID','MOESP' or 'CVA', if the message
@@ -26,9 +26,15 @@ except ImportError:
 import numpy as np
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
+import matplotlib.pyplot as plt
 
+
+# Example to test SS-methods
+
+# sample time
 ts = 1.0
 
+# SISO SS system (n = 2)
 A = np.array([[0.89, 0.], [0., 0.45]])
 B = np.array([[0.3], [2.5]])
 C = np.array([[0.7, 1.]])
@@ -51,27 +57,30 @@ noise = fset.white_noise_var(npts, [0.15])
 # Output with noise
 y_tot = yout + noise
 
-##System identification
-method = 'N4SID'
-sys_id = system_identification(y_tot, U, method, SS_fixed_order=2)
-xid, yid = fsetSIM.SS_lsim_process_form(sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0)
-
-import matplotlib.pyplot as plt
-
+#
 plt.close("all")
 plt.figure(0)
-plt.plot(Time, y_tot[0])
-plt.plot(Time, yid[0])
-plt.ylabel("y_tot")
-plt.grid()
-plt.xlabel("Time")
-plt.title("Ytot")
-plt.legend(['Original system', 'Identified system, ' + method])
-
-plt.figure(1)
 plt.plot(Time, U[0])
 plt.ylabel("input")
 plt.grid()
 plt.xlabel("Time")
+#
+plt.figure(1)
+plt.plot(Time, y_tot[0])
+plt.ylabel("y_tot")
+plt.grid()
+plt.xlabel("Time")
+plt.title("Ytot")
 
-plt.show()
+##System identification
+METHOD = ['N4SID', 'CVA', 'MOESP', 'PARSIM-S', 'PARSIM-P', 'PARSIM-K']
+lege = ['System']
+for i in range(len(METHOD)):
+    method = METHOD[i]
+    sys_id = system_identification(y_tot, U, method, SS_fixed_order = 2 )
+    xid, yid = fsetSIM.SS_lsim_process_form(sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0)
+    #
+    plt.plot(Time, yid[0])
+    plt.show()
+    lege.append(method) 
+plt.legend(lege) 

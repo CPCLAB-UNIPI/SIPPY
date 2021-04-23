@@ -43,10 +43,8 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
         for k in range(N):
             phi[0:na] = -y[k + val - 1::-1][0:na]
             for nb_i in range(udim):
-                phi[na + np.sum(nb[0:nb_i]):na + np.sum(nb[0:nb_i + 1])] = u[nb_i, :][
-                                                                           val + k - 1::-1][
-                                                                           theta[nb_i]:nb[nb_i] +
-                                                                                       theta[nb_i]]
+                phi[na + np.sum(nb[0:nb_i]):na + np.sum(nb[0:nb_i + 1])] = \
+                    u[nb_i, :][val + k - 1::-1][theta[nb_i]:nb[nb_i] + theta[nb_i]]
             PHI[k, :] = phi
         Vn = np.inf
         Vn_old = np.inf
@@ -108,6 +106,7 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1., max_iterations=100):
     [udim, ulength] = u.shape
     [th1, th2] = theta.shape
     # check dimension
+    sum_ords = np.sum(nb) + np.sum(na) + np.sum(nc) + np.sum(theta)
     if na.size != ydim:
         sys.exit("Error! na must be a vector, whose length must be equal to y dimension")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
@@ -120,8 +119,8 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1., max_iterations=100):
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
-    elif (np.issubdtype((np.sum(nb) + np.sum(na) + np.sum(nc) + np.sum(theta)), int) and np.min(
-            nb) >= 0 and np.min(na) >= 0 and np.min(nc) >= 0 and np.min(theta) >= 0) == False:
+    elif ((np.issubdtype(sum_ords, np.signedinteger) or np.issubdtype(sum_ords, np.unsignedinteger)) 
+          and np.min(nb) >= 0 and np.min(na) >= 0 and np.min(nc) >= 0 and np.min(theta) >= 0) == False:
         sys.exit("Error! na, nb, nc, theta must contain only positive integer elements")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:

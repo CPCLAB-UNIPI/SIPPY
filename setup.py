@@ -5,7 +5,7 @@ with open('README.md', 'r') as f:
 
 setuptools.setup(
 	name="sippy",
-	version="0.1.1",
+	version="0.2.0",
 	author="Giuseppe Armenise",
 	description="Systems Identification Package for Python",
 	long_description=readme,
@@ -18,7 +18,8 @@ setuptools.setup(
 		"scipy",
 		"control",
 		"slycot",
-		"future"),
+		"future",
+		"casadi"),
 	classifiers=(
 		"Development Status :: 4 - Beta",
 		"Intended Audience :: Education",

@@ -4,3 +4,4 @@ control
 slycot
 future
 pytest
+casadi

@@ -53,8 +53,9 @@ def select_order_ARX(y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], delays=[0, 
     theta_Min = min(delays)
     theta_Max = max(delays) + 1
     # check orders
-    if (np.issubdtype(np.sum(na_Min + na_MAX + nb_Min + nb_MAX + theta_Min + theta_Max),
-                      int) and na_Min >= 0 and nb_Min > 0 and theta_Min >= 0) == False:
+    sum_ords = np.sum(na_Min + na_MAX + nb_Min + nb_MAX + theta_Min + theta_Max)
+    if ((np.issubdtype(sum_ords, np.signedinteger) or np.issubdtype(sum_ords, np.unsignedinteger)) 
+        and na_Min >= 0 and nb_Min > 0 and theta_Min >= 0) == False:
         sys.exit("Error! na, theta must be positive integers, nb must be strictly positive integer")
     #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     elif y.size != u.size:

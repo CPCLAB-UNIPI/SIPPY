@@ -15,6 +15,7 @@ from __future__ import division         # compatibility layer between Python 2 a
 from past.utils import old_div
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
+from sippy import functionset_OPT as fset_OPT
 from sippy import *
 #
 #
@@ -26,7 +27,7 @@ import matplotlib.pyplot as plt
 ts = 1.         # [min]
 
 # time settings (t final, samples number, samples vector)
-tfin = 4000
+tfin = 1000
 npts = int(old_div(tfin,ts)) + 1
 Time = np.linspace(0, tfin, npts)
 
@@ -59,7 +60,7 @@ m = 4
 p = 2 
 
 
-# Function with System Dynamics
+# Function with Nonlinear System Dynamics
 def Fdyn(X,U):
     # Balances
     
@@ -143,24 +144,33 @@ noise = fset.white_noise_var(npts,var)
 Y = X + noise
 
 
-#### IDENTIFICATION STAGE
+#### IDENTIFICATION STAGE (Linear Models)
 
-# ARX - mimo
-na_ords = [5,5] 
-nb_ords = [[3,1,3,1], [3,3,1,3]]
-theta = [[0,0,0,0], [0,0,0,0]]
-# call id
-Id_ARX = system_identification(Y, U, 'ARX', centering = 'MeanVal', ARX_orders = [na_ords, nb_ords, theta])
-
-# ARMAX - mimo
-na_ords = [5,5] 
-nb_ords = [[2,2,2,2], [2,2,2,2]]
-nc_ords = [3,3]
+# Orders
+na_ords = [2,2] 
+nb_ords = [[1,1,1,1], [1,1,1,1]]
+nc_ords = [1,1]
+nd_ords = [1,1]
+nf_ords = [2,2] 
 theta = [[1,1,1,1], [1,1,1,1]]
 # Number of iterations
 n_iter = 300
-# call id
-Id_ARMAX = system_identification(Y, U, 'ARMAX', centering = 'InitVal', ARMAX_orders = [na_ords, nb_ords, nc_ords, theta], ARMAX_max_iterations = n_iter)
+
+# IN-OUT Models: ARX - ARMAX - OE - BJ - GEN
+
+Id_ARX = system_identification(Y, U, 'ARX', centering = 'MeanVal', ARX_orders = [na_ords, nb_ords, theta])
+
+Id_ARMAX = system_identification(Y, U, 'ARMAX', centering = 'MeanVal', 
+                                 ARMAX_orders = [na_ords, nb_ords, nc_ords, theta], max_iterations = n_iter, ARMAX_mod = 'OPT')
+
+Id_OE = system_identification(Y, U, 'OE', centering = 'MeanVal', OE_orders = [nb_ords, nf_ords, theta], max_iterations = n_iter)
+
+Id_BJ = system_identification(Y, U, 'BJ', centering = 'MeanVal', 
+                              BJ_orders = [nb_ords, nc_ords, nd_ords, nf_ords, theta], max_iterations = n_iter, stab_cons = True)
+
+Id_GEN = system_identification(Y, U, 'GEN', centering = 'MeanVal', 
+                               GEN_orders = [na_ords, nb_ords, nc_ords, nd_ords, nf_ords, theta], 
+                               max_iterations = n_iter, stab_cons = True, stab_marg = 0.98)
 
 # SS - mimo
 # choose method
@@ -169,10 +179,12 @@ SS_ord = 2
 Id_SS = system_identification(Y, U, method, SS_fixed_order = SS_ord)
 
 # GETTING RESULTS (Y_id)
-# ARX
+# IN-OUT
 Y_arx = Id_ARX.Yid
-# ARMAX    
-Y_armax = Id_ARMAX.Yid
+Y_armax = Id_ARMAX.Yid    
+Y_oe = Id_OE.Yid
+Y_bj = Id_BJ.Yid
+Y_gen = Id_GEN.Yid
 # SS
 x_ss, Y_ss = fsetSIM.SS_lsim_process_form(Id_SS.A,Id_SS.B,Id_SS.C,Id_SS.D,U,Id_SS.x0)
 
@@ -200,13 +212,19 @@ plt.figure(2)
 str_output = ['Ca [kg/m$^3$]', 'T [$^o$C]']
 for i in range(p): 
     plt.subplot(p,1,i+1)
-    plt.plot(Time,Y[i,:],'b')
-    plt.plot(Time,Y_arx[i,:],'g')
-    plt.plot(Time,Y_armax[i,:],'r')
-    plt.plot(Time,Y_ss[i,:],'m')
+    plt.plot(Time,Y[i,:])
+    plt.plot(Time,Y_arx[i,:])
+    #plt.plot(Time,Y_arma[i,:])
+    plt.plot(Time,Y_armax[i,:])
+    # plt.plot(Time,Y_ararx[i,:])
+    # plt.plot(Time,Y_ararmax[i,:])
+    plt.plot(Time,Y_oe[i,:])
+    plt.plot(Time,Y_bj[i,:])
+    plt.plot(Time,Y_gen[i,:])
+    plt.plot(Time,Y_ss[i,:])
     plt.ylabel("Output " + str(i+1))
     plt.ylabel(str_output[i])
-    plt.legend(['Data','ARX','ARMAX','SS'])
+    plt.legend(['Data','ARX','ARMAX','OE','BJ', 'GEN','SS'])
     plt.grid()
     plt.xlabel("Time")
     if i == 0:
@@ -217,6 +235,7 @@ for i in range(p):
 
 # Build new input sequences 
 U_val = np.zeros((m,npts))
+# U_val = U.copy()
   
 # manipulated inputs as GBN
 # Input Flow rate Fin = F = U[0]    [m^3/min]
@@ -277,14 +296,13 @@ Y_val = X_val + noise_val
 
 
 # MODEL VALIDATION   
-        
-# ARX 
-Yv_arx = fset.validation(Id_ARX,U_val,Y_val,Time)
-
-# ARMAX
-Yv_armax = fset.validation(Id_ARMAX,U_val,Y_val,Time)
-
-
+       
+# IN-OUT Models: ARX - ARMAX - OE - BJ 
+Yv_arx = fset.validation(Id_ARX,U_val,Y_val,Time, centering = 'MeanVal')
+Yv_armax = fset.validation(Id_ARMAX,U_val,Y_val,Time,centering = 'MeanVal')
+Yv_oe = fset.validation(Id_OE,U_val,Y_val,Time,centering = 'MeanVal')
+Yv_bj = fset.validation(Id_BJ,U_val,Y_val,Time,centering = 'MeanVal')
+Yv_gen = fset.validation(Id_GEN,U_val,Y_val,Time, centering = 'MeanVal')
 # SS
 x_ss, Yv_ss = fsetSIM.SS_lsim_process_form(Id_SS.A,Id_SS.B,Id_SS.C,Id_SS.D,U_val,Id_SS.x0)
 
@@ -310,14 +328,31 @@ plt.figure(4)
 str_output = ['Ca [kg/m$^3$]', 'T [$^o$C]']
 for i in range(p): 
     plt.subplot(p,1,i+1)
-    plt.plot(Time,Y_val[i,:],'b')
-    plt.plot(Time,Yv_arx[i,:],'g')
-    plt.plot(Time,Yv_armax[i,:],'r')
-    plt.plot(Time,Yv_ss[i,:],'m')
+    plt.plot(Time,Y_val[i,:])
+    #plt.plot(Time,Yv_fir[i,:])
+    plt.plot(Time,Yv_arx[i,:])
+    # plt.plot(Time,Yv_arma[i,:])
+    plt.plot(Time,Yv_armax[i,:])
+    # plt.plot(Time,Yv_ararx[i,:])
+    # plt.plot(Time,Yv_ararmax[i,:])
+    plt.plot(Time,Yv_oe[i,:])
+    plt.plot(Time,Yv_bj[i,:])
+    plt.plot(Time,Yv_gen[i,:])
+    plt.plot(Time,Yv_ss[i,:])
     # plt.ylabel("Output " + str(i+1))
     plt.ylabel(str_output[i])
-    plt.legend(['Data','ARX','ARMAX','SS'])
+    plt.legend(['Data','ARX','ARMAX','OE','BJ','GEN','SS'])
+    # plt.legend(['Data','ARX','ARMAX','GEN','SS'])
+    #plt.legend(['Data','ARMAX'])
     plt.grid()
     plt.xlabel("Time")
     if i == 0:
         plt.title('validation')
+        
+
+
+
+
+
+
+

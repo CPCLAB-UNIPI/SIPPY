@@ -141,12 +141,13 @@ def information_criterion(K, N, Variance, method='AIC'):
 def mean_square_error(predictions, targets):
     return ((predictions - targets) ** 2).mean()
 
-# Function for model validation (one-step ahead predictor)
+# Function for model validation (one-step and k-step ahead predictor)
 # SYS: system to validate (identified ARX or ARMAX model)     
 # u: input data
 # y: output data
-# Time: time sequence    
-def validation(SYS,u,y,Time):
+# Time: time sequence
+# k: k-step ahead     
+def validation(SYS,u,y,Time, k = 1, centering = 'None'):
     # check dimensions
     y = 1. * np.atleast_2d(y)
     u = 1. * np.atleast_2d(u)
@@ -156,19 +157,70 @@ def validation(SYS,u,y,Time):
     if ylength == n1:
         y = y.T
     [n1, n2] = u.shape
-    ulength = max(n1, n2)
+    udim = min(n1, n2)
+    ulength = max(n1, n2)  
     if ulength == n1:
         u = u.T
     
-    # one-step ahead predictor (MISO approach)   
     Yval = np.zeros((ydim,ylength))
-    # centering inputs and outputs on 0
+    
+    # Data centering
+    #y_rif = np.zeros(ydim)
+    #u_rif = np.zeros(udim)
+    if centering == 'InitVal':
+        y_rif = 1. * y[:, 0]
+        u_rif = 1. * u[:, 0]
+    elif centering == 'MeanVal':
+        for i in range(ydim):
+            y_rif = np.mean(y,1)
+            #y_rif[i] = np.mean(y[i, :])
+        for i in range(udim):
+            u_rif = np.mean(u,1)
+            #u_rif[i] = np.mean(u[i, :])
+    elif centering == 'None':
+        y_rif = np.zeros(ydim)
+        u_rif = np.zeros(udim)
+    else:
+    # elif centering != 'None':
+        sys.stdout.write("\033[0;35m")
+        print("Warning! \'Centering\' argument is not valid, its value has been reset to \'None\'")
+        sys.stdout.write(" ")   
+    
+    # MISO approach  
+    # centering inputs and outputs
     for i in range(u.shape[0]):
-        u[i,:] = u[i,:] - u[i,0]
+        u[i,:] = u[i,:] - u_rif[i]
     for i in range(ydim):
-        Y_u, T, Xv = cnt.lsim((1/SYS.H[i,0])*SYS.G[i,:], u, Time)
-        Y_y, T, Xv = cnt.lsim(1 - (1/SYS.H[i,0]), y[i,:] - y[i,0], Time)
-        Yval[i,:] = np.atleast_2d(Y_u + Y_y + y[i,0])
+        # one-step ahead predictor 
+        if k == 1:
+            Y_u, T, Xv = cnt.lsim((1/SYS.H[i,0])*SYS.G[i,:], u, Time)
+            Y_y, T, Xv = cnt.lsim(1 - (1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
+            Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i])
+        else:
+        # k-step ahead predictor
+            # impulse response of disturbance model H
+            hout, T = cnt.impulse(SYS.H[i,0], Time)
+            # extract first k-1 coefficients
+            h_k_num = hout[0:k]
+            # set denumerator
+            h_k_den = np.hstack((np.ones((1,1)), np.zeros((1,k-1))))
+            # FdT of impulse response
+            Hk = cnt.tf(h_k_num,h_k_den[0],SYS.ts)
+            # plot impulse response
+            # plt.subplot(ydim,1,i+1)
+            # plt.plot(Time,hout)
+            # plt.grid()
+            # if i == 0:
+            #     plt.title('Impulse Response')
+            # plt.ylabel("h_j ")
+            # plt.xlabel("Time [min]")
+            # k-step ahead prediction
+            Y_u, T, Xv = cnt.lsim(Hk*(1/SYS.H[i,0])*SYS.G[i,:], u, Time)
+            #Y_y, T, Xv = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y[i,0], Time)
+            Y_y, T, Xv = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
+            #Yval[i,:] = np.atleast_2d(Y_u + Y_y + y[i,0])
+            Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i]) 
+      
     return Yval
 
 

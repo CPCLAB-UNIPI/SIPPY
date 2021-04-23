@@ -78,6 +78,7 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.):
     [udim, ulength] = u.shape
     [th1, th2] = theta.shape
     # check dimensions
+    sum_ords = np.sum(nb) + np.sum(na) + np.sum(theta)
     if na.size != ydim:
         sys.exit("Error! na must be a vector, whose length must be equal to y dimension")
     #        return 0.,0.,0.,0.,np.inf
@@ -87,8 +88,8 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.):
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,np.inf
-    elif (np.issubdtype((np.sum(nb) + np.sum(na) + np.sum(theta)), int) and np.min(
-            nb) >= 0 and np.min(na) >= 0 and np.min(theta) >= 0) == False:
+    elif ((np.issubdtype(sum_ords, np.signedinteger) or np.issubdtype(sum_ords, np.unsignedinteger)) 
+          and np.min(nb) >= 0 and np.min(na) >= 0 and np.min(theta) >= 0) == False:
         sys.exit("Error! na, nb, theta must contain only positive integer elements")
     #        return 0.,0.,0.,0.,np.inf
     else:
