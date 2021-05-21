@@ -195,7 +195,8 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
         if k == 1:
             Y_u, T, Xv = cnt.lsim((1/SYS.H[i,0])*SYS.G[i,:], u, Time)
             Y_y, T, Xv = cnt.lsim(1 - (1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
-            Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i])
+            #Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i])
+            Yval[i,:] = (Y_u.T + np.atleast_2d(Y_y) + y_rif[i])
         else:
         # k-step ahead predictor
             # impulse response of disturbance model H
