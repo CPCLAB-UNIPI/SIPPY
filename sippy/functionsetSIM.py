@@ -5,7 +5,7 @@ Created on Sun Oct 08 2017
 @author: Giuseppe Armenise
 """
 from __future__ import absolute_import, print_function
-from harold import lqr
+from scipy.linalg import solve_discrete_are
 import math
 from .functionset import *
 # from functionset import *
@@ -147,9 +147,53 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0='None'):
     return x, y_hat
 
 
-def K_calc(G, Q, R, S):
+def ssmatrix(data, axis=1):
+    """Convert argument to a (possibly empty) state space matrix.
+
+    Parameters
+    ----------
+    data : array, list, or string
+        Input data defining the contents of the 2D array
+    axis : 0 or 1
+        If input data is 1D, which axis to use for return object.  The default
+        is 1, corresponding to a row matrix.
+
+    Returns
+    -------
+    arr : 2D array, with shape (0, 0) if a is empty
+
+    """
+  
+    arr = np.array(data, dtype=float)
+    ndim = arr.ndim
+    shape = arr.shape
+
+    # Change the shape of the array into a 2D array
+    if (ndim > 2):
+        raise ValueError("state-space matrix must be 2-dimensional")
+
+    elif (ndim == 2 and shape == (1, 0)) or \
+         (ndim == 1 and shape == (0, )):
+        # Passed an empty matrix or empty vector; change shape to (0, 0)
+        shape = (0, 0)
+
+    elif ndim == 1:
+        # Passed a row or column vector
+        shape = (1, shape[0]) if axis == 1 else (shape[0], 1)
+
+    elif ndim == 0:
+        # Passed a constant; turn into a matrix
+        shape = (1, 1)
+
+    #  Create the actual object used to store the result
+    return arr.reshape(shape)
+
+def K_calc(A, C, Q, R, S):
     try:
-        K, X, eigs = lqr(G, Q, R, S)
+        X = solve_discrete_are(A.T, C.T, Q, R)
+        P = ssmatrix(X)
+        K = np.dot(np.dot(A, P), C.T) + S
+        K = np.dot(K, np.linalg.inv(np.dot(np.dot(C, P), C.T) + R))
         Calculated = True
     except:
         K = []

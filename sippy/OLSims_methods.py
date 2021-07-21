@@ -118,8 +118,8 @@ def OLSims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.NaN, fixed_orde
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
                 
         Vn = Vn_mat(y, Y_estimate)
-        ss_sys = State(A, B, C, D, dt=1)
-        K, K_calculated = K_calc(ss_sys, Q, R, S)
+
+        K, K_calculated = K_calc(A, C, Q, R, S)
         for j in range(m):
             B[:, j] = old_div(B[:, j], Ustd[j])
             D[:, j] = old_div(D[:, j], Ustd[j])
@@ -202,8 +202,8 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
         Q = Covariances[0:n, 0:n]
         R = Covariances[n::, n::]
         S = Covariances[0:n, n::]
-        G = State(A, B, C, D, dt=1)
-        K, K_calculated = K_calc(G, Q, R, S)
+
+        K, K_calculated = K_calc(A, C, Q, R, S)
         for j in range(m):
             B[:, j] = old_div(B[:, j], Ustd[j])
             D[:, j] = old_div(D[:, j], Ustd[j])
