@@ -193,9 +193,9 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
     for i in range(ydim):
         # one-step ahead predictor 
         if k == 1:
-            Y_u, T = simulate_linear_system((1/SYS.H[i,0])*SYS.G[i,:], u, Time)
+            Y_u, T = simulate_linear_system((1/SYS.H[i,0])*SYS.G[i,:], u.T , Time)
             Y_y, T = simulate_linear_system(1 - (1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
-            Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i])
+            Yval[i,:] = (Y_u + Y_y + y_rif[i])[:,0]
         else:
         # k-step ahead predictor
             # impulse response of disturbance model H
@@ -216,7 +216,7 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
             # plt.ylabel("h_j ")
             # plt.xlabel("Time [min]")
             # k-step ahead prediction
-            Y_u, T = simulate_linear_system(Hk*(1/SYS.H[i,0])*SYS.G[i,:], u, Time)
+            Y_u, T = simulate_linear_system(Hk*(1/SYS.H[i,0])*SYS.G[i,:], u.T, Time)
             #Y_y, T, Xv = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y[i,0], Time)
             Y_y, T = simulate_linear_system(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
             #Yval[i,:] = np.atleast_2d(Y_u + Y_y + y[i,0])
