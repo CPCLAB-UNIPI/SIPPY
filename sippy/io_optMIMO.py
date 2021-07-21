@@ -5,7 +5,7 @@ Created on 2021
 @author: RBdC
 """
 from __future__ import absolute_import, division, print_function
-import control.matlab as cnt
+from harold import Transfer
 import sys
 from builtins import object
 
@@ -101,18 +101,18 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
         # DENH[0, 0] = 1.
         # DENH[0, 1:nd + 1] = THETA[Nb+na+nc:Nb+na+nc+nd]
         
-        A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])),1)
-        D = cnt.tf(np.hstack((1, np.zeros((nd)))), np.hstack((1, THETA[na+Nb+nc:na+Nb+nc+nd])),1)
+        A = Transfer(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])),1)
+        D = Transfer(np.hstack((1, np.zeros((nd)))), np.hstack((1, THETA[na+Nb+nc:na+Nb+nc+nd])),1)
     
-        _, denh = cnt.tfdata(A*D)
+        _, denh = tfdata(A*D)
         denH = np.array(denh[0])
         DENH = np.zeros((1, valH + 1))
         DENH[0, 0:na+nd+1] = denH
         
          # G = (B/(A*F))
-        F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+Nb+nc+nd:na+Nb+nc+nd+nf])),1)
+        F = Transfer(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+Nb+nc+nd:na+Nb+nc+nd+nf])),1)
     
-        _, deng = cnt.tfdata(A*F)      
+        _, deng = tfdata(A*F)      
         denG = np.array(deng[0])
         DEN = np.zeros((udim, valG + 1))    
         #DEN = np.zeros((udim, den.shape[1] + 1))
@@ -205,14 +205,14 @@ def GEN_MIMO_id(id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterati
             Vn_tot = Vn + Vn_tot
             Y_id[i,:] = y_id
         # FdT
-        G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
-        H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
+        G = Transfer(NUMERATOR, DENOMINATOR, tsample)
+        H = Transfer(NUMERATOR_H, DENOMINATOR_H, tsample)
         
-        check_st_H = np.zeros(1) if id_method == 'OE' else np.abs(cnt.pole(H))
-        if max(np.abs(cnt.pole(G))) > 1.0 or max(check_st_H) > 1.0:
+        check_st_H = np.zeros(1) if id_method == 'OE' else np.abs(H.poles)
+        if max(np.abs(G.poles)) > 1.0 or max(check_st_H) > 1.0:
             print("Warning: One of the identified system is not stable")
             if st_c is True:
-                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))} \
+                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(H.poles)),max(np.abs(G.poles)))} \
                       ... against the imposed stability margin {st_m}")
                            
         return DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Y_id

@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 from builtins import object
-
+from harold import State
 import scipy as sc
 from .functionsetSIM import *
 from numpy.linalg import pinv  
@@ -608,7 +608,7 @@ class SS_PARSIM_model(object):
         self.D = D
         self.Vn = Vn
         self.K = K
-        self.G = cnt.ss(A, B, C, D, ts)
+        self.G = State(A, B, C, D, ts)
         self.ts = ts
         self.x0 = x0
         self.A_K = A_K

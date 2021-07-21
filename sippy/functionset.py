@@ -12,7 +12,7 @@ from builtins import range
 import numpy as np
 from past.utils import old_div
 
-import control.matlab as cnt
+from harold import Transfer, simulate_linear_system, simulate_impulse_response, State, state_to_transfer
 
 
 # function which generates a sequence of inputs GBN
@@ -193,19 +193,20 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
     for i in range(ydim):
         # one-step ahead predictor 
         if k == 1:
-            Y_u, T, Xv = cnt.lsim((1/SYS.H[i,0])*SYS.G[i,:], u, Time)
-            Y_y, T, Xv = cnt.lsim(1 - (1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
+            Y_u, T = simulate_linear_system((1/SYS.H[i,0])*SYS.G[i,:], u, Time)
+            Y_y, T = simulate_linear_system(1 - (1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
             Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i])
         else:
         # k-step ahead predictor
             # impulse response of disturbance model H
-            hout, T = cnt.impulse(SYS.H[i,0], Time)
+            hout, T = simulate_impulse_response(SYS.H[i,0], Time)
+            hout = hout * SYS.H[i,0].SamplingPeriod
             # extract first k-1 coefficients
             h_k_num = hout[0:k]
             # set denumerator
             h_k_den = np.hstack((np.ones((1,1)), np.zeros((1,k-1))))
             # FdT of impulse response
-            Hk = cnt.tf(h_k_num,h_k_den[0],SYS.ts)
+            Hk = Transfer(h_k_num,h_k_den[0],SYS.ts)
             # plot impulse response
             # plt.subplot(ydim,1,i+1)
             # plt.plot(Time,hout)
@@ -215,14 +216,22 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
             # plt.ylabel("h_j ")
             # plt.xlabel("Time [min]")
             # k-step ahead prediction
-            Y_u, T, Xv = cnt.lsim(Hk*(1/SYS.H[i,0])*SYS.G[i,:], u, Time)
+            Y_u, T = simulate_linear_system(Hk*(1/SYS.H[i,0])*SYS.G[i,:], u, Time)
             #Y_y, T, Xv = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y[i,0], Time)
-            Y_y, T, Xv = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
+            Y_y, T = simulate_linear_system(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
             #Yval[i,:] = np.atleast_2d(Y_u + Y_y + y[i,0])
             Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i]) 
       
     return Yval
 
-
-
-    
+def tfdata(sys):
+    if isinstance(sys, Transfer):
+        num = sys.num
+        den = sys.den
+    elif isinstance(sys, State):
+        num, den = state_to_transfer(sys, output='polynomials')
+    else:
+        num = []
+        den = []
+        print(f'Expected object type Transfer or State but recives {type(sys)}')
+    return num, den

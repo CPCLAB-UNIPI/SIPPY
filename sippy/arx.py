@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 from builtins import object
-import control.matlab as cnt
+from harold import Transfer
 from .functionset import *
 # from functionset import *
 
@@ -79,8 +79,8 @@ def select_order_ARX(y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], delays=[0, 
         Y_id = np.atleast_2d(y_id) * ystd
         NUM[theta_min:nb_min + theta_min] = NUM[theta_min:nb_min + theta_min] * ystd / Ustd
         # FdT
-        g_identif = cnt.tf(NUM, DEN, tsample)
-        h_identif = cnt.tf(NUMH, DEN, tsample)
+        g_identif = Transfer(NUM, DEN, tsample)
+        h_identif = Transfer(NUMH, DEN, tsample)
         return na_min, nb_min, theta_min, g_identif, h_identif, NUM, DEN, Vn, Y_id
 
 

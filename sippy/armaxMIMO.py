@@ -5,7 +5,7 @@ Created on Sun Sep 10 2017
 @author: Giuseppe Armenise
 """
 from __future__ import absolute_import, division, print_function
-import control.matlab as cnt
+from harold import Transfer
 import sys
 from builtins import object
 
@@ -146,8 +146,8 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1., max_iterations=100):
             Vn_tot = Vn + Vn_tot
             Y_id[i,:] = y_id
         # FdT
-        G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
-        H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
+        G = Transfer(NUMERATOR, DENOMINATOR, tsample)
+        H = Transfer(NUMERATOR_H, DENOMINATOR_H, tsample)
         return DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Y_id
 
 

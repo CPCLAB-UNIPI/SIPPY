@@ -5,7 +5,7 @@ Created on Sun Oct 08 2017
 @author: Giuseppe Armenise
 """
 from __future__ import absolute_import, print_function
-import control.matlab as cnt
+from harold import lqr
 import math
 from .functionset import *
 # from functionset import *
@@ -147,12 +147,9 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0='None'):
     return x, y_hat
 
 
-def K_calc(A, C, Q, R, S):
-    n_A = A[0, :].size
+def K_calc(G, Q, R, S):
     try:
-        P, L, G = cnt.dare(A.T, C.T, Q, R, S, np.identity(n_A))
-        K = np.dot(np.dot(A, P), C.T) + S
-        K = np.dot(K, np.linalg.inv(np.dot(np.dot(C, P), C.T) + R))
+        K, X, eigs = lqr(G, Q, R, S)
         Calculated = True
     except:
         K = []

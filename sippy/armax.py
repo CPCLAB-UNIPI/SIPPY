@@ -5,7 +5,7 @@ Created on Fri Jul 28 2017
 @author: Giuseppe Armenise
 """
 from __future__ import absolute_import, division, print_function
-import control.matlab as cnt
+from harold import Transfer
 from builtins import object
 import warnings
 
@@ -273,7 +273,7 @@ class Armax(object):
         G_num_opt[self.delay:self.nb + self.delay] = \
             G_num_opt[self.delay:self.nb + self.delay] * y_std / u_std
 
-        self.G = cnt.tf(G_num_opt, G_den_opt, self.dt)
-        self.H = cnt.tf(H_num_opt, H_den_opt, self.dt)
+        self.G = Transfer(G_num_opt, G_den_opt, self.dt)
+        self.H = Transfer(H_num_opt, H_den_opt, self.dt)
         print(self)
 

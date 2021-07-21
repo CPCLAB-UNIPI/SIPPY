@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 from builtins import object
-import control.matlab as cnt
+from harold import Transfer
 from .functionset import *
 from .functionset_OPT import *
 # from functionset import *
@@ -117,13 +117,13 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         ng = nf if id_method == 'OE' else na
         NUM[theta:nb + theta] = THETA[ng:nb+ng]
     # denG (A*F)
-    A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])),1)
+    A = Transfer(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])),1)
     
     if id_method == 'OE':
-        F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[:nf])),1)
+        F = Transfer(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[:nf])),1)
     else:
-        F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+Nb+nc+nd:na+Nb+nc+nd+nf])),1)
-    _, deng = cnt.tfdata(A*F) 
+        F = Transfer(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+Nb+nc+nd:na+Nb+nc+nd+nf])),1)
+    _, deng = tfdata(A*F) 
     denG = np.array(deng[0])
     DEN = np.zeros(valG + 1)
     DEN[0:na+nf+1] = denG
@@ -137,8 +137,8 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         NUMH[0] = 1.
         NUMH[1:nc + 1] = THETA[na+nb:na+nb+nc]
     # denH (A*D)
-    D = cnt.tf(np.hstack((1, np.zeros((nd)))), np.hstack((1, THETA[na+nb+nc:na+nb+nc+nd])),1)
-    _, denh = cnt.tfdata(A*D)
+    D = Transfer(np.hstack((1, np.zeros((nd)))), np.hstack((1, THETA[na+nb+nc:na+nb+nc+nd])),1)
+    _, denh = tfdata(A*D)
     denH = np.array(denh[0])
     DENH = np.zeros(valH + 1)
     DENH[0:na+nd+1] = denH
@@ -196,8 +196,8 @@ def select_order_GEN(id_method, y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], 
         NUM[theta_min:nb_min + theta_min] = NUM[theta_min:nb_min + theta_min] * ystd / Ustd
         
         # FdT
-        g_identif = cnt.tf(NUM, DEN, tsample)
-        h_identif = cnt.tf(NUMH, DENH, tsample)
+        g_identif = Transfer(NUM, DEN, tsample)
+        h_identif = Transfer(NUMH, DENH, tsample)
         return na_min, nb_min, nc_min, nd_min, nf_min, theta_min, g_identif, h_identif, NUM, DEN, Vn, Y_id
 
 

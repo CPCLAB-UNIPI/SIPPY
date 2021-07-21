@@ -14,7 +14,6 @@ from builtins import range
 import numpy as np
 from past.utils import old_div
 
-import control.matlab as cnt
 
 from casadi import *
 from casadi.tools import *

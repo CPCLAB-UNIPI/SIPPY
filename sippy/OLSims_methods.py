@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 from builtins import object
-
+from harold import State
 import scipy as sc
 from numpy.linalg import pinv  
 
@@ -118,8 +118,8 @@ def OLSims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.NaN, fixed_orde
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
                 
         Vn = Vn_mat(y, Y_estimate)
-        
-        K, K_calculated = K_calc(A, C, Q, R, S)
+        ss_sys = State(A, B, C, D, dt=1)
+        K, K_calculated = K_calc(ss_sys, Q, R, S)
         for j in range(m):
             B[:, j] = old_div(B[:, j], Ustd[j])
             D[:, j] = old_div(D[:, j], Ustd[j])
@@ -227,7 +227,7 @@ class SS_model(object):
         self.R = R
         self.S = S
         self.K = K
-        self.G = cnt.ss(A, B, C, D, ts)
+        self.G = State(A, B, C, D, ts)
         self.ts = ts
         self.x0 = np.zeros((A[:, 0].size, 1))
         try:

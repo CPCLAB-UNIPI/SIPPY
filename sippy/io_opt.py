@@ -8,7 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 from builtins import object
-import control.matlab as cnt
+from harold import Transfer
 from .functionset import *
 from .functionset_OPT_new import *
 # from functionset import *
@@ -68,9 +68,9 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
         NUM = np.zeros(valG)
         NUM[theta:nb + theta] = THETA[na:nb+na]
     # denG (A*F)
-    A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])),1)
-    F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+nb+nc+nd:na+nb+nc+nd+nf])),1)
-    _, deng = cnt.tfdata(A*F) 
+    A = Transfer(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])),1)
+    F = Transfer(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+nb+nc+nd:na+nb+nc+nd+nf])),1)
+    _, deng = tfdata(A*F) 
     denG = np.array(deng[0])
     DEN = np.zeros(valG + 1)
     DEN[0:na+nf+1] = denG
@@ -84,8 +84,8 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
         NUMH[0] = 1.
         NUMH[1:nc + 1] = THETA[na+nb:na+nb+nc]
     # denH (A*D)
-    D = cnt.tf(np.hstack((1, np.zeros((nd)))), np.hstack((1, THETA[na+nb+nc:na+nb+nc+nd])),1)
-    _, denh = cnt.tfdata(A*D)
+    D = Transfer(np.hstack((1, np.zeros((nd)))), np.hstack((1, THETA[na+nb+nc:na+nb+nc+nd])),1)
+    _, denh = tfdata(A*D)
     denH = np.array(denh[0])
     DENH = np.zeros(valH + 1)
     DENH[0:na+nd+1] = denH
@@ -143,17 +143,17 @@ def select_order_GEN(id_method, y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], 
             NUM[theta_min:nb_min + theta_min] = NUM[theta_min:nb_min + theta_min] * ystd / Ustd
         
         # FdT
-        G = cnt.tf(NUM, DEN, tsample)
-        H = cnt.tf(NUMH, DENH, tsample)
+        G = Transfer(NUM, DEN, tsample)
+        H = Transfer(NUMH, DENH, tsample)
         
-        check_st_H = np.zeros(1) if id_method == 'OE' else np.abs(cnt.pole(H))
-        if max(np.abs(cnt.pole(G))) > 1.0 or max(check_st_H) > 1.0:
+        check_st_H = np.zeros(1) if id_method == 'OE' else np.abs(H.poles)
+        if max(np.abs(G.poles)) > 1.0 or max(check_st_H) > 1.0:
             print("Warning: One of the identified system is not stable")
             if st_c is True:
-                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))} \
+                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(H.poles)),max(np.abs(G.poles)))} \
                           ... against the imposed stability margin {st_m}")
             else:
-                print(f"Consider activating the stability constraint. The maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))}  ")
+                print(f"Consider activating the stability constraint. The maximum pole is {max(max(np.abs(H.poles)),max(np.abs(G.poles)))}  ")
          
         return na_min, nb_min, nc_min, nd_min, nf_min, theta_min, G, H, NUM, DEN, Vn, Y_id
 
