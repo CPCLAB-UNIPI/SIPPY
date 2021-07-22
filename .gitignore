@@ -122,3 +122,5 @@ simulator.sublime-project
 
 # QQmlEngine QML Cache
 *.qmlc
+# Saved Numpy matrix
+*.npz
