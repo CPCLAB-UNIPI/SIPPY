@@ -1,7 +1,6 @@
 numpy
 scipy
-control
-slycot
+harold
 future
 pytest
 casadi

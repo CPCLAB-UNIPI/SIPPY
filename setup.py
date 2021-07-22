@@ -17,8 +17,7 @@ setuptools.setup(
 	install_requires=(
 		"numpy",
 		"scipy",
-		"control",
-		"slycot",
+		"harold",
 		"future",
 		"casadi"),
 	classifiers=(
