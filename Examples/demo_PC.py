@@ -47,7 +47,7 @@ model = 'Precalciner.npz' #model file name
 method='CVA'
 IC = 'AIC' # None, AIC, AICc, BIC
 TH = 30 # The length of time horizon used for regression
-fix_ordr = 35 # Used if and only if IC = 'None'
+fix_ordr = 4 # Used if and only if IC = 'None'
 max_order = 25 # Used if IC = AIC, AICc or BIC
 req_D = False
 force_A_stable = False
@@ -70,9 +70,9 @@ sys_id = system_identification(
 
 #save model parameters A, B, C,D and X0 as npz file
 np.savez(model, A=sys_id.A, B=sys_id.B, C=sys_id.C, D=sys_id.D, K=sys_id.K, X0=sys_id.x0)
-plots.plot_model(model, inputs, outputs, tss_sec, ts)
+# plots.plot_model(model, inputs, outputs, tss_sec, ts)
 
-start_time = start
-end_time = stop
-pad_len = 30 #int(tss_sec/ts*0.8)
-plots.plot_comparison(step_test_data, model, pad_len, inputs, outputs, start_time, end_time, plt_input=False)
+# start_time = start
+# end_time = stop
+# pad_len = 30 #int(tss_sec/ts*0.8)
+# plots.plot_comparison(step_test_data, model, pad_len, inputs, outputs, start_time, end_time, plt_input=False)
