@@ -23,15 +23,16 @@ class DetrendingFilter:  # pylint: disable=too-few-public-methods
         Returns:
         A filter lass: Returns a filter class if provided a valid type else None
         """
-        if fiter_type == 'highpass':
+        filters = ['highpass', 'difference', 'doubledifference', 'zeromean', 'none']
+        if fiter_type == filters[0]:
             return HighPassFilter()
-        elif fiter_type in ['difference', 'doubledifference']:
+        if fiter_type in filters[1:3]:
             difffilt = DifferenceFilter()
             difffilt._n = 1 if fiter_type == 'difference' else 2
             return difffilt
-        elif fiter_type == 'zeromean':
+        if fiter_type == filters[3]:
             return ZeroMeanFilter()
-        elif fiter_type == 'none':
+        if fiter_type == filters[4]:
             return NoneFilter()
-        else:
-            return None
+        if fiter_type not in filters:
+            raise ValueError(f'{fiter_type} is not a supported filter. Use one of these: {filters}')

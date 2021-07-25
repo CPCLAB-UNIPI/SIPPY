@@ -24,7 +24,7 @@ class NoneFilter(IFilter):
         """
         if isinstance(argv[0], pd.DataFrame):
             self.filterdata.add_data('input', argv[0])
-            self.filterdata.add_data('trend', None)
+            self.filterdata.add_data('trend', argv[0])
             self.filterdata.add_data('output', argv[0])
         else:
             raise ValueError (f"The only Supported data type of first atgumnet of type {pd.DataFrame} but provided {type(argv[0])}")
