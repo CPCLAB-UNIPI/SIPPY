@@ -10,6 +10,18 @@ class NoneFilter(IFilter):
         self.filterdata = FilterData()
 
     def apply_filter(self, *argv):
+        """
+        A static method to applay the filter.
+
+        
+        This function filter data and stores in a singleton class (FilterData).
+    
+        Parameters:
+        arg1 (Pandas.Dataframe): Data to be filterd.
+    
+        Returns:
+        None
+        """
         if isinstance(argv[0], pd.DataFrame):
             self.filterdata.add_data('input', argv[0])
             self.filterdata.add_data('trend', None)

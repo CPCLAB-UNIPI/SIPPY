@@ -7,5 +7,5 @@ class IFilter(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def apply_filter(data, *argv):
+    def apply_filter(*argv):
         "The static Abstract factory interface method"
