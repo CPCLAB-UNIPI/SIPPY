@@ -12,7 +12,6 @@ import sys
 from builtins import range
 
 import numpy as np
-
 ## SIPPY package: main file
 
 
