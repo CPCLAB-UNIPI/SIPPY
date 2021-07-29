@@ -12,14 +12,14 @@ setuptools.setup(
 	long_description_content_type='text/markdown',
 	url="https://github.com/CPCLAB-UNIPI/sippy",
 	packages=setuptools.find_packages(),
-	python_requires=">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,<=3.7.*,<=3.8.*,<=3.9.*", 
+	python_requires="<=3.6.*", 
 
 	install_requires=(
 		"numpy",
 		"scipy",
 		"harold",
-		"future",
-		"casadi"),
+		"future"
+        ),
 	classifiers=(
 		"Development Status :: 4 - Beta",
 		"Intended Audience :: Education",

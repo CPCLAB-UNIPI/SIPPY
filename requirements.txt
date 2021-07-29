@@ -3,4 +3,3 @@ scipy
 harold
 future
 pytest
-casadi
