@@ -114,8 +114,8 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
         if id_method == 'N4SID' or id_method == 'MOESP' or id_method == 'CVA':
             from . import OLSims_methods
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(y, u, SS_f, id_method, IC,
-                                                                         SS_orders, SS_D_required,
-                                                                         SS_A_stability)
+                                                                         SS_orders, SS_threshold,
+                                                                         SS_D_required, SS_A_stability)
             model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
         
         # NO method selected

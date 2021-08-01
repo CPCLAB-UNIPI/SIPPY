@@ -131,8 +131,8 @@ def OLSims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.NaN, fixed_orde
         return A, B, C, D, Vn, Q, R, S, K
 
 
-def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], D_required=False,
-                     A_stability=False):
+def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
+                    SS_threshold=0.1, D_required=False, A_stability=False):
     y = 1. * np.atleast_2d(y)
     u = 1. * np.atleast_2d(u)
     min_ord = min(orders)
@@ -168,8 +168,8 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
             Ystd[j], y[j] = rescale(y[j])
         U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l, weights)
         for i in range(min_ord, max_ord):
-            Ob, X_fd, M, n, residuals = algorithm_1(y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0,
-                                                    i, D_required)
+            Ob, X_fd, M, n, residuals = algorithm_1(y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 
+                                                    SS_threshold, i, D_required)
             if A_stability == True:
                 M, residuals[0:n, :], ForcedA = forcing_A_stability(M, n, Ob, l, X_fd, N, u, f)
                 if ForcedA == True:
@@ -189,8 +189,8 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
                 n_min = i
                 IC_old = IC
         print("The suggested order is: n=", n_min)
-        Ob, X_fd, M, n, residuals = algorithm_1(y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0,
-                                                n_min, D_required)
+        Ob, X_fd, M, n, residuals = algorithm_1(y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 
+                                                SS_threshold, n_min, D_required)
         if A_stability == True:
             M, residuals[0:n, :], useless = forcing_A_stability(M, n, Ob, l, X_fd, N, u, f)
         A, B, C, D = extracting_matrices(M, n)
