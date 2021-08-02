@@ -28,7 +28,7 @@ slices = {
 Time = step_test_data.index
 
 inputs = ['FIC-2001','FIC-2002', 'TIC-2003', 'FIC-2004','FI-2005']
-outputs = ['AI-2020', 'AI-2021', 'AI-2022']
+outputs = ['FIC-2101', 'FIC-2102']
 
 # Create FIR filter to detrend signal 
 tags = inputs + outputs
@@ -44,7 +44,7 @@ else:
 idinput = d_filter.filterdata.data["output"]
 
 # Resample datadet
-idinput = idinput.resample('2min').mean()
+# idinput = idinput.resample('2min').mean()
 
 # Convert dataframe to numpy array in the shape requied for SIPPY
 u = idinput[inputs].to_numpy().T
@@ -58,9 +58,9 @@ IC = 'AIC' # None, AIC, AICc, BIC
 TH =  100 # The length of time horizon used for regression
 fix_ordr = 8 # Used if and only if IC = 'None'
 max_order = 40 # Used if IC = AIC, AICc or BIC\
-ss_orders = [1, 30]
+ss_orders = [1, 45]
 SS_threshold = 0.1
-req_D = False
+req_D = True
 force_A_stable = False
 tsample = pd.Timedelta(idinput.index[1] - idinput.index[0]).total_seconds() # data sampling time
 
@@ -82,7 +82,7 @@ t = np.arange(0, tss*60, tsample)
 
 stp_y_out, t_out = simulate_step_response(id_result.G, t)
 
-stp_ij = stp_y_out[:,2,1]
+stp_ij = stp_y_out[:,0,1]
 
 axes = plt.gca()
 ylim = max(abs(stp_ij))*1.1
