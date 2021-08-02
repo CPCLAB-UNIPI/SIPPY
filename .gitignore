@@ -124,3 +124,5 @@ simulator.sublime-project
 *.qmlc
 # Saved Numpy matrix
 *.npz
+#VS code settings
+.vscode/
