@@ -41,7 +41,7 @@ class ZeroMeanFilter(IFilter):
         if slices:
             _sliced = argv[0].copy(deep=True)
             for slice in slices.values():
-                if slice['type'] == "interpolate":
+                if slice['type'] == "interpolate" and any((True for tag in slice['tags'] if tag in _sliced.columns)):
                     for tag in slice['tags']:
                         _sliced[tag].iloc[slice["start"]:slice["end"]] = np.nan
                         _sliced[tag].interpolate(method='linear', inplace=True)
