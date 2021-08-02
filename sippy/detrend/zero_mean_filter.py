@@ -1,6 +1,7 @@
 "A Class of Filter"
 from filter_data import FilterData
 from interface_filter import IFilter
+import numpy as np
 import pandas as pd
 
 
@@ -23,16 +24,33 @@ class ZeroMeanFilter(IFilter):
         Returns:
         None
         """
+        if len(argv) < 2:
+            raise ValueError("This class needs two argumnets. i.e. data and slices")
+        
         if isinstance(argv[0], pd.DataFrame):
-            if len(argv) > 1:
-                raise ValueError("This class supports only one argumnets. i.e. data")
             self.filterdata.add_data("input", argv[0])
             self.filterdata.add_data("trend", argv[0])
         else:
             raise ValueError(
                 f"First argumnet dhould be dats of type {pd.DataFrame} but provided {type(argv[0])}"
             )
-        self.filterdata.add_data(
-            "output",
-            self.filterdata.data["input"] - self.filterdata.data["input"].mean(),
-        )
+        if isinstance(argv[1], dict):
+            slices = argv[1] 
+        else:
+            raise TypeError("Slices should be a pyhton dictionary")
+        if slices:
+            _sliced = argv[0].copy(deep=True)
+            for slice in slices.values():
+                if slice['type'] == "interpolate":
+                    for tag in slice['tags']:
+                        _sliced[tag].iloc[slice["start"]:slice["end"]] = np.nan
+                        _sliced[tag].interpolate(method='linear', inplace=True)
+                elif slice['type'] == "bad" and(slice["isGlobal"] or any((True for tag in slice['tags'] if tag in _sliced.columns))):
+                    _sliced.iloc[slice["start"]:slice["end"]] = np.nan
+                    _sliced.fillna(method='ffill', inplace=True)   
+            self.filterdata.add_data('output', _sliced - _sliced.mean())
+        else:
+            self.filterdata.add_data(
+                "output",
+                self.filterdata.data["input"] - self.filterdata.data["input"].mean(),
+            )
