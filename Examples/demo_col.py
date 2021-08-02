@@ -5,7 +5,7 @@ import sys
 sys.path.append(r'.\..\sippy')
 sys.path.append(r'.\sippy\detrend')
 from sippy import *
-from harold import simulate_impulse_response, simulate_step_response
+from harold import simulate_step_response
 from detrending_filter import DetrendingFilter
 
 # Load spteptest data from a TSV file
@@ -16,7 +16,7 @@ step_test_data = pd.read_csv(file,skiprows=[1,2,3], usecols=columns, index_col='
 #slice data for model identification case
 slices = {
             "slice1":{"type":"bad", "isGlobal": False, "start":1040, "end":1135, "Description": "OPC bad for AI-2020","tags":['AI-2020']}, 
-            "slice2":{"type":"bad", "isGlobal": False,"start":3845, "end":3855, "Description": "Suspicious value for  FI-2005", "tags":['FI-2005']}
+            "slice2":{"type":"interpolate", "isGlobal": False,"start":3845, "end":3855, "Description": "Suspicious value for  FI-2005", "tags":['FI-2005']}
         }
 # for slice in slices.values():
 #     start = min(slice)
@@ -34,12 +34,17 @@ outputs = ['AI-2020', 'AI-2021', 'AI-2022']
 tags = inputs + outputs
 tss = 120
 filter_tss_mult_factor = 3
-d_filter = DetrendingFilter().get_filter('highpass')
-d_filter.apply_filter(step_test_data[tags], tss, filter_tss_mult_factor, slices)
+filter_type  = 'highpass' # Valid filters ['highpass', 'difference', 'doubledifference', 'zeromean', 'none']
+d_filter = DetrendingFilter().get_filter(filter_type)
+if filter_type == 'highpass':
+    d_filter.apply_filter(step_test_data[tags], tss, filter_tss_mult_factor, slices)
+else:
+    d_filter.apply_filter(step_test_data[tags], slices)
+    
 idinput = d_filter.filterdata.data["output"]
 
 # Resample datadet
-# idinput = idinput.resample('2min').mean()
+idinput = idinput.resample('2min').mean()
 
 # Convert dataframe to numpy array in the shape requied for SIPPY
 u = idinput[inputs].to_numpy().T
@@ -48,7 +53,6 @@ print('Output shape:', y.shape)
 print('Input shape:',u.shape)
 
 #specify model identification parameters, reffer the documentation for detais.
-model = 'frac2.npz' #model file name
 id_method='CVA'
 IC = 'AIC' # None, AIC, AICc, BIC
 TH =  100 # The length of time horizon used for regression
@@ -75,15 +79,25 @@ id_result = system_identification(
     SS_A_stability=force_A_stable
     )
 t = np.arange(0, tss*60, tsample)
-imp_y_out, t_out = simulate_impulse_response(id_result.G, t)
+
 stp_y_out, t_out = simulate_step_response(id_result.G, t)
-imp_ij = imp_y_out[:,0,0] * id_result.ts
-stp_ij = stp_y_out[:,0,0]
-imp_stp_ij = np.cumsum(imp_ij)
+
+stp_ij = stp_y_out[:,2,1]
+
 axes = plt.gca()
-# axes.set_ylim([-1,1])
-plt.grid()
-# plt.plot(t_out/60, imp_ij)
-plt.plot(t_out/60, stp_ij)
-# plt.plot(t_out/60, imp_stp_ij,  linestyle='dashdot')
+ylim = max(abs(stp_ij))*1.1
+axes.set_ylim([-ylim,ylim])
+colr = "red"
+axes.grid(color='k', linestyle='--', linewidth=0.4)
+axes.spines['left'].set_position('zero')
+axes.spines['bottom'].set_position('zero')
+axes.spines[['top', 'right']].set_visible(False)
+axes.xaxis.set_ticks_position('bottom')
+axes.yaxis.set_ticks_position('left')
+plt.xticks(np.arange(0, tss+2, 2.0))
+plt.yticks(np.linspace(-ylim, ylim, 20))
+axes.tick_params(axis='x', colors=colr,size=0,labelsize=4)
+axes.tick_params(axis='y', colors=colr,size=0,labelsize=4)
+axes.margins(x=0)
+plt.plot(t_out/60, stp_ij, color=colr, linewidth=0.8)
 plt.show()
