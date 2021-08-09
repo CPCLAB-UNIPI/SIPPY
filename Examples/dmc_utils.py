@@ -1,7 +1,5 @@
 import numpy as np
 from scipy import fftpack, signal, stats
-from matplotlib import mlab
-from scipy.signal.filter_design import freqs
 # from scipy.optimize import curve_fit
 # from robustcontrol.utils import InternalDelay, tf
 # from mdl import get_dmc_model
@@ -70,7 +68,7 @@ def get_freq_rsponse(SteadyStateTime, NumberOfCoefficients, curve):
     '''
     _, impulse_rsponse = get_impulse_rsponse(
         SteadyStateTime, NumberOfCoefficients, curve)
-    n = len(impulse_rsponse)
+    n = 1024
     h = fftpack.fft(impulse_rsponse)
     w = fftpack.fftfreq(n)
     return w[:n//2], np.abs(h[:n//2])
@@ -95,9 +93,6 @@ def get_model_uncertainty(u, y,model):
     confidence95 = 0.95
     confidence68 = 0.68
     nperseg = 1024
-    # NFFT = 512
-    # Pxx, freqs = mlab.psd(u, NFFT=NFFT,noverlap=NFFT//2, window=mlab.window_none)
-    # Pxy, freqs = mlab.csd(u, y, NFFT=NFFT,noverlap=NFFT//2, window=mlab.window_none)
     freqs, Pxx = signal.welch(u, nperseg =nperseg)
     freqs, Pxy = signal.csd(u, y, nperseg =nperseg)
     data_bode =  Pxy/Pxx
