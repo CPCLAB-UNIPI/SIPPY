@@ -1,6 +1,7 @@
 import numpy as np
-from scipy import signal, stats
+from scipy import fftpack, signal, stats
 from matplotlib import mlab
+from scipy.signal.filter_design import freqs
 # from scipy.optimize import curve_fit
 # from robustcontrol.utils import InternalDelay, tf
 # from mdl import get_dmc_model
@@ -69,8 +70,10 @@ def get_freq_rsponse(SteadyStateTime, NumberOfCoefficients, curve):
     '''
     _, impulse_rsponse = get_impulse_rsponse(
         SteadyStateTime, NumberOfCoefficients, curve)
-    w, h = signal.freqz(impulse_rsponse)
-    return w, np.abs(h)
+    n = len(impulse_rsponse)
+    h = fftpack.fft(impulse_rsponse)
+    w = fftpack.fftfreq(n)
+    return w[:n//2], np.abs(h[:n//2])
 
 def get_model_uncertainty(u, y,model):
     '''
@@ -88,16 +91,22 @@ def get_model_uncertainty(u, y,model):
             ci68 (Numpy 1D array): 68% confidance interval
     '''
     n = len(u)
+    
     confidence95 = 0.95
     confidence68 = 0.68
-    NFFT = 256
-    Pxx, freqs = mlab.psd(u, NFFT=NFFT,noverlap=NFFT//2, window=mlab.window_none)
-    Pxy, freqs = mlab.csd(u, y, NFFT=NFFT,noverlap=NFFT//2, window=mlab.window_none)
+    nperseg = 1024
+    # NFFT = 512
+    # Pxx, freqs = mlab.psd(u, NFFT=NFFT,noverlap=NFFT//2, window=mlab.window_none)
+    # Pxy, freqs = mlab.csd(u, y, NFFT=NFFT,noverlap=NFFT//2, window=mlab.window_none)
+    freqs, Pxx = signal.welch(u, nperseg =nperseg)
+    freqs, Pxy = signal.csd(u, y, nperseg =nperseg)
     data_bode =  Pxy/Pxx
     data_bode_mag = np.abs(data_bode)
-    win = np.hanning(4)
+    win = np.hamming(32)
     data_bode_mag_filterd = np.convolve(data_bode_mag, win, 'same') / sum(win)
-    w, h = signal.freqz(model, worN=freqs)
+    
+    h = fftpack.fft(model, nperseg)[:nperseg//2+1]
+    w = fftpack.fftfreq(nperseg)[:nperseg//2+1]
     model_bode_mag = np.abs(h)
     combined_bode = np.vstack((model_bode_mag, data_bode_mag_filterd))
     se = stats.sem(combined_bode)
