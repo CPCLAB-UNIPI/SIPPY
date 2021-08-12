@@ -203,20 +203,23 @@ def K_calc(A, C, Q, R, S):
     return K, Calculated
 
 def get_model_uncertainty(u, y,model):
-    '''
+    """
     Returns the frequency rsponse of a finite impulse response model and frequency confidance intervals (95 and 68).
-        Parameters:
-                u (pandas.Series or Numpy 1D array): Input siganal
-                y (pandas.Series or Numpy 1D array): Output siganal
-                model(Numpy 1D array): Finite impulse response of the IO pair
+        
+        Parameters
+        ----------
+        u (pandas.Series or Numpy 1D array): Input siganal
+        y (pandas.Series or Numpy 1D array): Output siganal
+        model(Numpy 1D array): Finite impulse response of the IO pair
 
-        Returns:
-            freqs (Numpy 1D array): frequency range
-            model_bode_mag (Numpy 1D array): Gain portion of model frequency response
-            model_bode_mag (Numpy 1D array): Gain portion of model frequency response
-            ci95 (Numpy 1D array): 95% confidance interval
-            ci68 (Numpy 1D array): 68% confidance interval
-    '''
+        Returns
+        -------
+        freqs (Numpy 1D array): frequency range
+        model_bode_mag (Numpy 1D array): Gain portion of model frequency response
+        model_bode_mag (Numpy 1D array): Gain portion of model frequency response
+        ci95 (Numpy 1D array): 95% confidance interval
+        ci68 (Numpy 1D array): 68% confidance interval
+    """
     n = len(u)
     
     confidence95 = 0.95
