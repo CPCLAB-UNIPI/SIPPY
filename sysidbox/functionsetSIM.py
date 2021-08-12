@@ -6,6 +6,7 @@ Created on Sun Oct 08 2017
 """
 from __future__ import absolute_import, print_function
 from scipy.linalg import solve_discrete_are
+from scipy import stats, signal, fftpack
 import math
 from .functionset import *
 # from functionset import *
@@ -200,3 +201,39 @@ def K_calc(A, C, Q, R, S):
         print("Kalman filter cannot be calculated")
         Calculated = False
     return K, Calculated
+
+def get_model_uncertainty(u, y,model):
+    '''
+    Returns the frequency rsponse of a finite impulse response model and frequency confidance intervals (95 and 68).
+        Parameters:
+                u (pandas.Series or Numpy 1D array): Input siganal
+                y (pandas.Series or Numpy 1D array): Output siganal
+                model(Numpy 1D array): Finite impulse response of the IO pair
+
+        Returns:
+            freqs (Numpy 1D array): frequency range
+            model_bode_mag (Numpy 1D array): Gain portion of model frequency response
+            model_bode_mag (Numpy 1D array): Gain portion of model frequency response
+            ci95 (Numpy 1D array): 95% confidance interval
+            ci68 (Numpy 1D array): 68% confidance interval
+    '''
+    n = len(u)
+    
+    confidence95 = 0.95
+    confidence68 = 0.68
+    nperseg = 1024
+    freqs, Pxx = signal.welch(u, nperseg =nperseg)
+    freqs, Pxy = signal.csd(u, y, nperseg =nperseg)
+    data_bode =  Pxy/Pxx
+    data_bode_mag = np.abs(data_bode)
+    win = np.hamming(32)
+    data_bode_mag_filterd = np.convolve(data_bode_mag, win, 'same') / sum(win)
+    
+    h = fftpack.fft(model, nperseg)[:nperseg//2+1]
+    w = fftpack.fftfreq(nperseg)[:nperseg//2+1]
+    model_bode_mag = np.abs(h)
+    combined_bode = np.vstack((model_bode_mag, data_bode_mag_filterd))
+    se = stats.sem(combined_bode)
+    ci95 = se * stats.t.ppf((1 + confidence95) / 2., n-1)
+    ci68 = se * stats.t.ppf((1 + confidence68) / 2., n-1)
+    return freqs, model_bode_mag, ci95, ci68

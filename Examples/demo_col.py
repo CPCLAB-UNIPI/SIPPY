@@ -1,15 +1,13 @@
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import sys
-
-from scipy.signal import windows
-sys.path.append(r'.\..\sippy')
-sys.path.append(r'.\sippy\detrend')
-from sippy import *
+import sys, os
+sys.path.append(os.getcwd())
+from sysidbox.subspace import system_identification
+from sysidbox.functionsetSIM import get_model_uncertainty
 from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
-from detrending_filter import DetrendingFilter
-import dmc_utils
+from detrend.detrending_filter import DetrendingFilter
 
 
 # Load spteptest data from a TSV file
@@ -41,7 +39,7 @@ else:
 idinput = d_filter.filterdata.data["output"]
 
 # Resample datadet
-idinput_resampled = idinput.resample('2min').mean()
+idinput_resampled = idinput.resample('1min').mean()
 
 # Convert dataframe to numpy array in the shape requied for SIPPY
 u = idinput_resampled[inputs].to_numpy().T
@@ -51,7 +49,7 @@ print('Input shape:',u.shape)
 
 #specify model identification parameters, reffer the documentation for detais.
 id_method='CVA'
-IC = 'AIC' # None, AIC, AICc, BIC
+IC = 'None' # None, AIC, AICc, BIC
 TH =  100 # The length of time horizon used for regression
 fix_ordr = 23 # Used if and only if IC = 'None'
 ss_orders = [1, 45] # SS orser min and max, Used if IC = AIC, AICc or BIC
@@ -79,15 +77,15 @@ Gc = undiscretize(id_result.G)
 Gd = discretize(G=Gc, dt=60, method='backward euler')
 stp_y_out, t_out = simulate_step_response(Gd, t)
 imp_y_out, t_out = simulate_impulse_response(Gd, t)
-input_tag = 'FIC-2001'
-output_tag = 'FIC-2101'
+input_tag = 'FIC-2002'
+output_tag = 'FIC-2102'
 in_idx = inputs.index(input_tag)
 out_idx = outputs.index(output_tag)
 stp_ij = stp_y_out[:,out_idx,in_idx]
 imp_ij = imp_y_out[:,out_idx,in_idx] * Gd.SamplingPeriod
 u = idinput[input_tag]
 y = idinput[output_tag]
-freqs, mag, ci95, ci68 = dmc_utils.get_model_uncertainty(u, y, imp_ij)
+freqs, mag, ci95, ci68 = get_model_uncertainty(u, y, imp_ij)
 plt.plot(freqs, mag, color='red')
 plt.fill_between(freqs, (mag-ci95), (mag+ci95), color='yellow', alpha=0.2)
 plt.fill_between(freqs, (mag-ci68), (mag+ci68), color='green', alpha=0.3)

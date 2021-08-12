@@ -1,8 +1,8 @@
 """The Factory Class"""
-from high_pass_filter import HighPassFilter
-from difference_filter import DifferenceFilter
-from zero_mean_filter import ZeroMeanFilter
-from none_filter import NoneFilter
+from .high_pass_filter import HighPassFilter
+from .difference_filter import DifferenceFilter
+from .zero_mean_filter import ZeroMeanFilter
+from .none_filter import NoneFilter
 
 
 class DetrendingFilter:  # pylint: disable=too-few-public-methods

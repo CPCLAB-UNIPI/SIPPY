@@ -1,6 +1,6 @@
 "A Class of Filter"
-from filter_data import FilterData
-from interface_filter import IFilter
+from .filter_data import FilterData
+from .interface_filter import IFilter
 import numpy as np
 import pandas as pd
 

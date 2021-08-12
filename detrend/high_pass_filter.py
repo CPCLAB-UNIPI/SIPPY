@@ -1,6 +1,6 @@
 "A Class of Filter"
-from filter_data import FilterData
-from interface_filter import IFilter
+from .filter_data import FilterData
+from .interface_filter import IFilter
 import numpy as np
 import pandas as pd
 from scipy.signal import kaiserord, firwin, filtfilt
@@ -39,14 +39,18 @@ class HighPassFilter(IFilter):
             if slices:
                 _sliced = argv[0].copy(deep=True)
                 for slice in slices.values():
-                    if slice['type'] == "interpolate" and any((True for tag in slice['tags'] if tag in _sliced.columns)):
-                        for tag in slice['tags']:
-                            _sliced[tag].iloc[slice["start"]:slice["end"]] = np.nan
-                            _sliced[tag].interpolate(method='linear', inplace=True)
-                    elif slice['type'] == "bad" and(slice["isGlobal"] or any((True for tag in slice['tags'] if tag in _sliced.columns))):
-                        _sliced.iloc[slice["start"]:slice["end"]] = np.nan
-                        _sliced.fillna(method='ffill', inplace=True)
-                self.filterdata.add_data("sliceed", _sliced)
+                    if slice['type'] in ["interpolate", "bad"]:
+                        if slice['type'] == "interpolate" and any((True for tag in slice['tags'] if tag in _sliced.columns)):
+                            for tag in slice['tags']:
+                                _sliced[tag].iloc[slice["start"]:slice["end"]] = np.nan
+                                _sliced[tag].interpolate(method='linear', inplace=True)
+                        elif slice['type'] == "bad" and(slice["isGlobal"] or any((True for tag in slice['tags'] if tag in _sliced.columns))):
+                            _sliced.iloc[slice["start"]:slice["end"]] = np.nan
+                            _sliced.fillna(method='ffill', inplace=True)
+                    else:
+                        raise ValueError("Unsupported slice type provided, Valid slices are [interpolate, bad]")
+            else:
+                _sliced = argv[0].copy(deep=True)
         else:
             raise ValueError(
                 f"First argumnet dhould be dats of type {pd.DataFrame} but provided {type(argv[0])}"
@@ -88,13 +92,15 @@ class HighPassFilter(IFilter):
         )
         _trend = self.filterdata.data["input"].copy(deep=True)
         if slices:
-            _trend[_trend.columns] = filtfilt(_coef, 1.0, self.filterdata.data["sliceed"], axis=0)
+            _trend[_trend.columns] = filtfilt(_coef, 1.0, _sliced, axis=0)
             for slice in slices.values():
                 if slice['type'] == "bad" and (slice["isGlobal"] or any((True for tag in slice['tags'] if tag in _trend.columns))):
-                    _trend.iloc[slice["start"]:slice["end"]] = self.filterdata.data["input"].iloc[slice["start"]:slice["end"]]
+                    _trend.iloc[slice["start"]:slice["end"]] = _sliced.iloc[slice["start"]:slice["end"]]
+                else:
+                    pass     
+            self.filterdata.add_data("trend", _trend)
+            self.filterdata.add_data("output", _sliced - self.filterdata.data["trend"])
         else:
-            _trend[_trend.columns] = filtfilt(_coef, 1.0, self.filterdata.data["input"], axis=0)
-        self.filterdata.add_data("trend", _trend)
-        self.filterdata.add_data(
-            "output", self.filterdata.data["input"] - self.filterdata.data["trend"]
-        )
+            _trend[_trend.columns] = filtfilt(_coef, 1.0, _sliced, axis=0)
+            self.filterdata.add_data("trend", _trend)
+            self.filterdata.add_data("output", _sliced - self.filterdata.data["trend"])

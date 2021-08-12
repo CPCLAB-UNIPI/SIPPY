@@ -3,7 +3,7 @@ import matplotlib.dates as md
 from sippy import functionsetSIM as fsetSIM
 import numpy as np
 from scipy import signal
-from  control import  ss, step_response, dcgain
+from harold import step_response_plot
 
 def plot_comparison(step_test_data, model, pad_len, inputs, outputs, start_time, end_time, plt_input=False):
     """
@@ -72,7 +72,7 @@ def plot_comparison(step_test_data, model, pad_len, inputs, outputs, start_time,
             ax.xaxis.set_major_formatter(xfmt) 
     plt.show()
 
-def plot_model(model, inputs, outputs, tss=90, dt=1):
+def plot_model(G, inputs, outputs, tss=90, dt=1):
     """
     Plot the model matrix.
 
@@ -81,9 +81,9 @@ def plot_model(model, inputs, outputs, tss=90, dt=1):
     :param outputs: Output vectors of the model
     :Param tss: time to steady state (length of x axis of subplot).
     """
-    mdl = np.load(model)
-    sys = ss(mdl['A'], mdl['B'], mdl['C'], mdl['D'],dt)
+
     # gain_matrix = dcgain(sys).T
+    
     num_i = len(inputs)
     num_o = len(outputs)
     fig, axs = plt.subplots(num_i,num_o, figsize=(3*len(outputs), 2*len(inputs)), facecolor='w', edgecolor='k')
@@ -91,8 +91,8 @@ def plot_model(model, inputs, outputs, tss=90, dt=1):
     T = np.arange(0,tss, step=dt)
     for idx_i in range(num_i):
         for idx_o in range(num_o):
-            if len(range(num_o)) < 2:
-                ax = axs[idx_i]
+            if axs.numRows ==1 and axs.numCols ==1 :
+                ax = axs
             else:
                 ax = axs[idx_i][idx_o]
             t, y_step = step_response(sys,T, input=idx_i, output=idx_o)
