@@ -219,24 +219,30 @@ def get_model_uncertainty(u, y,model):
         model_bode_mag (Numpy 1D array): Gain portion of model frequency response
         ci95 (Numpy 1D array): 95% confidance interval
         ci68 (Numpy 1D array): 68% confidance interval
+        snr (Numpy 1D array): signal to noise ratio
     """
     n = len(u)
     
     confidence95 = 0.95
     confidence68 = 0.68
-    nperseg = 1024
-    freqs, Pxx = signal.welch(u, nperseg =nperseg)
-    freqs, Pxy = signal.csd(u, y, nperseg =nperseg)
-    data_bode =  Pxy/Pxx
+    nperseg = 512
+    y_estimate = signal.convolve(u, model, mode='same')
+    model_error = y - y_estimate
+    freqs, Pxx = signal.welch(u, nperseg=nperseg)
+    freqs, Pyy = signal.welch(y, nperseg=nperseg)
+    freqs, Pyy_err = signal.welch(model_error, nperseg=nperseg)
+    freqs, Pxy = signal.csd(u, y, nperseg=nperseg)
+    snr = Pyy / Pyy_err
+    data_bode =  Pxy / Pxx
     data_bode_mag = np.abs(data_bode)
-    win = np.hamming(32)
-    data_bode_mag_filterd = np.convolve(data_bode_mag, win, 'same') / sum(win)
-    
+    win_bode = np.hamming(32)
+    win_snr = np.hamming(32)
+    data_bode_mag_filterd = np.convolve(data_bode_mag, win_bode, mode='same') / sum(win_bode)
+    snr = np.convolve(np.abs(snr), win_snr, mode='same') / sum(win_snr)
     h = fftpack.fft(model, nperseg)[:nperseg//2+1]
-    w = fftpack.fftfreq(nperseg)[:nperseg//2+1]
     model_bode_mag = np.abs(h)
     combined_bode = np.vstack((model_bode_mag, data_bode_mag_filterd))
     se = stats.sem(combined_bode)
     ci95 = se * stats.t.ppf((1 + confidence95) / 2., n-1)
     ci68 = se * stats.t.ppf((1 + confidence68) / 2., n-1)
-    return freqs, model_bode_mag, ci95, ci68
+    return freqs, model_bode_mag, ci95, ci68, snr
