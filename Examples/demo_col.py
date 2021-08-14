@@ -77,16 +77,17 @@ Gc = undiscretize(id_result.G)
 Gd = discretize(G=Gc, dt=60, method='backward euler')
 stp_y_out, t_out = simulate_step_response(Gd, t)
 imp_y_out, t_out = simulate_impulse_response(Gd, t)
-input_tag = 'FIC-2002'
-output_tag = 'FIC-2102'
+input_tag = 'FIC-2001'
+output_tag = 'FIC-2101'
 in_idx = inputs.index(input_tag)
 out_idx = outputs.index(output_tag)
 stp_ij = stp_y_out[:,out_idx,in_idx]
 imp_ij = imp_y_out[:,out_idx,in_idx] * Gd.SamplingPeriod
 u = idinput[input_tag]
 y = idinput[output_tag]
-freqs, mag, ci95, ci68 = get_model_uncertainty(u, y, imp_ij)
+freqs, mag, ci95, ci68, snr = get_model_uncertainty(u, y, imp_ij)
 plt.plot(freqs, mag, color='red')
+plt.plot(freqs, snr, color='navy',linestyle="--", linewidth=0.5)
 plt.fill_between(freqs, (mag-ci95), (mag+ci95), color='yellow', alpha=0.2)
 plt.fill_between(freqs, (mag-ci68), (mag+ci68), color='green', alpha=0.3)
 plt.semilogx()

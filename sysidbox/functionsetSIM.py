@@ -225,24 +225,28 @@ def get_model_uncertainty(u, y,model):
     
     confidence95 = 0.95
     confidence68 = 0.68
-    nperseg = 512
+    nperseg = 1024
     y_estimate = signal.convolve(u, model, mode='same')
     model_error = y - y_estimate
+    # Pxx = fftpack.fft(signal.fftconvolve(u, u[::-1], 'same')[-len(u)//2:], nperseg)[:nperseg//2]
+    # Pxy = fftpack.fft(signal.fftconvolve(u, y[::-1], 'same')[-len(u)//2:], nperseg)[:nperseg//2]
+    # Pyy = fftpack.fft(signal.fftconvolve(y, y[::-1], 'same')[-len(u)//2:], nperseg)[:nperseg//2]
+    # Pyy_err = fftpack.fft(signal.fftconvolve(y, model_error[::-1], 'same')[-len(u)//2:], nperseg)[:nperseg//2]
+    # freqs = fftpack.fftfreq(nperseg)[:nperseg//2]
+    h = fftpack.fft(model, nperseg)[:nperseg//2]
     freqs, Pxx = signal.welch(u, nperseg=nperseg)
     freqs, Pyy = signal.welch(y, nperseg=nperseg)
     freqs, Pyy_err = signal.welch(model_error, nperseg=nperseg)
     freqs, Pxy = signal.csd(u, y, nperseg=nperseg)
-    snr = Pyy / Pyy_err
-    data_bode =  Pxy / Pxx
+    snr = Pyy[:-1] / Pyy_err[:-1]
+    data_bode =  Pxy[:-1] / Pxx[:-1]
     data_bode_mag = np.abs(data_bode)
-    win_bode = np.hamming(32)
-    win_snr = np.hamming(32)
-    data_bode_mag_filterd = np.convolve(data_bode_mag, win_bode, mode='same') / sum(win_bode)
-    snr = np.convolve(np.abs(snr), win_snr, mode='same') / sum(win_snr)
-    h = fftpack.fft(model, nperseg)[:nperseg//2+1]
+    win = np.hamming(32)
+    data_bode_mag_filterd = np.convolve(data_bode_mag, win, mode='same') / sum(win)
+    snr = np.convolve(np.abs(snr), win, mode='same') / sum(win)
     model_bode_mag = np.abs(h)
     combined_bode = np.vstack((model_bode_mag, data_bode_mag_filterd))
     se = stats.sem(combined_bode)
     ci95 = se * stats.t.ppf((1 + confidence95) / 2., n-1)
     ci68 = se * stats.t.ppf((1 + confidence68) / 2., n-1)
-    return freqs, model_bode_mag, ci95, ci68, snr
+    return freqs[:-1], model_bode_mag, ci95, ci68, snr
