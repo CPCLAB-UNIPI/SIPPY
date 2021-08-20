@@ -226,27 +226,62 @@ def get_model_uncertainty(u, y,model):
     confidence95 = 0.95
     confidence68 = 0.68
     nperseg = 1024
-    y_estimate = signal.convolve(u, model, mode='same')
+    y_estimate = signal.convolve(u, model, mode='full')[:len(u)]
     model_error = y - y_estimate
-    # Pxx = fftpack.fft(signal.fftconvolve(u, u[::-1], 'same')[-len(u)//2:], nperseg)[:nperseg//2]
-    # Pxy = fftpack.fft(signal.fftconvolve(u, y[::-1], 'same')[-len(u)//2:], nperseg)[:nperseg//2]
-    # Pyy = fftpack.fft(signal.fftconvolve(y, y[::-1], 'same')[-len(u)//2:], nperseg)[:nperseg//2]
-    # Pyy_err = fftpack.fft(signal.fftconvolve(y, model_error[::-1], 'same')[-len(u)//2:], nperseg)[:nperseg//2]
+    # Pxx = fftpack.fft(signal.fftconvolve(u, u[::-1], 'full')[-len(u)//2:], nperseg)[:nperseg//2]
+    # Pyy = fftpack.fft(signal.fftconvolve(y, y[::-1], 'full')[-len(u)//2:], nperseg)[:nperseg//2]
+    # Pxy = fftpack.fft(signal.fftconvolve(u, y[::-1], 'full')[-len(u)//2:], nperseg)[:nperseg//2]
+    # Pyy_err = fftpack.fft(signal.fftconvolve(model_error, y[::-1], 'full')[-len(u)//2:], nperseg)[:nperseg//2]
     # freqs = fftpack.fftfreq(nperseg)[:nperseg//2]
     h = fftpack.fft(model, nperseg)[:nperseg//2]
     freqs, Pxx = signal.welch(u, nperseg=nperseg)
     freqs, Pyy = signal.welch(y, nperseg=nperseg)
     freqs, Pyy_err = signal.welch(model_error, nperseg=nperseg)
     freqs, Pxy = signal.csd(u, y, nperseg=nperseg)
-    snr = Pyy[:-1] / Pyy_err[:-1]
-    data_bode =  Pxy[:-1] / Pxx[:-1]
+    snr = Pyy / Pyy_err
+    data_bode =  Pxy / Pxx
     data_bode_mag = np.abs(data_bode)
-    win = np.hamming(32)
-    data_bode_mag_filterd = np.convolve(data_bode_mag, win, mode='same') / sum(win)
-    snr = np.convolve(np.abs(snr), win, mode='same') / sum(win)
+    win = np.hamming(16)
+    data_bode_mag_filt_f = (np.convolve(data_bode_mag, win, mode='full') / sum(win))[:len(data_bode_mag)]
+    data_bode_mag_filt_b = (np.convolve(data_bode_mag_filt_f[::-1], win, mode='full') / sum(win))[:len(data_bode_mag_filt_f)][::-1]
+    snr_filt_f = (np.convolve(np.abs(snr), win, mode='full') / sum(win))[:len(snr)]
+    snr_filt_b = (np.convolve(snr_filt_f[::-1], win, mode='full') / sum(win))[:len(snr_filt_f)][::-1]
     model_bode_mag = np.abs(h)
-    combined_bode = np.vstack((model_bode_mag, data_bode_mag_filterd))
+    combined_bode = np.vstack((model_bode_mag, data_bode_mag_filt_b[:-1]))
     se = stats.sem(combined_bode)
     ci95 = se * stats.t.ppf((1 + confidence95) / 2., n-1)
     ci68 = se * stats.t.ppf((1 + confidence68) / 2., n-1)
-    return freqs[:-1], model_bode_mag, ci95, ci68, snr
+    return freqs[:-1], model_bode_mag, ci95, ci68, snr_filt_b[:-1]
+
+
+def get_deadtime(step_response, isramp=False):
+    """
+    Returns the estimated deadtime based on a predifined minimum response tolerance.
+    Current tollarance is the 4% of steady sate gain or overshoot.
+        
+        Parameters
+        ----------
+        step (Numpy 1D array): Step response of the model.
+        isramp (bool): Ramp type flag.
+
+        Returns
+        -------
+        deadtime (int): deadtime in terms of number of samples.
+    """
+    if isramp:
+        gain = step_response[-1] - step_response[-2]
+        abs_gain = abs(gain)
+        tol = abs_gain/25
+    else:
+        gain = step_response[-1]
+        abs_gain = abs(gain)
+        overshoot  = np.abs(step_response).max()
+        tol = abs_gain/25 if  overshoot <= abs_gain else overshoot/25
+    deadtime = 0
+    for coef in step_response:
+        if abs(coef)<= tol:
+            deadtime += 1
+        else:
+            break
+    deadtime = deadtime if deadtime >= 2 else 0
+    return deadtime
