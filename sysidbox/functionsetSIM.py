@@ -8,6 +8,7 @@ from __future__ import absolute_import, print_function
 from scipy.linalg import solve_discrete_are
 from scipy import stats, signal, fftpack
 import math
+import harold
 from .functionset import *
 # from functionset import *
 
@@ -285,3 +286,52 @@ def get_deadtime(step_response, isramp=False):
             break
     deadtime = deadtime if deadtime >= 2 else 0
     return deadtime
+def get_fir_coef(model, inds, deps, sampling, tss):
+    """
+    Returns a nested dictionary of numpy ayyay containig FIR coeficiants.
+        
+        Parameters
+        ----------
+        model (harold.State): Statespace model.
+        inds (list): List of independant variables.
+        deps (list): List of dependant variables.
+        sampling (int): Model sampling rate in seconds.
+        tss (int): Time to steady steate in minutes.
+        Returns
+        -------
+        fir_model (dict(dict(numpy.array))): nested dictionary of numpy ayyay containig FIR coeficiants.
+    """
+    fir_model = dict()
+    t = np.arange(0, tss*60, sampling)
+    Gc = harold.undiscretize(model)
+    Gd = harold.discretize(G=Gc, dt=sampling, method='backward euler')
+    imp_response, _ = harold.simulate_impulse_response(Gd, t)
+    for depidx, dep in enumerate(deps):
+        fir_model[dep] = dict()
+        for indidx, ind in enumerate(inds):
+            if model.NumberOfInputs == 1 and model.NumberOfOutputs == 1:
+                fir_model[dep][ind] = imp_response * model.SamplingPeriod
+            elif  model.NumberOfInputs == 1 and model.NumberOfOutputs > 1:
+                fir_model[dep][ind] = imp_response[:,depidx] * model.SamplingPeriod
+            else:
+                fir_model[dep][ind] = imp_response[:,depidx,indidx] * model.SamplingPeriod
+    return fir_model
+
+def get_step_response(fir_model):
+    """
+    Returns a nested dictionary of numpy array containig stap responce.
+        
+        Parameters
+        ----------
+        fir_model (dict(dict(numpy.array))): nested dictionary of numpy ayyay containig FIR coeficiants
+
+        Returns
+        -------
+        step_response (dict(dict(numpy.array))): nested dictionary of numpy ayyay containig stap responce.
+    """
+    step_response = dict()
+    for dep in fir_model.keys():
+        step_response[dep] = dict()
+        for ind in fir_model[dep].keys():
+            step_response[dep][ind] = np.cumsum(fir_model[dep][ind])
+    return step_response
