@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import sys, os
 sys.path.append(os.getcwd())
 from sysidbox.subspace import system_identification
-from sysidbox.functionsetSIM import get_model_uncertainty
+from sysidbox.functionsetSIM import get_model_uncertainty, get_fir_coef, get_step_response
 from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
 from detrend.detrending_filter import DetrendingFilter
 
@@ -71,43 +71,40 @@ id_result = system_identification(
     SS_D_required=req_D,
     SS_A_stability=force_A_stable
     )
+firmodel = get_fir_coef(model=id_result.G, inds=inputs, deps=outputs, sampling=60, tss=tss)
+step_response = get_step_response(firmodel)
+t = np.arange(0, tss)
 
-t = np.arange(0, tss*60, 60)
-Gc = undiscretize(id_result.G)
-Gd = discretize(G=Gc, dt=60, method='backward euler')
-stp_y_out, t_out = simulate_step_response(Gd, t)
-imp_y_out, t_out = simulate_impulse_response(Gd, t)
-input_tag = 'FIC-2001'
+input_tag = 'FIC-2002'
 output_tag = 'FIC-2101'
-in_idx = inputs.index(input_tag)
-out_idx = outputs.index(output_tag)
-stp_ij = stp_y_out[:,out_idx,in_idx]
-imp_ij = imp_y_out[:,out_idx,in_idx] * Gd.SamplingPeriod
+stp_ij = step_response[output_tag][input_tag]
+imp_ij = firmodel[output_tag][input_tag]
 u = idinput[input_tag]
 y = idinput[output_tag]
 freqs, mag, ci95, ci68, snr = get_model_uncertainty(u, y, imp_ij)
 plt.plot(freqs, mag, color='red')
+plt.ylim(-0.1, max(mag)*1.5)
 plt.plot(freqs, snr, color='navy',linestyle="--", linewidth=0.5)
 plt.fill_between(freqs, (mag-ci95), (mag+ci95), color='yellow', alpha=0.2)
 plt.fill_between(freqs, (mag-ci68), (mag+ci68), color='green', alpha=0.3)
 plt.semilogx()
 plt.grid(True, which="both",color='gray', linestyle="-.", linewidth=0.5)
-
-# axes = plt.gca()
-# ylim = max(abs(stp_ij))*1.1
-# axes.set_ylim([-ylim,ylim])
-# colr = "red"
-# axes.grid(color='k', linestyle='--', linewidth=0.4)
-# axes.spines.bottom.set_position('zero')
-# axes.spines.bottom.set_linestyle('-.')
-# axes.spines.bottom.set_linewidth(0.5)
-# axes.spines[['left', 'top', 'right']].set_visible(False)
-# axes.xaxis.set_ticks_position('bottom')
-# axes.yaxis.set_ticks_position('left')
-# plt.xticks(np.arange(0, tss+2, 2.0))
-# plt.yticks(np.linspace(-ylim, ylim, 20))
-# axes.tick_params(axis='x', colors=colr,size=0,labelsize=4)
-# axes.tick_params(axis='y', colors=colr,size=0,labelsize=4)
-# axes.margins(x=0, y=0)
-# plt.plot(t_out/60, stp_ij, color=colr, linewidth=0.8)
+plt.show()
+axes = plt.gca()
+ylim = max(abs(stp_ij))*1.1
+axes.set_ylim([-ylim,ylim])
+colr = "red"
+axes.grid(color='k', linestyle='--', linewidth=0.4)
+axes.spines.bottom.set_position('zero')
+axes.spines.bottom.set_linestyle('-.')
+axes.spines.bottom.set_linewidth(0.5)
+axes.spines[['left', 'top', 'right']].set_visible(False)
+axes.xaxis.set_ticks_position('bottom')
+axes.yaxis.set_ticks_position('left')
+plt.xticks(np.arange(0, tss+2, 2.0))
+plt.yticks(np.linspace(-ylim, ylim, 20))
+axes.tick_params(axis='x', colors=colr,size=0,labelsize=4)
+axes.tick_params(axis='y', colors=colr,size=0,labelsize=4)
+axes.margins(x=0, y=0)
+plt.plot(t, stp_ij, color=colr, linewidth=0.8)
 plt.show()
