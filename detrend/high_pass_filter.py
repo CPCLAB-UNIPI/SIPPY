@@ -40,13 +40,13 @@ class HighPassFilter(IFilter):
                 _sliced = argv[0].copy(deep=True)
                 for slice in slices.values():
                     if slice['type'] in ["interpolate", "bad"]:
-                        if slice['type'] == "interpolate" and any((True for tag in slice['tags'] if tag in _sliced.columns)):
+                        if slice['type'] == "bad" and(slice["isGlobal"] or any((True for tag in slice['tags'] if tag in _sliced.columns))):
+                            _sliced.iloc[slice["start"]:slice["end"]] = np.nan
+                            _sliced.fillna(method='ffill', inplace=True)
+                        elif slice['type'] == "interpolate" and any((True for tag in slice['tags'] if tag in _sliced.columns)):
                             for tag in slice['tags']:
                                 _sliced[tag].iloc[slice["start"]:slice["end"]] = np.nan
                                 _sliced[tag].interpolate(method='linear', inplace=True)
-                        elif slice['type'] == "bad" and(slice["isGlobal"] or any((True for tag in slice['tags'] if tag in _sliced.columns))):
-                            _sliced.iloc[slice["start"]:slice["end"]] = np.nan
-                            _sliced.fillna(method='ffill', inplace=True)
                     else:
                         raise ValueError("Unsupported slice type provided, Valid slices are [interpolate, bad]")
             else:
