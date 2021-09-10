@@ -5,6 +5,8 @@ Created on Sun Oct 08 2017
 @author: Giuseppe Armenise
 """
 from __future__ import absolute_import, print_function
+import numpy as np
+import pandas as pd
 from scipy.linalg import solve_discrete_are
 from scipy import stats, signal, fftpack
 import math
@@ -335,3 +337,29 @@ def get_step_response(fir_model):
         for ind in fir_model[dep].keys():
             step_response[dep][ind] = np.cumsum(fir_model[dep][ind])
     return step_response
+
+def simulate_fir(fir_model, data):
+    """
+    Returns a pandas dataframe of dependant variables predictions.
+        
+        Parameters
+        ----------
+        fir_model (dict(dict(numpy.array))): nested dictionary of numpy ayyay containig FIR coeficiants
+        data (pandas.DataFrame): pandas data frame containing independant and dependant variables data.
+
+        Returns
+        -------
+        predictions (pandas.DataFrame): pandas data frame containing dependant variables predictions.
+    """
+    N = len(data)
+    deps = list(fir_model.keys())
+    inds = list(fir_model[deps[0]].keys())
+    predictions = data[deps].copy(deep=True)
+    for dep in deps:
+        predictions[dep].values[:] = 0.0
+        for ind in inds:
+            predictions[dep] += signal.convolve(data[ind], fir_model[dep][ind], mode='full')[:N]
+        tss = len(fir_model[dep][inds[0]])
+        predictions[dep][:tss] = predictions[dep].values[tss+1]
+        predictions[dep] = predictions[dep] - predictions[dep].mean() + data[dep].mean()
+    return predictions
