@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import sys, os
 sys.path.append(os.getcwd())
 from sysidbox.subspace import system_identification
-from sysidbox.functionsetSIM import get_model_uncertainty, get_fir_coef, get_step_response
+from sysidbox.functionsetSIM import get_model_uncertainty, get_fir_coef, get_step_response, simulate_fir
 from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
 from detrend.detrending_filter import DetrendingFilter
 
@@ -49,7 +49,7 @@ print('Input shape:',u.shape)
 
 #specify model identification parameters, reffer the documentation for detais.
 id_method='CVA'
-IC = 'None' # None, AIC, AICc, BIC
+IC = 'AIC' # None, AIC, AICc, BIC
 TH =  100 # The length of time horizon used for regression
 fix_ordr = 23 # Used if and only if IC = 'None'
 ss_orders = [1, 45] # SS orser min and max, Used if IC = AIC, AICc or BIC
@@ -76,35 +76,41 @@ step_response = get_step_response(firmodel)
 t = np.arange(0, tss)
 
 input_tag = 'FIC-2002'
-output_tag = 'FIC-2101'
+output_tag = 'FIC-2102'
 stp_ij = step_response[output_tag][input_tag]
 imp_ij = firmodel[output_tag][input_tag]
-u = idinput[input_tag]
-y = idinput[output_tag]
-freqs, mag, ci95, ci68, snr = get_model_uncertainty(u, y, imp_ij)
-plt.plot(freqs, mag, color='red')
-plt.ylim(-0.1, max(mag)*1.5)
-plt.plot(freqs, snr, color='navy',linestyle="--", linewidth=0.5)
-plt.fill_between(freqs, (mag-ci95), (mag+ci95), color='yellow', alpha=0.2)
-plt.fill_between(freqs, (mag-ci68), (mag+ci68), color='green', alpha=0.3)
-plt.semilogx()
-plt.grid(True, which="both",color='gray', linestyle="-.", linewidth=0.5)
-plt.show()
-axes = plt.gca()
-ylim = max(abs(stp_ij))*1.1
-axes.set_ylim([-ylim,ylim])
-colr = "red"
-axes.grid(color='k', linestyle='--', linewidth=0.4)
-axes.spines.bottom.set_position('zero')
-axes.spines.bottom.set_linestyle('-.')
-axes.spines.bottom.set_linewidth(0.5)
-axes.spines[['left', 'top', 'right']].set_visible(False)
-axes.xaxis.set_ticks_position('bottom')
-axes.yaxis.set_ticks_position('left')
-plt.xticks(np.arange(0, tss+2, 2.0))
-plt.yticks(np.linspace(-ylim, ylim, 20))
-axes.tick_params(axis='x', colors=colr,size=0,labelsize=4)
-axes.tick_params(axis='y', colors=colr,size=0,labelsize=4)
-axes.margins(x=0, y=0)
-plt.plot(t, stp_ij, color=colr, linewidth=0.8)
+pred = simulate_fir(firmodel, step_test_data)
+step_test_data[output_tag].plot(color='b', label = 'Measurment')
+pred[output_tag].plot(color='r', label = 'Prediction')
+plt.legend()
+plt.grid()
+plt.title(output_tag)
+# u = idinput[input_tag]
+# y = idinput[output_tag]
+# freqs, mag, ci95, ci68, snr = get_model_uncertainty(u, y, imp_ij)
+# plt.plot(freqs, mag, color='red')
+# plt.ylim(-0.1, max(mag)*1.5)
+# plt.plot(freqs, snr, color='navy',linestyle="--", linewidth=0.5)
+# plt.fill_between(freqs, (mag-ci95), (mag+ci95), color='yellow', alpha=0.2)
+# plt.fill_between(freqs, (mag-ci68), (mag+ci68), color='green', alpha=0.3)
+# plt.semilogx()
+# plt.grid(True, which="both",color='gray', linestyle="-.", linewidth=0.5)
+# plt.show()
+# axes = plt.gca()
+# ylim = max(abs(stp_ij))*1.1
+# axes.set_ylim([-ylim,ylim])
+# colr = "red"
+# axes.grid(color='k', linestyle='--', linewidth=0.4)
+# axes.spines.bottom.set_position('zero')
+# axes.spines.bottom.set_linestyle('-.')
+# axes.spines.bottom.set_linewidth(0.5)
+# axes.spines[['left', 'top', 'right']].set_visible(False)
+# axes.xaxis.set_ticks_position('bottom')
+# axes.yaxis.set_ticks_position('left')
+# plt.xticks(np.arange(0, tss+2, 2.0))
+# plt.yticks(np.linspace(-ylim, ylim, 20))
+# axes.tick_params(axis='x', colors=colr,size=0,labelsize=4)
+# axes.tick_params(axis='y', colors=colr,size=0,labelsize=4)
+# axes.margins(x=0, y=0)
+# plt.plot(t, stp_ij, color=colr, linewidth=0.8)
 plt.show()
