@@ -305,9 +305,9 @@ def get_fir_coef(model, inds, deps, sampling, tss):
     """
     fir_model = dict()
     t = np.arange(0, tss*60, sampling)
-    Gc = harold.undiscretize(model)
-    Gd = harold.discretize(G=Gc, dt=sampling, method='backward euler')
-    imp_response, _ = harold.simulate_impulse_response(Gd, t)
+    Gc = harold.undiscretize(model, method='backward euler')
+    # Gd = harold.discretize(G=Gc, dt=sampling, method='backward euler')
+    imp_response, _ = harold.simulate_impulse_response(Gc, t)
     for depidx, dep in enumerate(deps):
         fir_model[dep] = dict()
         for indidx, ind in enumerate(inds):
