@@ -10,7 +10,7 @@ import sys
 from builtins import object
 import control.matlab as cnt
 from .functionset import *
-from .functionset_OPT_new import *
+from .functionset_OPT import *
 # from functionset import *
 
 
