@@ -6,13 +6,11 @@ Created on 2017
 
 @updates: Riccardo Bacci di Capaci, Marco Vaccari, Federico Pelagagge
 """
-from __future__ import print_function
 
 import sys
 from builtins import range
-from .OLSims_methods import *
+from . import OLSims_methods as OLS
 import numpy as np
-## SIPPY package: main file
 
 
 def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
@@ -91,10 +89,10 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
             
         # N4SID-MOESP-CVA    
         if id_method == 'N4SID' or id_method == 'MOESP' or id_method == 'CVA':
-            A, B, C, D, Vn, Q, R, S, K = OLSims(y, u, SS_f, id_method, SS_threshold,
+            A, B, C, D, Vn, Q, R, S, K = OLS.OLSims(y, u, SS_f, id_method, SS_threshold,
                                                                SS_max_order, SS_fixed_order,
                                                                SS_D_required, SS_A_stability)
-            model = SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
+            model = OLS.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
             
         # NO method selected
         else:
@@ -111,10 +109,10 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
             
         ## N4SID-MOESP-CVA
         if id_method == 'N4SID' or id_method == 'MOESP' or id_method == 'CVA':
-            A, B, C, D, Vn, Q, R, S, K = select_order_SIM(y, u, SS_f, id_method, IC,
+            A, B, C, D, Vn, Q, R, S, K = OLS.select_order_SIM(y, u, SS_f, id_method, IC,
                                                                          SS_orders, SS_threshold,
                                                                          SS_D_required, SS_A_stability)
-            model = SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
+            model = OLS.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
         
         # NO method selected
         else:

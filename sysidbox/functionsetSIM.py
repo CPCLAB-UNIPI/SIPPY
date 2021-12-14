@@ -4,15 +4,13 @@ Created on Sun Oct 08 2017
 
 @author: Giuseppe Armenise
 """
-from __future__ import absolute_import, print_function
 import numpy as np
 import pandas as pd
 from scipy.linalg import solve_discrete_are
 from scipy import stats, signal, fftpack
 import math
 import harold
-from .functionset import *
-# from functionset import *
+from . import functionset as fs
 
 
 
