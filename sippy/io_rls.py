@@ -122,7 +122,7 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
     if id_method == 'OE':
         F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[:nf])),1)
     else:
-        F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+Nb+nc+nd:na+Nb+nc+nd+nf])),1)
+        F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+nb+nc+nd:na+nb+nc+nd+nf])),1)
     _, deng = cnt.tfdata(A*F) 
     denG = np.array(deng[0])
     DEN = np.zeros(valG + 1)
