@@ -12,7 +12,7 @@ from builtins import range
 import numpy as np
 from past.utils import old_div
 
-import control.matlab as cnt
+import control as cnt
 
 
 # function which generates a sequence of inputs GBN
@@ -193,14 +193,14 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
     for i in range(ydim):
         # one-step ahead predictor 
         if k == 1:
-            Y_u, T, Xv = cnt.lsim((1/SYS.H[i,0])*SYS.G[i,:], u, Time)
-            Y_y, T, Xv = cnt.lsim(1 - (1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
+            T, Y_u = cnt.forced_response((1/SYS.H[i,0])*SYS.G[i,:], Time, u)
+            T, Y_y = cnt.forced_response(1 - (1/SYS.H[i,0]), Time, y[i,:] - y_rif[i])
             #Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i])
-            Yval[i,:] = (Y_u.T + np.atleast_2d(Y_y) + y_rif[i])
+            Yval[i,:] = (Y_u + np.atleast_2d(Y_y) + y_rif[i])
         else:
         # k-step ahead predictor
             # impulse response of disturbance model H
-            hout, T = cnt.impulse(SYS.H[i,0], Time)
+            hout, T = cnt.matlab.impulse(SYS.H[i,0], Time)
             # extract first k-1 coefficients
             h_k_num = hout[0:k]
             # set denumerator
@@ -216,9 +216,9 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
             # plt.ylabel("h_j ")
             # plt.xlabel("Time [min]")
             # k-step ahead prediction
-            Y_u, T, Xv = cnt.lsim(Hk*(1/SYS.H[i,0])*SYS.G[i,:], u, Time)
-            #Y_y, T, Xv = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y[i,0], Time)
-            Y_y, T, Xv = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y_rif[i], Time)
+            T, Y_u = cnt.forced_response(Hk*(1/SYS.H[i,0])*SYS.G[i,:], Time, u)
+            #Y_y, T = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y[i,0], Time)
+            T, Y_y = cnt.forced_response(1 - Hk*(1/SYS.H[i,0]), Time, y[i,:] - y_rif[i])
             #Yval[i,:] = np.atleast_2d(Y_u + Y_y + y[i,0])
             Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i]) 
       
