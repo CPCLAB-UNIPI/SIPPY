@@ -165,18 +165,14 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
     Yval = np.zeros((ydim,ylength))
     
     # Data centering
-    #y_rif = np.zeros(ydim)
-    #u_rif = np.zeros(udim)
     if centering == 'InitVal':
         y_rif = 1. * y[:, 0]
         u_rif = 1. * u[:, 0]
     elif centering == 'MeanVal':
         for i in range(ydim):
             y_rif = np.mean(y,1)
-            #y_rif[i] = np.mean(y[i, :])
         for i in range(udim):
             u_rif = np.mean(u,1)
-            #u_rif[i] = np.mean(u[i, :])
     elif centering == 'None':
         y_rif = np.zeros(ydim)
         u_rif = np.zeros(udim)
@@ -195,7 +191,6 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
         if k == 1:
             T, Y_u = cnt.forced_response((1/SYS.H[i,0])*SYS.G[i,:], Time, u)
             T, Y_y = cnt.forced_response(1 - (1/SYS.H[i,0]), Time, y[i,:] - y_rif[i])
-            #Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i])
             Yval[i,:] = (Y_u + np.atleast_2d(Y_y) + y_rif[i])
         else:
         # k-step ahead predictor
@@ -207,19 +202,9 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
             h_k_den = np.hstack((np.ones((1,1)), np.zeros((1,k-1))))
             # FdT of impulse response
             Hk = cnt.tf(h_k_num,h_k_den[0],SYS.ts)
-            # plot impulse response
-            # plt.subplot(ydim,1,i+1)
-            # plt.plot(Time,hout)
-            # plt.grid()
-            # if i == 0:
-            #     plt.title('Impulse Response')
-            # plt.ylabel("h_j ")
-            # plt.xlabel("Time [min]")
             # k-step ahead prediction
             T, Y_u = cnt.forced_response(Hk*(1/SYS.H[i,0])*SYS.G[i,:], Time, u)
-            #Y_y, T = cnt.lsim(1 - Hk*(1/SYS.H[i,0]), y[i,:] - y[i,0], Time)
             T, Y_y = cnt.forced_response(1 - Hk*(1/SYS.H[i,0]), Time, y[i,:] - y_rif[i])
-            #Yval[i,:] = np.atleast_2d(Y_u + Y_y + y[i,0])
             Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i]) 
       
     return Yval
