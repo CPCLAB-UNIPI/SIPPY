@@ -15,7 +15,7 @@ import numpy as np
 
 def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                             tsample = 1., SS_f = 20, SS_threshold = 0.1, \
-                            SS_max_order = np.NaN, SS_fixed_order = np.NaN, \
+                            SS_max_order = np.nan, SS_fixed_order = np.nan, \
                             SS_orders = [1, 10], SS_D_required = False, SS_A_stability = False):
     
     y = 1. * np.atleast_2d(y)

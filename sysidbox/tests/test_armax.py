@@ -44,5 +44,5 @@ class TestCtor(object):
     def test_exceptions(self):
         assert_raises(ValueError, Armax, "invalid", 2, 3, 4, 5)
         assert_raises(ValueError, Armax, [1.5, 2], 2, 3, 4, 5)
-        assert_raises(ValueError, Armax, (np.NAN, 1), 2, 3, 4, 5)
+        assert_raises(ValueError, Armax, (np.nan, 1), 2, 3, 4, 5)
 

@@ -45,8 +45,8 @@ class HighPassFilter(IFilter):
                             _sliced.fillna(method='ffill', inplace=True)
                         elif slice['type'] == "interpolate" and any((True for tag in slice['tags'] if tag in _sliced.columns)):
                             for tag in slice['tags']:
-                                _sliced[tag].iloc[slice["start"]:slice["end"]] = np.nan
-                                _sliced[tag].interpolate(method='linear', inplace=True)
+                                _sliced.iloc[slice["start"]:slice["end"], _sliced.columns.get_loc(tag)] = np.nan
+                                _sliced[tag] = _sliced[tag].interpolate(method='linear')
                     else:
                         raise ValueError("Unsupported slice type provided, Valid slices are [interpolate, bad]")
             else:
@@ -88,7 +88,7 @@ class HighPassFilter(IFilter):
             cutoff=_cutoff,
             window=_window,
             pass_zero=_pass_zero,
-            nyq=_nyq_rate,
+            fs=_nyq_rate,
         )
         _trend = self.filterdata.data["input"].copy(deep=True)
         if slices:
