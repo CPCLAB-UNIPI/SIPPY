@@ -1,0 +1,10 @@
+services:
+  pydev:
+    image: pyctrl:latest
+    env_file:
+      - .env
+    volumes:
+      - ..:/workspace
+    ports:
+      - "8888:8888"
+    command: sleep infinity

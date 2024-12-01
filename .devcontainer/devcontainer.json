@@ -1,0 +1,19 @@
+{
+  "name": "Python Control System Development",
+  "dockerComposeFile": "compose.yaml",
+  "service": "pydev",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/zsh"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter"
+      ]
+    }
+  },
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspace",
+  "postCreateCommand": "pip install -r requirements.txt"
+}
