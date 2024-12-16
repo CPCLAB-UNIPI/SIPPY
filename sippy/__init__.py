@@ -118,8 +118,8 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                 elif (type(FIR_orders[0]) == int and type(FIR_orders[1]) == int):
                     # na is set to 0 
                     # na = [0]*ydim
-                    nb = (FIR_orders[0] * np.ones((ydim, udim), dtype=np.int)).tolist()
-                    theta = (FIR_orders[1] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                    nb = (FIR_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (FIR_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                 
                 # something goes wrong
                 else:
@@ -141,9 +141,9 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
     
                 # not assigned orders (read default)    
                 elif (type(ARX_orders[0]) == int and type(ARX_orders[1]) == int and type(ARX_orders[2]) == int):
-                    na = (ARX_orders[0] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nb = (ARX_orders[1] * np.ones((ydim, udim), dtype=np.int)).tolist()
-                    theta = (ARX_orders[2] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                    na = (ARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    nb = (ARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (ARX_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
                 
                 # something goes wrong
                 else:
@@ -195,12 +195,12 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
             
             # not assigned orders (read default)   
             elif (type(ARMAX_orders[0]) == int and type(ARMAX_orders[1]) == int and type(ARMAX_orders[2]) == int and type(ARMAX_orders[3]) == int):
-                na = (ARMAX_orders[0] * np.ones((ydim,), dtype=np.int)).tolist()
-                nb = (ARMAX_orders[1] * np.ones((ydim, udim), dtype=np.int)).tolist()
-                nc = (ARMAX_orders[2] * np.ones((ydim,), dtype=np.int)).tolist()
+                na = (ARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                nb = (ARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                nc = (ARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                 # nd = [0]*ydim
                 # nf = [0]*ydim
-                theta = (ARMAX_orders[3] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                theta = (ARMAX_orders[3] * np.ones((ydim, udim), dtype=int)).tolist()
             
             # something goes wrong
             else:
@@ -273,11 +273,11 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
             # not assigned orders (read default)   
             elif (type(OE_orders[0]) == int and type(OE_orders[1]) == int and type(OE_orders[2]) == int):
                 # na = [0]*ydim
-                nb = (OE_orders[0] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                nb = (OE_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
                 # nc = [0]*ydim
                 # nd = [0]*ydim
-                nf = (OE_orders[1] * np.ones((ydim,), dtype=np.int)).tolist()
-                theta = (OE_orders[2] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                nf = (OE_orders[1] * np.ones((ydim,), dtype=int)).tolist()
+                theta = (OE_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
             
             # something goes wrong
             else:
@@ -337,7 +337,7 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                 # assigned orders    
                 if (type(ARMA_orders[0]) == list and type(ARMA_orders[1]) == list and type(ARMA_orders[2]) == list):
                     na = ARMA_orders[0]
-                    nb = np.zeros((ydim, udim), dtype=np.int).tolist()
+                    nb = np.zeros((ydim, udim), dtype=int).tolist()
                     nc = ARMA_orders[1]
                     # nd = [0]*ydim
                     # nf = [0]*ydim
@@ -345,13 +345,13 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                 
                 # not assigned orders (read default)   
                 elif (type(ARMA_orders[0]) == int and type(ARMA_orders[1]) == int and type(ARMA_orders[2]) == int):
-                    na = (ARMA_orders[0] * np.ones((ydim,), dtype=np.int)).tolist()
-                    #nb = (ARMA_orders[1] * np.ones((ydim, udim), dtype=np.int)).tolist()
-                    nb = np.zeros((ydim, udim), dtype=np.int).tolist()
+                    na = (ARMA_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    #nb = (ARMA_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = np.zeros((ydim, udim), dtype=int).tolist()
                     nc = ARMA_orders[1]
                     # nd = [0]*ydim
                     # nf = [0]*ydim
-                    theta = (ARMA_orders[2] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                    theta = (ARMA_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
                 
                 # something goes wrong
                 else:
@@ -377,12 +377,12 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                 
                 # not assigned orders (read default)   
                 elif (type(ARARX_orders[0]) == int and type(ARARX_orders[1]) == int and type(ARARX_orders[2]) == int and type(ARARX_orders[3]) == int):
-                    na = (ARARX_orders[0] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nb = (ARARX_orders[1] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                    na = (ARARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    nb = (ARARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nc = [0]*ydim
-                    nd = (ARARX_orders[2] * np.ones((ydim,), dtype=np.int)).tolist()
+                    nd = (ARARX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nf = [0]*ydim
-                    theta = (ARARX_orders[3] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                    theta = (ARARX_orders[3] * np.ones((ydim, udim), dtype=int)).tolist()
                 
                 # something goes wrong
                 else:
@@ -408,12 +408,12 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                 
                 # not assigned orders (read default)   
                 elif (type(ARARMAX_orders[0]) == int and type(ARARMAX_orders[1]) == int and type(ARARMAX_orders[2]) == int and type(ARARMAX_orders[3]) == int and type(ARARMAX_orders[4]) == int):
-                    na = (ARARMAX_orders[0] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nb = (ARARMAX_orders[1] * np.ones((ydim, udim), dtype=np.int)).tolist()
-                    nc = (ARARMAX_orders[2] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nd = (ARARMAX_orders[3] * np.ones((ydim,), dtype=np.int)).tolist()
+                    na = (ARARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    nb = (ARARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nc = (ARARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
+                    nd = (ARARMAX_orders[3] * np.ones((ydim,), dtype=int)).tolist()
                     # nf = [0]*ydim
-                    theta = (ARARMAX_orders[4] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                    theta = (ARARMAX_orders[4] * np.ones((ydim, udim), dtype=int)).tolist()
                 
                 # something goes wrong
                 else:
@@ -443,11 +443,11 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                 elif (type(BJ_orders[0]) == int and type(BJ_orders[1]) == int and type(BJ_orders[2]) == int \
                       and type(BJ_orders[3]) == int and type(BJ_orders[4]) == int):
                     # na = [0]*ydim 
-                    nb = (BJ_orders[0] * np.ones((ydim, udim), dtype=np.int)).tolist()
-                    nc = (BJ_orders[1] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nd = (BJ_orders[2] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nf = (BJ_orders[3] * np.ones((ydim,), dtype=np.int)).tolist()
-                    theta = (BJ_orders[4] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                    nb = (BJ_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nc = (BJ_orders[1] * np.ones((ydim,), dtype=int)).tolist()
+                    nd = (BJ_orders[2] * np.ones((ydim,), dtype=int)).tolist()
+                    nf = (BJ_orders[3] * np.ones((ydim,), dtype=int)).tolist()
+                    theta = (BJ_orders[4] * np.ones((ydim, udim), dtype=int)).tolist()
                 
                 # something goes wrong
                 else:
@@ -475,12 +475,12 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                 # not assigned orders (read default)   
                 elif (type(GEN_orders[0]) == int and type(GEN_orders[1]) == int and type(GEN_orders[2]) == int \
                       and type(GEN_orders[3]) == int and type(GEN_orders[4]) == int and type(GEN_orders[5]) == int): 
-                    na = (GEN_orders[0] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nb = (GEN_orders[1] * np.ones((ydim, udim), dtype=np.int)).tolist()
-                    nc = (GEN_orders[2] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nd = (GEN_orders[3] * np.ones((ydim,), dtype=np.int)).tolist()
-                    nf = (GEN_orders[4] * np.ones((ydim,), dtype=np.int)).tolist()
-                    theta = (GEN_orders[5] * np.ones((ydim, udim), dtype=np.int)).tolist()
+                    na = (GEN_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    nb = (GEN_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nc = (GEN_orders[2] * np.ones((ydim,), dtype=int)).tolist()
+                    nd = (GEN_orders[3] * np.ones((ydim,), dtype=int)).tolist()
+                    nf = (GEN_orders[4] * np.ones((ydim,), dtype=int)).tolist()
+                    theta = (GEN_orders[5] * np.ones((ydim, udim), dtype=int)).tolist()
                 
                 # something goes wrong
                 else:
