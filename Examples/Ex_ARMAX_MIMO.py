@@ -94,7 +94,7 @@ H_sample3 = cnt.tf(H3, DEN3, ts)
 
 # time
 tfin = 400
-npts = tfin // ts + 1
+npts = int(int(tfin // ts)) + 1
 Time = np.linspace(0, tfin, npts)
 
 # INPUT#
@@ -140,7 +140,7 @@ Ytot[0, :] = (Ytot1 + err_outputH1).squeeze()
 Ytot[1, :] = (Ytot2 + err_outputH2).squeeze()
 Ytot[2, :] = (Ytot3 + err_outputH3).squeeze()
 
-##identification parameters
+# identification parameters
 ordersna = [na1, na2, na3]
 ordersnb = [
     [nb11, nb12, nb13, nb14],
@@ -191,7 +191,7 @@ Yout_ARMAXi = Id_ARMAXi.Yid
 Yout_ARMAXo = Id_ARMAXo.Yid
 Yout_ARMAXr = Id_ARMAXr.Yid
 
-######plots
+# plots
 #
 
 
@@ -257,11 +257,11 @@ plt.xlabel("Time")
 plt.legend(["System", "ARMAX-I", "ARMAX-0", "ARMAX-R"])
 
 
-### VALIDATION STAGE
+# VALIDATION STAGE
 
 # time
 tfin = 400
-npts = tfin // ts + 1
+npts = int(tfin // ts) + 1
 Time = np.linspace(0, tfin, npts)
 
 # (NEW) INPUTS
@@ -305,13 +305,15 @@ Ytot_v[2, :] = (Ytot3 + err_outputH3).squeeze()
 # ## Compute time responses for identified systems with new inputs
 
 # ARMAX - ILLS
-Yv_armaxi = fset.validation(Id_ARMAXi, U_valid, Ytot_v, Time, centering="MeanVal")
+Yv_armaxi = fset.validation(
+    Id_ARMAXi, U_valid, Ytot_v, Time, centering="MeanVal")
 
 # ARMAX - OPT
 Yv_armaxo = fset.validation(Id_ARMAXo, U_valid, Ytot_v, Time)
 
 # ARMAX - RLLS
-Yv_armaxr = fset.validation(Id_ARMAXr, U_valid, Ytot_v, Time, centering="InitVal")
+Yv_armaxr = fset.validation(
+    Id_ARMAXr, U_valid, Ytot_v, Time, centering="InitVal")
 
 # U
 plt.figure(3)

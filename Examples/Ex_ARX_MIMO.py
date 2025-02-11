@@ -9,6 +9,7 @@ case 3 outputs x 4 inputs
 """
 
 # Checking path to access other files
+import matplotlib.pyplot as plt
 import control.matlab as cnt
 import numpy as np
 
@@ -90,7 +91,7 @@ H_sample3 = cnt.tf(H3, DEN3, ts)
 
 # time
 tfin = 400
-npts = tfin // ts + 1
+npts = int(tfin // ts) + 1
 Time = np.linspace(0, tfin, npts)
 
 # INPUT#
@@ -135,7 +136,7 @@ Ytot[0, :] = Ytot1.squeeze()
 Ytot[1, :] = Ytot2.squeeze()
 Ytot[2, :] = Ytot3.squeeze()
 
-## identification parameters
+# identification parameters
 ordersna = [na1, na2, na3]
 ordersnb = [
     [nb11, nb12, nb13, nb14],
@@ -156,15 +157,15 @@ Id_ARX = system_identification(
 )  #
 
 # FIR
-Id_FIR = system_identification(Ytot, Usim, "FIR", FIR_orders=[ordersnb, theta_list])  #
+Id_FIR = system_identification(Ytot, Usim, "FIR", FIR_orders=[
+                               ordersnb, theta_list])  #
 
 # output of the identified model
 Yout_ARX = Id_ARX.Yid
 Yout_FIR = Id_FIR.Yid
 
-######plot
+# plot
 #
-import matplotlib.pyplot as plt
 
 plt.close("all")
 plt.figure(0)

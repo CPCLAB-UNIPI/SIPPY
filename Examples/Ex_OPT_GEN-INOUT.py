@@ -13,12 +13,12 @@ import numpy as np
 from sippy import functionset as fset
 from sippy import system_identification
 
-## TEST OPTIMIZATION-BASED IDENTIFICATION METHODS for GENERAL INPUT-OUTPUT MODEL
+# TEST OPTIMIZATION-BASED IDENTIFICATION METHODS for GENERAL INPUT-OUTPUT MODEL
 
 # Define sampling time and Time vector
 sampling_time = 1.0  # [s]
 end_time = 400  # [s]
-npts = end_time // sampling_time + 1
+npts = int(end_time // sampling_time) + 1
 Time = np.linspace(0, end_time, npts)
 
 # Define Generalize Binary Sequence as input signal
@@ -77,7 +77,7 @@ plt.figure(0)
 plt.plot(Time, Usim)
 plt.plot(Time, Y1)
 plt.xlabel("Time")
-plt.title("Time response y$_k$(u) = g$\cdot$u$_k$")
+plt.title(r"Time response y$_k$(u) = g$\cdot$u$_k$")
 plt.legend(["u(t)", "y(t)"])
 plt.grid()
 plt.show()
@@ -89,7 +89,7 @@ plt.figure(1)
 plt.plot(Time, e_t)
 plt.plot(Time, Y2)
 plt.xlabel("Time")
-plt.title("Time response y$_k$(e) = h$\cdot$e$_k$")
+plt.title(r"Time response y$_k$(e) = h$\cdot$e$_k$")
 plt.legend(["e(t)", "y(t)"])
 plt.grid()
 plt.show()
@@ -103,12 +103,12 @@ plt.figure(2)
 plt.plot(Time, Utot)
 plt.plot(Time, Ytot)
 plt.xlabel("Time")
-plt.title("Time response y$_k$ = g$\cdot$u$_k$ + h$\cdot$e$_k$")
+plt.title(r"Time response y$_k$ = g$\cdot$u$_k$ + h$\cdot$e$_k$")
 plt.legend(["u(t) + e(t)", "y_t(t)"])
 plt.grid()
 
 
-##### SYSTEM IDENTIFICATION from collected data
+# SYSTEM IDENTIFICATION from collected data
 
 # choose identification mode
 mode = "FIXED"
@@ -280,7 +280,7 @@ plt.legend(["System", "ARMA", "ARARX", "ARARMAX", "OE", "BJ", "GEN"])
 plt.show()
 
 
-##### VALIDATION of the identified system:
+# VALIDATION of the identified system:
 # ## Generate new time series for input and noise
 
 switch_probability = 0.07  # [0..1]
@@ -289,7 +289,7 @@ input_range = [0.5, 1.5]
 white_noise_variance = [0.01]
 e_valid = fset.white_noise_var(U_valid.size, white_noise_variance)[0]
 #
-## Compute time responses for true system with new inputs
+# Compute time responses for true system with new inputs
 
 Yvalid1, Time, Xsim = cnt.lsim(g_sample, U_valid, Time)
 Yvalid2, Time, Xsim = cnt.lsim(h_sample, e_valid, Time)
@@ -343,7 +343,7 @@ EV = 100.0 * (
 plt.title("Validation: | Explained Variance BJ = {}%".format(EV))
 
 
-## Bode Plots
+# Bode Plots
 w_v = np.logspace(-3, 4, num=701)
 plt.figure(11)
 mag, fi, om = cnt.bode(g_sample, w_v)
@@ -415,7 +415,7 @@ plt.xlabel("w"), plt.ylabel("phase")
 plt.legend(["System", "ARMA", "ARARX", "ARARMAX", "OE", "BJ", "GEN"])
 
 
-## Step test
+# Step test
 # G(z)
 plt.figure(13)
 yg1 = cnt.step(g_sample, Time)

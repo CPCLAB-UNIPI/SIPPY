@@ -28,14 +28,15 @@ ts = 1.0  # [min]
 
 # time settings (t final, samples number, samples vector)
 tfin = 1000
-npts = tfin // ts + 1
+npts = int(tfin // ts) + 1
 Time = np.linspace(0, tfin, npts)
 
 # Data
 V = 10.0  # tank volume [m^3]         --> assumed to be constant
 ro = 1100.0  # solution density [kg/m^3] --> assumed to be constant
 cp = 4.180  # specific heat [kJ/kg*K]    --> assumed to be constant
-Lam = 2272.0  # latent heat   [kJ/kg]     --> assumed to be constant (Tvap = 100°C, Pvap = 1atm)
+# latent heat   [kJ/kg]     --> assumed to be constant (Tvap = 100°C, Pvap = 1atm)
+Lam = 2272.0
 # initial conditions
 # Ca_0
 # Tin_0
@@ -75,7 +76,8 @@ def Fdyn(X, U):
     # Energy Balance
     # ro*cp*F*T_in - ro*cp*F*T + W*Lam = (V*ro*cp)*dT/dt
     #
-    dx_1 = (ro * cp * U[0] * U[3] - ro * cp * U[0] * X[1] + U[1] * Lam) / (V * ro * cp)
+    dx_1 = (ro * cp * U[0] * U[3] - ro * cp * U[0]
+            * X[1] + U[1] * Lam) / (V * ro * cp)
 
     fx = np.append(dx_0, dx_1)
 
@@ -111,7 +113,7 @@ sigma_T = 0.01  # variation
 U[3, :] = fset.RW_seq(npts, Tin_0, sigma=sigma_T)
 
 
-##### COLLECT DATA
+# COLLECT DATA
 
 # Output Initial conditions
 Caout_0 = Ca_0
@@ -145,7 +147,7 @@ noise = fset.white_noise_var(npts, var)
 Y = X + noise
 
 
-#### IDENTIFICATION STAGE (Linear Models)
+# IDENTIFICATION STAGE (Linear Models)
 
 # Orders
 na_ords = [2, 2]
@@ -222,13 +224,14 @@ x_ss, Y_ss = fsetSIM.SS_lsim_process_form(
 )
 
 
-##### PLOTS
+# PLOTS
 
 # Input
 plt.close("all")
 plt.figure(1)
 
-str_input = ["F [m$^3$/min]", "W [kg/min]", "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"]
+str_input = ["F [m$^3$/min]", "W [kg/min]",
+             "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"]
 for i in range(m):
     plt.subplot(m, 1, i + 1)
     plt.plot(Time, U[i, :])
@@ -264,7 +267,7 @@ for i in range(p):
         plt.title("identification")
 
 
-#### VALIDATION STAGE
+# VALIDATION STAGE
 
 # Build new input sequences
 U_val = np.zeros((m, npts))
@@ -294,7 +297,7 @@ Tin_0 = 25.0  # initial condition
 sigma_T = 0.1  # variation
 U_val[3, :] = fset.RW_seq(npts, Tin_0, sigma=sigma_T)
 
-#### COLLECT DATA
+# COLLECT DATA
 
 # Output Initial conditions
 Caout_0 = Ca_0
@@ -342,11 +345,12 @@ x_ss, Yv_ss = fsetSIM.SS_lsim_process_form(
 )
 
 
-##### PLOTS
+# PLOTS
 
 # Input
 plt.figure(3)
-str_input = ["F [m$^3$/min]", "W [kg/min]", "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"]
+str_input = ["F [m$^3$/min]", "W [kg/min]",
+             "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"]
 for i in range(m):
     plt.subplot(m, 1, i + 1)
     plt.plot(Time, U_val[i, :])

@@ -31,7 +31,7 @@ C = np.array([[0.7, 1.0]])
 D = np.array([[0.0]])
 
 tfin = 500
-npts = tfin // ts + 1
+npts = int(tfin // ts) + 1
 Time = np.linspace(0, tfin, npts)
 
 # Input sequence
