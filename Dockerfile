@@ -48,16 +48,11 @@ RUN curl -sSL https://install.python-poetry.org | python
 # copy project requirement files here to ensure they will be cached.
 # TODO: learn about poetry.lock which I removed
 WORKDIR $PYSETUP_PATH
-COPY pyproject.toml ./
-
-# Set working directory
-WORKDIR /app
-
 # Copy project files
-COPY . /app
+COPY . ./
 
 # install runtime deps - uses $POETRY_VIRTUALENVS_IN_PROJECT internally
 RUN poetry install
 
 # Set the entrypoint
-ENTRYPOINT ["poetry", "run", "python"]
+CMD ["poetry", "run", "python"]
