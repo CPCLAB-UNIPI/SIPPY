@@ -1,15 +1,11 @@
-""" test_armax.py
-
-"""
+"""test_armax.py"""
 
 __author__ = "A. De Bortoli"
 
-from sippy.armax import Armax
 import numpy as np
-from numpy.testing import (
-    assert_, assert_equal, assert_almost_equal, assert_array_equal,
-    assert_array_almost_equal, assert_raises
-    )
+from numpy.testing import assert_equal, assert_raises
+
+from sippy.armax import Armax
 
 
 class TestCtor(object):
@@ -44,5 +40,4 @@ class TestCtor(object):
     def test_exceptions(self):
         assert_raises(ValueError, Armax, "invalid", 2, 3, 4, 5)
         assert_raises(ValueError, Armax, [1.5, 2], 2, 3, 4, 5)
-        assert_raises(ValueError, Armax, (np.NAN, 1), 2, 3, 4, 5)
-
+        assert_raises(ValueError, Armax, (np.nan, 1), 2, 3, 4, 5)
