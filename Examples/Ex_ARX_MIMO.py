@@ -49,9 +49,24 @@ var_list = [50.0, 100.0, 1.0]
 ts = 1.0
 
 NUM = [
-    [[4, 3.3, 0.0, 0.0], [10, 0.0, 0.0], [7.0, 5.5, 2.2], [-0.9, -0.11, 0.0, 0.0]],
-    [[-85, -57.5, -27.7], [71, 12.3], [-0.1, 0.0, 0.0, 0.0], [0.994, 0.0, 0.0, 0.0]],
-    [[0.2, 0.0, 0.0, 0.0], [0.821, 0.432, 0.0], [0.1, 0.0, 0.0, 0.0], [0.891, 0.223]],
+    [
+        [4, 3.3, 0.0, 0.0],
+        [10, 0.0, 0.0],
+        [7.0, 5.5, 2.2],
+        [-0.9, -0.11, 0.0, 0.0],
+    ],
+    [
+        [-85, -57.5, -27.7],
+        [71, 12.3],
+        [-0.1, 0.0, 0.0, 0.0],
+        [0.994, 0.0, 0.0, 0.0],
+    ],
+    [
+        [0.2, 0.0, 0.0, 0.0],
+        [0.821, 0.432, 0.0],
+        [0.1, 0.0, 0.0, 0.0],
+        [0.891, 0.223],
+    ],
 ]
 
 DEN = [
@@ -71,7 +86,9 @@ nb = [[2, 1, 3, 2], [3, 2, 1, 1], [1, 2, 1, 2]]
 th = [[1, 2, 2, 1], [1, 2, 0, 0], [0, 1, 0, 2]]
 
 # SISO transfer functions (G and H)
-g_samples = [[cnt.tf(NUM[i][j], DEN[i], ts) for j in range(4)] for i in range(3)]
+g_samples = [
+    [cnt.tf(NUM[i][j], DEN[i], ts) for j in range(4)] for i in range(3)
+]
 H_samples = [cnt.tf(H[i], DEN[i], ts) for i in range(3)]
 
 # time
@@ -103,7 +120,9 @@ Id_ARX = system_identification(
 )
 
 # FIR
-Id_FIR = system_identification(Ytot, Usim, "FIR", FIR_orders=[ordersnb, theta_list])
+Id_FIR = system_identification(
+    Ytot, Usim, "FIR", FIR_orders=[ordersnb, theta_list]
+)
 
 # output of the identified model
 Yout_ARX = Id_ARX.Yid

@@ -5,7 +5,6 @@ Created on 2021
 """
 
 import sys
-from builtins import object
 
 import control.matlab as cnt
 import numpy as np
@@ -14,7 +13,9 @@ from .functionset import information_criterion, rescale
 from .functionset_OPT import opt_id
 
 
-def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c):
+def GEN_id(
+    id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c
+):
     ylength = y.size
 
     # max predictable order
@@ -84,9 +85,9 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
         NUM = np.zeros(valG)
         NUM[theta : nb + theta] = THETA[na : nb + na]
     # denG (A*F)
-    A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
+    A = cnt.tf(np.hstack((1, np.zeros(na))), np.hstack((1, THETA[:na])), 1)
     F = cnt.tf(
-        np.hstack((1, np.zeros((nf)))),
+        np.hstack((1, np.zeros(nf))),
         np.hstack((1, THETA[na + nb + nc + nd : na + nb + nc + nd + nf])),
         1,
     )
@@ -106,7 +107,7 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
         NUMH[1 : nc + 1] = THETA[na + nb : na + nb + nc]
     # denH (A*D)
     D = cnt.tf(
-        np.hstack((1, np.zeros((nd)))),
+        np.hstack((1, np.zeros(nd))),
         np.hstack((1, THETA[na + nb + nc : na + nb + nc + nd])),
         1,
     )
@@ -208,7 +209,8 @@ def select_order_GEN(
                                 )
                                 IC = information_criterion(
                                     i_a + i_b + i_c + i_d + i_f,
-                                    y.size - max(i_a, i_b + i_t, i_c, i_d, i_f),
+                                    y.size
+                                    - max(i_a, i_b + i_t, i_c, i_d, i_f),
                                     Vn * 2,
                                     method,
                                 )
@@ -293,9 +295,22 @@ def select_order_GEN(
 
 
 # creating object GEN model
-class GEN_model(object):
+class GEN_model:
     def __init__(
-        self, na, nb, nc, nd, nf, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid
+        self,
+        na,
+        nb,
+        nc,
+        nd,
+        nf,
+        theta,
+        ts,
+        NUMERATOR,
+        DENOMINATOR,
+        G,
+        H,
+        Vn,
+        Yid,
     ):
         self.na = na
         self.nb = nb

@@ -5,7 +5,6 @@ Created on 2021
 """
 
 import sys
-from builtins import object
 
 import control.matlab as cnt
 import numpy as np
@@ -13,7 +12,9 @@ import numpy as np
 from .functionset import rescale
 
 
-def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
+def GEN_RLS_MISO_id(
+    id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations
+):
     nb = np.array(nb)
     theta = np.array(theta)
     u = 1.0 * np.atleast_2d(u)
@@ -24,7 +25,9 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
     Reached_max = False
     # checking dimension
     if nb.size != udim:
-        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+        sys.exit(
+            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        )
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf,Reached_max
     elif theta.size != udim:
         sys.exit("Error! theta matrix must have yxu dimensions")
@@ -77,9 +80,9 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
                 #
                 vecU = []
                 for nb_i in range(udim):  # U vector
-                    vecu = u[nb_i, :][k - nb[nb_i] - theta[nb_i] : k - theta[nb_i]][
-                        ::-1
-                    ]
+                    vecu = u[nb_i, :][
+                        k - nb[nb_i] - theta[nb_i] : k - theta[nb_i]
+                    ][::-1]
                     vecU = np.hstack((vecU, vecu))
                 #
                 # vecE = E[k-nh:k][::-1]                   # E vector
@@ -93,7 +96,7 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
                 elif id_method == "OE":
                     fi[:, :, k] = np.hstack((-vecYp, vecU))
                 elif id_method == "FIR":
-                    fi[:, :, k] = np.hstack((vecU))
+                    fi[:, :, k] = np.hstack(vecU)
                 phi = fi[:, :, k].T
 
                 # Step 2: Gain Update
@@ -101,7 +104,8 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
                 K_t[:, k : k + 1] = np.dot(
                     np.dot(P_t[:, :, k - 1], phi),
                     np.linalg.inv(
-                        l_t[k - 1] + np.dot(np.dot(phi.T, P_t[:, :, k - 1]), phi)
+                        l_t[k - 1]
+                        + np.dot(np.dot(phi.T, P_t[:, :, k - 1]), phi)
                     ),
                 )
 
@@ -155,9 +159,11 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         # DENH[0, 0] = 1.
         # DENH[0, 1:nd + 1] = THETA[Nb+na+nc:Nb+na+nc+nd]
 
-        A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
+        A = cnt.tf(
+            np.hstack((1, np.zeros(na))), np.hstack((1, THETA[:na])), 1
+        )
         D = cnt.tf(
-            np.hstack((1, np.zeros((nd)))),
+            np.hstack((1, np.zeros(nd))),
             np.hstack((1, THETA[na + Nb + nc : na + Nb + nc + nd])),
             1,
         )
@@ -170,11 +176,15 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
 
         # G = (B/(A*F))
         if id_method == "OE":
-            F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[:nf])), 1)
+            F = cnt.tf(
+                np.hstack((1, np.zeros(nf))), np.hstack((1, THETA[:nf])), 1
+            )
         else:
             F = cnt.tf(
-                np.hstack((1, np.zeros((nf)))),
-                np.hstack((1, THETA[na + Nb + nc + nd : na + Nb + nc + nd + nf])),
+                np.hstack((1, np.zeros(nf))),
+                np.hstack(
+                    (1, THETA[na + Nb + nc + nd : na + Nb + nc + nd + nf])
+                ),
                 1,
             )
 
@@ -233,7 +243,9 @@ def GEN_MIMO_id(
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
-        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+        sys.exit(
+            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
@@ -248,7 +260,9 @@ def GEN_MIMO_id(
         and np.min(nc) >= 0
         and np.min(theta) >= 0
     ):
-        sys.exit("Error! na, nb, nc, theta must contain only positive integer elements")
+        sys.exit(
+            "Error! na, nb, nc, theta must contain only positive integer elements"
+        )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:
         # preallocation
@@ -285,11 +299,20 @@ def GEN_MIMO_id(
         # FdT
         G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
         H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
-        return DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Y_id
+        return (
+            DENOMINATOR,
+            NUMERATOR,
+            DENOMINATOR_H,
+            NUMERATOR_H,
+            G,
+            H,
+            Vn_tot,
+            Y_id,
+        )
 
 
 # creating object GEN MIMO model
-class GEN_MIMO_model(object):
+class GEN_MIMO_model:
     def __init__(
         self,
         na,

@@ -5,7 +5,6 @@ Created on Wed Jul 26 2017
 """
 
 import sys
-from builtins import object
 
 import control.matlab as cnt
 import numpy as np
@@ -45,7 +44,13 @@ def ARX_id(y, u, na, nb, theta):
 
 
 def select_order_ARX(
-    y, u, tsample=1.0, na_ord=[0, 5], nb_ord=[1, 5], delays=[0, 5], method="AIC"
+    y,
+    u,
+    tsample=1.0,
+    na_ord=[0, 5],
+    nb_ord=[1, 5],
+    delays=[0, 5],
+    method="AIC",
 ):
     # order ranges
     na_Min = min(na_ord)
@@ -55,7 +60,9 @@ def select_order_ARX(
     theta_Min = min(delays)
     theta_Max = max(delays) + 1
     # check orders
-    sum_ords = np.sum(na_Min + na_MAX + nb_Min + nb_MAX + theta_Min + theta_Max)
+    sum_ords = np.sum(
+        na_Min + na_MAX + nb_Min + nb_MAX + theta_Min + theta_Max
+    )
     if not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
@@ -87,7 +94,12 @@ def select_order_ARX(
                         na_min, nb_min, theta_min = i, j, k
                         IC_old = IC
         print(
-            "suggested orders are: Na=", na_min, "; Nb=", nb_min, "Delay: ", theta_min
+            "suggested orders are: Na=",
+            na_min,
+            "; Nb=",
+            nb_min,
+            "Delay: ",
+            theta_min,
         )
         # rerun identification
         NUM, DEN, NUMH, Vn, y_id = ARX_id(y, u, na_min, nb_min, theta_min)
@@ -98,12 +110,24 @@ def select_order_ARX(
         # FdT
         g_identif = cnt.tf(NUM, DEN, tsample)
         h_identif = cnt.tf(NUMH, DEN, tsample)
-        return na_min, nb_min, theta_min, g_identif, h_identif, NUM, DEN, Vn, Y_id
+        return (
+            na_min,
+            nb_min,
+            theta_min,
+            g_identif,
+            h_identif,
+            NUM,
+            DEN,
+            Vn,
+            Y_id,
+        )
 
 
 # creating object ARX model
-class ARX_model(object):
-    def __init__(self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid):
+class ARX_model:
+    def __init__(
+        self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid
+    ):
         self.na = na
         self.nb = nb
         self.theta = theta

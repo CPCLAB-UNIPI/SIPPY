@@ -6,7 +6,13 @@ ARMAX Example
 
 import control.matlab as cnt
 import numpy as np
-from utils import W_V, create_output_dir, plot_bode, plot_response, plot_responses
+from utils import (
+    W_V,
+    create_output_dir,
+    plot_bode,
+    plot_response,
+    plot_responses,
+)
 
 from sippy import functionset as fset
 from sippy import system_identification
@@ -34,7 +40,23 @@ e_t = fset.white_noise_var(Usim.size, white_noise_variance)[0]
 
 # ### Numerator of noise transfer function has two roots: nc = 2
 
-NUM_H = [1.0, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+NUM_H = [
+    1.0,
+    0.3,
+    0.2,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+]
 
 # ### Common denominator between input and noise transfer functions has 4 roots: na = 4
 
@@ -141,7 +163,9 @@ elif mode == "FIXED":
 
 syss = []
 for method, params in identification_params.items():
-    sys_id = system_identification(Ytot, Usim, "ARMAX", max_iterations=300, **params)
+    sys_id = system_identification(
+        Ytot, Usim, "ARMAX", max_iterations=300, **params
+    )
     syss.append(sys_id)
 
 ys = [Ytot] + [getattr(sys, "Yid").T for sys in syss]
@@ -177,7 +201,9 @@ Ytotvalid = Yvalid1 + Yvalid2
 
 # ## Compute time responses for identified systems with new inputs
 
-ys = [Ytotvalid] + [fset.validation(sys, U_valid, Ytotvalid, Time) for sys in syss]
+ys = [Ytotvalid] + [
+    fset.validation(sys, U_valid, Ytotvalid, Time) for sys in syss
+]
 
 # Plot
 fig = plot_response(

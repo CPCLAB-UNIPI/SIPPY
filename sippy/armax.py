@@ -5,7 +5,6 @@ Created on Fri Jul 28 2017
 """
 
 import warnings
-from builtins import object
 
 import control.matlab as cnt
 import numpy as np
@@ -13,7 +12,7 @@ import numpy as np
 from .functionset import information_criterion, mean_square_error, rescale
 
 
-class Armax(object):
+class Armax:
     def __init__(
         self,
         na_bounds,
@@ -72,7 +71,9 @@ class Armax(object):
         for param in (na_bounds, nb_bounds, nc_bounds, delay_bounds):
             if isinstance(param, (list, tuple)):
                 if not all(isinstance(x, int) for x in param):
-                    raise ValueError("wrong arguments passed to define an armax model")
+                    raise ValueError(
+                        "wrong arguments passed to define an armax model"
+                    )
         self.na_range = (
             range(na_bounds, na_bounds + 1)
             if isinstance(na_bounds, int)
@@ -229,7 +230,9 @@ class Armax(object):
             Vn_old = Vn
             iterations = iterations + 1
             for i in range(N):
-                X[i, na + nb : na + nb + nc] = noise_hat[max_order + i - 1 :: -1][0:nc]
+                X[i, na + nb : na + nb + nc] = noise_hat[
+                    max_order + i - 1 :: -1
+                ][0:nc]
             beta_hat = np.dot(np.linalg.pinv(X), y[max_order::])
             Vn = mean_square_error(y[max_order::], np.dot(X, beta_hat))
 
@@ -238,9 +241,9 @@ class Armax(object):
             beta_hat_new = beta_hat
             interval_length = 0.5
             while Vn > Vn_old:
-                beta_hat = np.dot(I_beta * interval_length, beta_hat_new) + np.dot(
-                    I_beta * (1 - interval_length), beta_hat_old
-                )
+                beta_hat = np.dot(
+                    I_beta * interval_length, beta_hat_new
+                ) + np.dot(I_beta * (1 - interval_length), beta_hat_old)
                 Vn = mean_square_error(y[max_order::], np.dot(X, beta_hat))
 
                 # Stop the binary search when the interval length is minor than smallest float
@@ -296,7 +299,12 @@ class Armax(object):
             )
 
         IC_old = np.inf
-        G_num_opt, G_den_opt, H_num_opt, H_den_opt = np.nan, np.nan, np.nan, np.nan
+        G_num_opt, G_den_opt, H_num_opt, H_den_opt = (
+            np.nan,
+            np.nan,
+            np.nan,
+            np.nan,
+        )
         for na in self.na_range:
             for nb in self.nb_range:
                 for nc in self.nc_range:

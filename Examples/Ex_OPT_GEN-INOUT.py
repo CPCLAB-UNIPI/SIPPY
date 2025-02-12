@@ -6,7 +6,13 @@ ARMAX Example
 
 import control.matlab as cnt
 import numpy as np
-from utils import W_V, create_output_dir, plot_bode, plot_response, plot_responses
+from utils import (
+    W_V,
+    create_output_dir,
+    plot_bode,
+    plot_response,
+    plot_responses,
+)
 
 from sippy import functionset as fset
 from sippy import system_identification
@@ -180,7 +186,9 @@ elif mode == "FIXED":
 
 syss = []
 for method, params in identification_params.items():
-    sys_id = system_identification(Ytot, Usim, method, max_iterations=300, **params)
+    sys_id = system_identification(
+        Ytot, Usim, method, max_iterations=300, **params
+    )
     syss.append(sys_id)
 
 ys = [getattr(sys, "Yid").T for sys in syss]

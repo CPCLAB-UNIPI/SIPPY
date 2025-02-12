@@ -8,7 +8,7 @@ from numpy.testing import assert_equal, assert_raises
 from sippy.armax import Armax
 
 
-class TestCtor(object):
+class TestCtor:
     def test_int_range(self):
         na_range = 1
         nb_range = 2

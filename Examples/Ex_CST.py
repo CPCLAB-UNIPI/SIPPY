@@ -77,7 +77,9 @@ def Fdyn(X, U):
     # Energy Balance
     # ro*cp*F*T_in - ro*cp*F*T + W*Lam = (V*ro*cp)*dT/dt
     #
-    dx_1 = (ro * cp * U[0] * U[3] - ro * cp * U[0] * X[1] + U[1] * Lam) / (V * ro * cp)
+    dx_1 = (ro * cp * U[0] * U[3] - ro * cp * U[0] * X[1] + U[1] * Lam) / (
+        V * ro * cp
+    )
 
     fx = np.append(dx_0, dx_1)
 
@@ -215,7 +217,14 @@ Ys = [Y] + [getattr(sys, "Yid") for sys in syss] + [Y_ss]
 
 # Inputs
 fig = plot_comparison(
-    Time, U, ["F [m$^3$/min]", "W [kg/min]", "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"]
+    Time,
+    U,
+    [
+        "F [m$^3$/min]",
+        "W [kg/min]",
+        "Ca$_{in}$ [kg/m$^3$]",
+        "T$_{in}$ [$^o$C]",
+    ],
 )
 fig.savefig(output_dir + "/response_us.png")
 
@@ -295,9 +304,10 @@ Y_val = X_val + noise_val
 # MODEL VALIDATION
 
 # IN-OUT Models: ARX - ARMAX - OE - BJ
-Yv_arx, Yv_armax, Yv_oe, Yv_bj, Yv_gen = [
-    fset.validation(sys, U_val, Y_val, Time, centering="MeanVal") for sys in syss
-]
+Yv_arx, Yv_armax, Yv_oe, Yv_bj, Yv_gen = (
+    fset.validation(sys, U_val, Y_val, Time, centering="MeanVal")
+    for sys in syss
+)
 # SS
 x_ss, Yv_ss = fsetSIM.SS_lsim_process_form(
     Id_SS.A, Id_SS.B, Id_SS.C, Id_SS.D, U_val, Id_SS.x0
@@ -310,7 +320,12 @@ Ys_val = [Y_val] + [Yv_arx, Yv_armax, Yv_oe, Yv_bj, Yv_gen, Yv_ss]
 fig = plot_comparison(
     Time,
     U_val,
-    ["F [m$^3$/min]", "W [kg/min]", "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"],
+    [
+        "F [m$^3$/min]",
+        "W [kg/min]",
+        "Ca$_{in}$ [kg/m$^3$]",
+        "T$_{in}$ [$^o$C]",
+    ],
 )
 fig.savefig(output_dir + "/validation_us.png")
 

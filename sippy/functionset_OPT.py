@@ -5,7 +5,6 @@ Created on 2021
 @author: RBdC & MV
 """
 
-from builtins import range
 
 import numpy as np
 from casadi import DM, SX, mtimes, nlpsol, norm_inf, vertcat
@@ -126,9 +125,9 @@ def opt_id(
                 # inputs
                 vecU = []
                 for nb_i in range(m):
-                    vecu = U[nb_i, :][k - nb[nb_i] - theta[nb_i] : k - theta[nb_i]][
-                        ::-1
-                    ]
+                    vecu = U[nb_i, :][
+                        k - nb[nb_i] - theta[nb_i] : k - theta[nb_i]
+                    ][::-1]
                     vecU = vertcat(vecU, vecu)
 
             # measured output Y

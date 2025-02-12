@@ -5,7 +5,6 @@ Created on 2021
 """
 
 import sys
-from builtins import object
 
 import control.matlab as cnt
 import numpy as np
@@ -69,7 +68,7 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
             elif id_method == "OE":
                 fi[:, :, k] = np.hstack((-vecYp, vecU))
             elif id_method == "FIR":
-                fi[:, :, k] = np.hstack((vecU))
+                fi[:, :, k] = np.hstack(vecU)
             phi = fi[:, :, k].T
 
             # Step 2: Gain Update
@@ -93,7 +92,8 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
             # Step 5. Parameter estimate covariance update
             P_t[:, :, k] = (1 / l_t[k - 1]) * (
                 np.dot(
-                    np.eye(nt - 1) - np.dot(K_t[:, k : k + 1], phi.T), P_t[:, :, k - 1]
+                    np.eye(nt - 1) - np.dot(K_t[:, k : k + 1], phi.T),
+                    P_t[:, :, k - 1],
                 )
             )
 
@@ -122,13 +122,15 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         ng = nf if id_method == "OE" else na
         NUM[theta : nb + theta] = THETA[ng : nb + ng]
     # denG (A*F)
-    A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
+    A = cnt.tf(np.hstack((1, np.zeros(na))), np.hstack((1, THETA[:na])), 1)
 
     if id_method == "OE":
-        F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[:nf])), 1)
+        F = cnt.tf(
+            np.hstack((1, np.zeros(nf))), np.hstack((1, THETA[:nf])), 1
+        )
     else:
         F = cnt.tf(
-            np.hstack((1, np.zeros((nf)))),
+            np.hstack((1, np.zeros(nf))),
             np.hstack((1, THETA[na + nb + nc + nd : na + nb + nc + nd + nf])),
             1,
         )
@@ -148,7 +150,7 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         NUMH[1 : nc + 1] = THETA[na + nb : na + nb + nc]
     # denH (A*D)
     D = cnt.tf(
-        np.hstack((1, np.zeros((nd)))),
+        np.hstack((1, np.zeros(nd))),
         np.hstack((1, THETA[na + nb + nc : na + nb + nc + nd])),
         1,
     )
@@ -246,7 +248,8 @@ def select_order_GEN(
                                 )
                                 IC = information_criterion(
                                     i_a + i_b + i_c + i_d + i_f,
-                                    y.size - max(i_a, i_b + i_t, i_c, i_d, i_f),
+                                    y.size
+                                    - max(i_a, i_b + i_t, i_c, i_d, i_f),
                                     Vn * 2,
                                     method,
                                 )
@@ -316,9 +319,22 @@ def select_order_GEN(
 
 
 # creating object GEN model
-class GEN_model(object):
+class GEN_model:
     def __init__(
-        self, na, nb, nc, nd, nf, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid
+        self,
+        na,
+        nb,
+        nc,
+        nd,
+        nf,
+        theta,
+        ts,
+        NUMERATOR,
+        DENOMINATOR,
+        G,
+        H,
+        Vn,
+        Yid,
     ):
         self.na = na
         self.nb = nb

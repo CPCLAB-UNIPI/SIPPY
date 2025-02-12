@@ -5,7 +5,6 @@ Created on 2021
 """
 
 import sys
-from builtins import object
 
 import control.matlab as cnt
 import numpy as np
@@ -14,7 +13,9 @@ from .functionset import rescale
 from .functionset_OPT import opt_id
 
 
-def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c):
+def GEN_MISO_id(
+    id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c
+):
     # nb = np.array(nb)
     # theta = np.array(theta)
     u = 1.0 * np.atleast_2d(u)
@@ -25,7 +26,9 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
     Reached_max = False
     # checking dimension
     if nb.size != udim:
-        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+        sys.exit(
+            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        )
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf,Reached_max
     elif theta.size != udim:
         sys.exit("Error! theta matrix must have yxu dimensions")
@@ -115,9 +118,11 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
         # DENH[0, 0] = 1.
         # DENH[0, 1:nd + 1] = THETA[Nb+na+nc:Nb+na+nc+nd]
 
-        A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
+        A = cnt.tf(
+            np.hstack((1, np.zeros(na))), np.hstack((1, THETA[:na])), 1
+        )
         D = cnt.tf(
-            np.hstack((1, np.zeros((nd)))),
+            np.hstack((1, np.zeros(nd))),
             np.hstack((1, THETA[na + Nb + nc : na + Nb + nc + nd])),
             1,
         )
@@ -130,7 +135,7 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
 
         # G = (B/(A*F))
         F = cnt.tf(
-            np.hstack((1, np.zeros((nf)))),
+            np.hstack((1, np.zeros(nf))),
             np.hstack((1, THETA[na + Nb + nc + nd : na + Nb + nc + nd + nf])),
             1,
         )
@@ -174,7 +179,19 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
 
 # MIMO function
 def GEN_MIMO_id(
-    id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations, st_m, st_c
+    id_method,
+    y,
+    u,
+    na,
+    nb,
+    nc,
+    nd,
+    nf,
+    theta,
+    tsample,
+    max_iterations,
+    st_m,
+    st_c,
 ):
     na = np.array(na)
     nb = np.array(nb)
@@ -187,7 +204,12 @@ def GEN_MIMO_id(
     [th1, th2] = theta.shape
     # check dimension
     sum_ords = (
-        np.sum(nb) + np.sum(na) + np.sum(nc) + np.sum(nd) + np.sum(nf) + np.sum(theta)
+        np.sum(nb)
+        + np.sum(na)
+        + np.sum(nc)
+        + np.sum(nd)
+        + np.sum(nf)
+        + np.sum(theta)
     )
     if na.size != ydim:
         sys.exit(
@@ -195,7 +217,9 @@ def GEN_MIMO_id(
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
-        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+        sys.exit(
+            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nc.size != ydim:
         sys.exit(
@@ -279,11 +303,20 @@ def GEN_MIMO_id(
                 print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.poles(H))), max(np.abs(cnt.poles(G))))} \
                       ... against the imposed stability margin {st_m}")
 
-        return DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Y_id
+        return (
+            DENOMINATOR,
+            NUMERATOR,
+            DENOMINATOR_H,
+            NUMERATOR_H,
+            G,
+            H,
+            Vn_tot,
+            Y_id,
+        )
 
 
 # creating object GEN MIMO model
-class GEN_MIMO_model(object):
+class GEN_MIMO_model:
     def __init__(
         self,
         na,

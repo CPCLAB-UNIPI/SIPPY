@@ -5,7 +5,6 @@ Created on Sun Sep 10 2017
 """
 
 import sys
-from builtins import object
 
 import control.matlab as cnt
 import numpy as np
@@ -24,7 +23,9 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
     Reached_max = False
     # checking dimension
     if nb.size != udim:
-        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+        sys.exit(
+            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        )
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf,Reached_max
     elif theta.size != udim:
         sys.exit("Error! theta matrix must have yxu dimensions")
@@ -43,9 +44,11 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
         for k in range(N):
             phi[0:na] = -y[k + val - 1 :: -1][0:na]
             for nb_i in range(udim):
-                phi[na + np.sum(nb[0:nb_i]) : na + np.sum(nb[0 : nb_i + 1])] = u[
-                    nb_i, :
-                ][val + k - 1 :: -1][theta[nb_i] : nb[nb_i] + theta[nb_i]]
+                phi[
+                    na + np.sum(nb[0:nb_i]) : na + np.sum(nb[0 : nb_i + 1])
+                ] = u[nb_i, :][val + k - 1 :: -1][
+                    theta[nb_i] : nb[nb_i] + theta[nb_i]
+                ]
             PHI[k, :] = phi
         Vn = np.inf
         Vn_old = np.inf
@@ -63,7 +66,9 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
                     val + i - 1 :: -1
                 ][0:nc]
             THETA = np.dot(np.linalg.pinv(PHI), y[val::])
-            Vn = (np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2) / (2 * N)
+            Vn = (np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2) / (
+                2 * N
+            )
             THETA_new = THETA
             lambdak = 0.5
             while Vn > Vn_old:
@@ -72,7 +77,9 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
                 )
                 # Model Output
                 # y_id0 = np.dot(PHI,THETA)
-                Vn = (np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2) / (2 * N)
+                Vn = (
+                    np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2
+                ) / (2 * N)
 
                 if lambdak < np.finfo(np.float32).eps:
                     THETA = THETA_old
@@ -126,7 +133,9 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
-        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+        sys.exit(
+            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
@@ -141,7 +150,9 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         and np.min(nc) >= 0
         and np.min(theta) >= 0
     ):
-        sys.exit("Error! na, nb, nc, theta must contain only positive integer elements")
+        sys.exit(
+            "Error! na, nb, nc, theta must contain only positive integer elements"
+        )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:
         # preallocation
@@ -169,11 +180,20 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         # FdT
         G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
         H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
-        return DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Y_id
+        return (
+            DENOMINATOR,
+            NUMERATOR,
+            DENOMINATOR_H,
+            NUMERATOR_H,
+            G,
+            H,
+            Vn_tot,
+            Y_id,
+        )
 
 
 # creating object ARMAX MIMO model
-class ARMAX_MIMO_model(object):
+class ARMAX_MIMO_model:
     def __init__(
         self,
         na,

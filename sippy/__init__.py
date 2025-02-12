@@ -7,7 +7,6 @@ Created on 2017
 """
 
 import sys
-from builtins import range
 
 import numpy as np
 
@@ -141,18 +140,26 @@ def system_identification(
                     model = "None"
 
                 # assigned orders
-                if isinstance(FIR_orders[0], list) and isinstance(FIR_orders[1], list):
+                if isinstance(FIR_orders[0], list) and isinstance(
+                    FIR_orders[1], list
+                ):
                     # na is set to 0
                     # na = [0]*ydim
                     nb = FIR_orders[0]
                     theta = FIR_orders[1]
 
                 # not assigned orders (read default)
-                elif isinstance(FIR_orders[0], int) and isinstance(FIR_orders[1], int):
+                elif isinstance(FIR_orders[0], int) and isinstance(
+                    FIR_orders[1], int
+                ):
                     # na is set to 0
                     # na = [0]*ydim
-                    nb = (FIR_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
-                    theta = (FIR_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = (
+                        FIR_orders[0] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
+                    theta = (
+                        FIR_orders[1] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
 
                 # something goes wrong
                 else:
@@ -186,8 +193,12 @@ def system_identification(
                     and isinstance(ARX_orders[2], int)
                 ):
                     na = (ARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                    theta = (ARX_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = (
+                        ARX_orders[1] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
+                    theta = (
+                        ARX_orders[2] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
 
                 # something goes wrong
                 else:
@@ -204,14 +215,23 @@ def system_identification(
 
                 # import arxMIMO
                 # id ARX MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = arxMIMO.ARX_MIMO_id(
-                    y, u, na, nb, theta, tsample
+                DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = (
+                    arxMIMO.ARX_MIMO_id(y, u, na, nb, theta, tsample)
                 )
                 # recentering
                 Yid = data_recentering(Yid, y_rif, ylength)
                 # form model
                 model = arxMIMO.ARX_MIMO_model(
-                    na, nb, theta, tsample, NUMERATOR, DENOMINATOR, G, H, Vn_tot, Yid
+                    na,
+                    nb,
+                    theta,
+                    tsample,
+                    NUMERATOR,
+                    DENOMINATOR,
+                    G,
+                    H,
+                    Vn_tot,
+                    Yid,
                 )
 
             # Recursive Least Square
@@ -230,7 +250,17 @@ def system_identification(
                     Vn_tot,
                     Yid,
                 ) = io_rlsMIMO.GEN_MIMO_id(
-                    id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations
+                    id_method,
+                    y,
+                    u,
+                    na,
+                    nb,
+                    nc,
+                    nd,
+                    nf,
+                    theta,
+                    tsample,
+                    max_iterations,
                 )
                 # recentering
                 Yid = data_recentering(Yid, y_rif, ylength)
@@ -282,11 +312,15 @@ def system_identification(
                 and isinstance(ARMAX_orders[3], int)
             ):
                 na = (ARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                nb = (ARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                nb = (
+                    ARMAX_orders[1] * np.ones((ydim, udim), dtype=int)
+                ).tolist()
                 nc = (ARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                 # nd = [0]*ydim
                 # nf = [0]*ydim
-                theta = (ARMAX_orders[3] * np.ones((ydim, udim), dtype=int)).tolist()
+                theta = (
+                    ARMAX_orders[3] * np.ones((ydim, udim), dtype=int)
+                ).tolist()
 
             # something goes wrong
             else:
@@ -348,7 +382,17 @@ def system_identification(
                     Vn_tot,
                     Yid,
                 ) = io_rlsMIMO.GEN_MIMO_id(
-                    id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations
+                    id_method,
+                    y,
+                    u,
+                    na,
+                    nb,
+                    nc,
+                    nd,
+                    nf,
+                    theta,
+                    tsample,
+                    max_iterations,
                 )
                 # recentering
                 Yid = data_recentering(Yid, y_rif, ylength)
@@ -432,7 +476,9 @@ def system_identification(
         elif id_method == "OE":
             # not 3 inputs
             if len(OE_orders) != 3:
-                sys.exit("Error! OE identification takes three arguments in OE_orders")
+                sys.exit(
+                    "Error! OE identification takes three arguments in OE_orders"
+                )
                 model = "None"
 
             # assigned orders
@@ -459,7 +505,9 @@ def system_identification(
                 # nc = [0]*ydim
                 # nd = [0]*ydim
                 nf = (OE_orders[1] * np.ones((ydim,), dtype=int)).tolist()
-                theta = (OE_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
+                theta = (
+                    OE_orders[2] * np.ones((ydim, udim), dtype=int)
+                ).tolist()
 
             # something goes wrong
             else:
@@ -486,7 +534,17 @@ def system_identification(
                     Vn_tot,
                     Yid,
                 ) = io_rlsMIMO.GEN_MIMO_id(
-                    id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations
+                    id_method,
+                    y,
+                    u,
+                    na,
+                    nb,
+                    nc,
+                    nd,
+                    nf,
+                    theta,
+                    tsample,
+                    max_iterations,
                 )
                 # recentering
                 Yid = data_recentering(Yid, y_rif, ylength)
@@ -605,13 +663,17 @@ def system_identification(
                     and isinstance(ARMA_orders[1], int)
                     and isinstance(ARMA_orders[2], int)
                 ):
-                    na = (ARMA_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    na = (
+                        ARMA_orders[0] * np.ones((ydim,), dtype=int)
+                    ).tolist()
                     # nb = (ARMA_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nb = np.zeros((ydim, udim), dtype=int).tolist()
                     nc = ARMA_orders[1]
                     # nd = [0]*ydim
                     # nf = [0]*ydim
-                    theta = (ARMA_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (
+                        ARMA_orders[2] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
 
                 # something goes wrong
                 else:
@@ -649,10 +711,16 @@ def system_identification(
                     and isinstance(ARARX_orders[2], int)
                     and isinstance(ARARX_orders[3], int)
                 ):
-                    na = (ARARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    na = (
+                        ARARX_orders[0] * np.ones((ydim,), dtype=int)
+                    ).tolist()
+                    nb = (
+                        ARARX_orders[1] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
                     nc = [0] * ydim
-                    nd = (ARARX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
+                    nd = (
+                        ARARX_orders[2] * np.ones((ydim,), dtype=int)
+                    ).tolist()
                     nf = [0] * ydim
                     theta = (
                         ARARX_orders[3] * np.ones((ydim, udim), dtype=int)
@@ -696,10 +764,18 @@ def system_identification(
                     and isinstance(ARARMAX_orders[3], int)
                     and isinstance(ARARMAX_orders[4], int)
                 ):
-                    na = (ARARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                    nc = (ARARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                    nd = (ARARMAX_orders[3] * np.ones((ydim,), dtype=int)).tolist()
+                    na = (
+                        ARARMAX_orders[0] * np.ones((ydim,), dtype=int)
+                    ).tolist()
+                    nb = (
+                        ARARMAX_orders[1] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
+                    nc = (
+                        ARARMAX_orders[2] * np.ones((ydim,), dtype=int)
+                    ).tolist()
+                    nd = (
+                        ARARMAX_orders[3] * np.ones((ydim,), dtype=int)
+                    ).tolist()
                     # nf = [0]*ydim
                     theta = (
                         ARARMAX_orders[4] * np.ones((ydim, udim), dtype=int)
@@ -744,11 +820,15 @@ def system_identification(
                     and isinstance(BJ_orders[4], int)
                 ):
                     # na = [0]*ydim
-                    nb = (BJ_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = (
+                        BJ_orders[0] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
                     nc = (BJ_orders[1] * np.ones((ydim,), dtype=int)).tolist()
                     nd = (BJ_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nf = (BJ_orders[3] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (BJ_orders[4] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (
+                        BJ_orders[4] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
 
                 # something goes wrong
                 else:
@@ -791,11 +871,15 @@ def system_identification(
                     and isinstance(GEN_orders[5], int)
                 ):
                     na = (GEN_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (GEN_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = (
+                        GEN_orders[1] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
                     nc = (GEN_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nd = (GEN_orders[3] * np.ones((ydim,), dtype=int)).tolist()
                     nf = (GEN_orders[4] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (GEN_orders[5] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (
+                        GEN_orders[5] * np.ones((ydim, udim), dtype=int)
+                    ).tolist()
 
                 # something goes wrong
                 else:
@@ -809,22 +893,29 @@ def system_identification(
 
             # import io_optMIMO
             # id MIMO (also SISO case)
-            DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Yid = (
-                io_optMIMO.GEN_MIMO_id(
-                    id_method,
-                    y,
-                    u,
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    max_iterations,
-                    stab_marg,
-                    stab_cons,
-                )
+            (
+                DENOMINATOR,
+                NUMERATOR,
+                DENOMINATOR_H,
+                NUMERATOR_H,
+                G,
+                H,
+                Vn_tot,
+                Yid,
+            ) = io_optMIMO.GEN_MIMO_id(
+                id_method,
+                y,
+                u,
+                na,
+                nb,
+                nc,
+                nd,
+                nf,
+                theta,
+                tsample,
+                max_iterations,
+                stab_marg,
+                stab_cons,
             )
             # recentering
             Yid = data_recentering(Yid, y_rif, ylength)
@@ -850,7 +941,9 @@ def system_identification(
         # SS MODELS
 
         # N4SID-MOESP-CVA
-        elif id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA":
+        elif (
+            id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA"
+        ):
             from . import OLSims_methods
 
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(
@@ -864,7 +957,9 @@ def system_identification(
                 SS_D_required,
                 SS_A_stability,
             )
-            model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
+            model = OLSims_methods.SS_model(
+                A, B, C, D, K, Q, R, S, tsample, Vn
+            )
 
         # PARSIM-K
         elif id_method == "PARSIM-K":
@@ -960,10 +1055,18 @@ def system_identification(
                     # no iteration on A order: rewrite na
                     na_ord = [0, 0]
                 # import arx
-                na, nb, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = (
-                    arx.select_order_ARX(
-                        y[0], u[0], tsample, na_ord, nb_ord, delays, IC
-                    )
+                (
+                    na,
+                    nb,
+                    theta,
+                    g_identif,
+                    h_identif,
+                    NUMERATOR,
+                    DENOMINATOR,
+                    Vn,
+                    Yid,
+                ) = arx.select_order_ARX(
+                    y[0], u[0], tsample, na_ord, nb_ord, delays, IC
                 )
                 # recentering
                 Yid = data_recentering(Yid, y_rif, ylength)
@@ -1296,19 +1399,28 @@ def system_identification(
             from . import io_opt
 
             # id IO RLS MIMO (also SISO case)
-            na, nb, nc, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = (
-                io_opt.select_order_GEN(
-                    id_method,
-                    y[0],
-                    u[0],
-                    tsample,
-                    nf_ord,
-                    nb_ord,
-                    nc_ord,
-                    delays,
-                    IC,
-                    max_iterations,
-                )
+            (
+                na,
+                nb,
+                nc,
+                theta,
+                g_identif,
+                h_identif,
+                NUMERATOR,
+                DENOMINATOR,
+                Vn,
+                Yid,
+            ) = io_opt.select_order_GEN(
+                id_method,
+                y[0],
+                u[0],
+                tsample,
+                nf_ord,
+                nb_ord,
+                nc_ord,
+                delays,
+                IC,
+                max_iterations,
             )
             # recentering
             Yid = data_recentering(Yid, y_rif, ylength)
@@ -1410,20 +1522,40 @@ def system_identification(
         # SS-MODELS
 
         # N4SID-MOESP-CVA
-        elif id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA":
+        elif (
+            id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA"
+        ):
             from . import OLSims_methods
 
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(
-                y, u, SS_f, id_method, IC, SS_orders, SS_D_required, SS_A_stability
+                y,
+                u,
+                SS_f,
+                id_method,
+                IC,
+                SS_orders,
+                SS_D_required,
+                SS_A_stability,
             )
-            model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
+            model = OLSims_methods.SS_model(
+                A, B, C, D, K, Q, R, S, tsample, Vn
+            )
 
         # PARSIM-K
         elif id_method == "PARSIM-K":
             from . import Parsim_methods
 
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_K(
-                y, u, SS_f, SS_p, IC, SS_orders, SS_D_required, SS_PK_B_reval
+            A_K, C, B_K, D, K, A, B, x0, Vn = (
+                Parsim_methods.select_order_PARSIM_K(
+                    y,
+                    u,
+                    SS_f,
+                    SS_p,
+                    IC,
+                    SS_orders,
+                    SS_D_required,
+                    SS_PK_B_reval,
+                )
             )
             model = Parsim_methods.SS_PARSIM_model(
                 A, B, C, D, K, A_K, B_K, x0, tsample, Vn
@@ -1433,8 +1565,10 @@ def system_identification(
         elif id_method == "PARSIM-S":
             from . import Parsim_methods
 
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_S(
-                y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
+            A_K, C, B_K, D, K, A, B, x0, Vn = (
+                Parsim_methods.select_order_PARSIM_S(
+                    y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
+                )
             )
             model = Parsim_methods.SS_PARSIM_model(
                 A, B, C, D, K, A_K, B_K, x0, tsample, Vn
@@ -1444,8 +1578,10 @@ def system_identification(
         elif id_method == "PARSIM-P":
             from . import Parsim_methods
 
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_P(
-                y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
+            A_K, C, B_K, D, K, A, B, x0, Vn = (
+                Parsim_methods.select_order_PARSIM_P(
+                    y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
+                )
             )
             model = Parsim_methods.SS_PARSIM_model(
                 A, B, C, D, K, A_K, B_K, x0, tsample, Vn

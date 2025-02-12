@@ -5,7 +5,6 @@ Created on Sat Aug 12 2017
 """
 
 import sys
-from builtins import object
 
 import control.matlab as cnt
 import numpy as np
@@ -22,7 +21,9 @@ def ARX_MISO_id(y, u, na, nb, theta):
     [udim, ulength] = u.shape
     # checking dimension
     if nb.size != udim:
-        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+        sys.exit(
+            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        )
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
     elif theta.size != udim:
         sys.exit("Error! theta matrix must have yxu dimensions")
@@ -41,9 +42,11 @@ def ARX_MISO_id(y, u, na, nb, theta):
         for k in range(N):
             phi[0:na] = -y[k + val - 1 :: -1][0:na]
             for nb_i in range(udim):
-                phi[na + np.sum(nb[0:nb_i]) : na + np.sum(nb[0 : nb_i + 1])] = u[
-                    nb_i, :
-                ][val + k - 1 :: -1][theta[nb_i] : nb[nb_i] + theta[nb_i]]
+                phi[
+                    na + np.sum(nb[0:nb_i]) : na + np.sum(nb[0 : nb_i + 1])
+                ] = u[nb_i, :][val + k - 1 :: -1][
+                    theta[nb_i] : nb[nb_i] + theta[nb_i]
+                ]
             PHI[k, :] = phi
         # coefficient vector
         THETA = np.dot(np.linalg.pinv(PHI), y[val::])
@@ -87,7 +90,9 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
         )
     #        return 0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
-        sys.exit("Error! nb must be a matrix, whose dimensions must be equal to yxu")
+        sys.exit(
+            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        )
     #        return 0.,0.,0.,0.,np.inf
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
@@ -101,7 +106,9 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
         and np.min(na) >= 0
         and np.min(theta) >= 0
     ):
-        sys.exit("Error! na, nb, theta must contain only positive integer elements")
+        sys.exit(
+            "Error! na, nb, theta must contain only positive integer elements"
+        )
     #        return 0.,0.,0.,0.,np.inf
     else:
         # preallocation
@@ -130,8 +137,10 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
 
 
 # creating object ARX MIMO model
-class ARX_MIMO_model(object):
-    def __init__(self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid):
+class ARX_MIMO_model:
+    def __init__(
+        self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid
+    ):
         self.na = na
         self.nb = nb
         self.theta = theta
