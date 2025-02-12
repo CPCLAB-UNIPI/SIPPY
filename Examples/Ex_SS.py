@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Fri Jan 19 2018
 
@@ -21,6 +20,7 @@ from sippy import functionsetSIM as fsetSIM
 from sippy import system_identification
 
 output_dir = create_output_dir(__file__)
+np.random.seed(0)
 # Example to test SS-methods
 
 # sample time

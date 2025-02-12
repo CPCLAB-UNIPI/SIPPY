@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
 """
 ARMAX Example
 
@@ -14,6 +12,7 @@ from sippy import functionset as fset
 from sippy import system_identification
 
 output_dir = create_output_dir(__file__)
+np.random.seed(0)
 ylegends = ["System", "ARMA", "ARARX", "ARARMAX", "OE", "BJ", "GEN"]
 # TEST OPTIMIZATION-BASED IDENTIFICATION METHODS for GENERAL INPUT-OUTPUT MODEL
 
