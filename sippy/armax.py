@@ -73,16 +73,27 @@ class Armax(object):
         for param in (na_bounds, nb_bounds, nc_bounds, delay_bounds):
             if isinstance(param, (list, tuple)):
                 if not all(isinstance(x, int) for x in param):
-                    raise ValueError(
-                        "wrong arguments passed to define an armax model")
-        self.na_range = range(na_bounds, na_bounds + 1) if isinstance(
-            na_bounds, int) else range(min(na_bounds), max(na_bounds) + 1)
-        self.nb_range = range(nb_bounds, nb_bounds + 1) if isinstance(
-            nb_bounds, int) else range(min(nb_bounds), max(nb_bounds) + 1)
-        self.nc_range = range(nc_bounds, nc_bounds + 1) if isinstance(
-            nc_bounds, int) else range(min(nc_bounds), max(nc_bounds) + 1)
-        self.delay_range = range(delay_bounds, delay_bounds + 1) if isinstance(
-            delay_bounds, int) else range(min(delay_bounds), max(delay_bounds) + 1)
+                    raise ValueError("wrong arguments passed to define an armax model")
+        self.na_range = (
+            range(na_bounds, na_bounds + 1)
+            if isinstance(na_bounds, int)
+            else range(min(na_bounds), max(na_bounds) + 1)
+        )
+        self.nb_range = (
+            range(nb_bounds, nb_bounds + 1)
+            if isinstance(nb_bounds, int)
+            else range(min(nb_bounds), max(nb_bounds) + 1)
+        )
+        self.nc_range = (
+            range(nc_bounds, nc_bounds + 1)
+            if isinstance(nc_bounds, int)
+            else range(min(nc_bounds), max(nc_bounds) + 1)
+        )
+        self.delay_range = (
+            range(delay_bounds, delay_bounds + 1)
+            if isinstance(delay_bounds, int)
+            else range(min(delay_bounds), max(delay_bounds) + 1)
+        )
         self.dt = float(dt)
 
         self.method = method
@@ -203,8 +214,8 @@ class Armax(object):
         # Fill X matrix used to perform least-square regression: beta_hat = (X_T.X)^(-1).X_T.y
         X = np.zeros((N, sum_order))
         for i in range(N):
-            X[i, 0:na] = -y[i + max_order - 1:: -1][0:na]
-            X[i, na: na + nb] = u[max_order + i - 1:: -1][delay: nb + delay]
+            X[i, 0:na] = -y[i + max_order - 1 :: -1][0:na]
+            X[i, na : na + nb] = u[max_order + i - 1 :: -1][delay : nb + delay]
 
         Vn, Vn_old = np.inf, np.inf
         beta_hat = np.zeros(sum_order)
@@ -219,7 +230,7 @@ class Armax(object):
             Vn_old = Vn
             iterations = iterations + 1
             for i in range(N):
-                X[i, na + nb: na + nb + nc] = noise_hat[max_order + i - 1:: -1][0:nc]
+                X[i, na + nb : na + nb + nc] = noise_hat[max_order + i - 1 :: -1][0:nc]
             beta_hat = np.dot(np.linalg.pinv(X), y[max_order::])
             Vn = mean_square_error(y[max_order::], np.dot(X, beta_hat))
 
@@ -250,19 +261,19 @@ class Armax(object):
             max_reached = True
 
         G_num = np.zeros(max_order)
-        G_num[delay: nb + delay] = beta_hat[na: na + nb]
+        G_num[delay : nb + delay] = beta_hat[na : na + nb]
 
         G_den = np.zeros(max_order + 1)
         G_den[0] = 1.0
-        G_den[1: na + 1] = beta_hat[0:na]
+        G_den[1 : na + 1] = beta_hat[0:na]
 
         H_num = np.zeros(max_order + 1)
         H_num[0] = 1.0
-        H_num[1: nc + 1] = beta_hat[na + nb::]
+        H_num[1 : nc + 1] = beta_hat[na + nb : :]
 
         H_den = np.zeros(max_order + 1)
         H_den[0] = 1.0
-        H_den[1: na + 1] = beta_hat[0:na]
+        H_den[1 : na + 1] = beta_hat[0:na]
 
         return G_num, G_den, H_num, H_den, Vn, y_id, max_reached
 
@@ -327,8 +338,8 @@ class Armax(object):
                                 max_reached,
                             )
 
-        G_num_opt[self.delay: self.nb + self.delay] = (
-            G_num_opt[self.delay: self.nb + self.delay] * y_std / u_std
+        G_num_opt[self.delay : self.nb + self.delay] = (
+            G_num_opt[self.delay : self.nb + self.delay] * y_std / u_std
         )
 
         self.G = cnt.tf(G_num_opt, G_den_opt, self.dt)

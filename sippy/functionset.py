@@ -198,8 +198,7 @@ def validation(SYS, u, y, Time, k=1, centering="None"):
     for i in range(ydim):
         # one-step ahead predictor
         if k == 1:
-            T, Y_u = cnt.forced_response(
-                (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u)
+            T, Y_u = cnt.forced_response((1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u)
             T, Y_y = cnt.forced_response(
                 1 - (1 / SYS.H[i, 0]), Time, y[i, :] - y_rif[i]
             )
@@ -215,8 +214,7 @@ def validation(SYS, u, y, Time, k=1, centering="None"):
             # FdT of impulse response
             Hk = cnt.tf(h_k_num, h_k_den[0], SYS.ts)
             # k-step ahead prediction
-            T, Y_u = cnt.forced_response(
-                Hk * (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u)
+            T, Y_u = cnt.forced_response(Hk * (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u)
             T, Y_y = cnt.forced_response(
                 1 - Hk * (1 / SYS.H[i, 0]), Time, y[i, :] - y_rif[i]
             )

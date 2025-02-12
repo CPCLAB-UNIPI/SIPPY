@@ -152,10 +152,8 @@ def system_identification(
                 elif isinstance(FIR_orders[0], int) and isinstance(FIR_orders[1], int):
                     # na is set to 0
                     # na = [0]*ydim
-                    nb = (FIR_orders[0] *
-                          np.ones((ydim, udim), dtype=int)).tolist()
-                    theta = (
-                        FIR_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = (FIR_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (FIR_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
@@ -189,10 +187,8 @@ def system_identification(
                     and isinstance(ARX_orders[2], int)
                 ):
                     na = (ARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARX_orders[1] *
-                          np.ones((ydim, udim), dtype=int)).tolist()
-                    theta = (
-                        ARX_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = (ARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (ARX_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
@@ -287,13 +283,11 @@ def system_identification(
                 and isinstance(ARMAX_orders[3], int)
             ):
                 na = (ARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                nb = (ARMAX_orders[1] *
-                      np.ones((ydim, udim), dtype=int)).tolist()
+                nb = (ARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                 nc = (ARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                 # nd = [0]*ydim
                 # nf = [0]*ydim
-                theta = (ARMAX_orders[3] *
-                         np.ones((ydim, udim), dtype=int)).tolist()
+                theta = (ARMAX_orders[3] * np.ones((ydim, udim), dtype=int)).tolist()
 
             # something goes wrong
             else:
@@ -439,8 +433,7 @@ def system_identification(
         elif id_method == "OE":
             # not 3 inputs
             if len(OE_orders) != 3:
-                sys.exit(
-                    "Error! OE identification takes three arguments in OE_orders")
+                sys.exit("Error! OE identification takes three arguments in OE_orders")
                 model = "None"
 
             # assigned orders
@@ -467,8 +460,7 @@ def system_identification(
                 # nc = [0]*ydim
                 # nd = [0]*ydim
                 nf = (OE_orders[1] * np.ones((ydim,), dtype=int)).tolist()
-                theta = (OE_orders[2] *
-                         np.ones((ydim, udim), dtype=int)).tolist()
+                theta = (OE_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
 
             # something goes wrong
             else:
@@ -614,15 +606,13 @@ def system_identification(
                     and isinstance(ARMA_orders[1], int)
                     and isinstance(ARMA_orders[2], int)
                 ):
-                    na = (ARMA_orders[0] *
-                          np.ones((ydim,), dtype=int)).tolist()
+                    na = (ARMA_orders[0] * np.ones((ydim,), dtype=int)).tolist()
                     # nb = (ARMA_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nb = np.zeros((ydim, udim), dtype=int).tolist()
                     nc = ARMA_orders[1]
                     # nd = [0]*ydim
                     # nf = [0]*ydim
-                    theta = (
-                        ARMA_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (ARMA_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
@@ -660,13 +650,10 @@ def system_identification(
                     and isinstance(ARARX_orders[2], int)
                     and isinstance(ARARX_orders[3], int)
                 ):
-                    na = (ARARX_orders[0] *
-                          np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARARX_orders[1] *
-                          np.ones((ydim, udim), dtype=int)).tolist()
+                    na = (ARARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    nb = (ARARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nc = [0] * ydim
-                    nd = (ARARX_orders[2] *
-                          np.ones((ydim,), dtype=int)).tolist()
+                    nd = (ARARX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nf = [0] * ydim
                     theta = (
                         ARARX_orders[3] * np.ones((ydim, udim), dtype=int)
@@ -710,14 +697,10 @@ def system_identification(
                     and isinstance(ARARMAX_orders[3], int)
                     and isinstance(ARARMAX_orders[4], int)
                 ):
-                    na = (ARARMAX_orders[0] *
-                          np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARARMAX_orders[1] *
-                          np.ones((ydim, udim), dtype=int)).tolist()
-                    nc = (ARARMAX_orders[2] *
-                          np.ones((ydim,), dtype=int)).tolist()
-                    nd = (ARARMAX_orders[3] *
-                          np.ones((ydim,), dtype=int)).tolist()
+                    na = (ARARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    nb = (ARARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nc = (ARARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
+                    nd = (ARARMAX_orders[3] * np.ones((ydim,), dtype=int)).tolist()
                     # nf = [0]*ydim
                     theta = (
                         ARARMAX_orders[4] * np.ones((ydim, udim), dtype=int)
@@ -762,13 +745,11 @@ def system_identification(
                     and isinstance(BJ_orders[4], int)
                 ):
                     # na = [0]*ydim
-                    nb = (BJ_orders[0] *
-                          np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = (BJ_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
                     nc = (BJ_orders[1] * np.ones((ydim,), dtype=int)).tolist()
                     nd = (BJ_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nf = (BJ_orders[3] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (
-                        BJ_orders[4] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (BJ_orders[4] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
@@ -811,13 +792,11 @@ def system_identification(
                     and isinstance(GEN_orders[5], int)
                 ):
                     na = (GEN_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (GEN_orders[1] *
-                          np.ones((ydim, udim), dtype=int)).tolist()
+                    nb = (GEN_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nc = (GEN_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nd = (GEN_orders[3] * np.ones((ydim,), dtype=int)).tolist()
                     nf = (GEN_orders[4] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (
-                        GEN_orders[5] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (GEN_orders[5] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
@@ -886,8 +865,7 @@ def system_identification(
                 SS_D_required,
                 SS_A_stability,
             )
-            model = OLSims_methods.SS_model(
-                A, B, C, D, K, Q, R, S, tsample, Vn)
+            model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
 
         # PARSIM-K
         elif id_method == "PARSIM-K":
@@ -1317,6 +1295,7 @@ def system_identification(
 
             # TODO: fix the import and learn from RB about the implementation details
             from . import io_opt
+
             # id IO RLS MIMO (also SISO case)
             na, nb, nc, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = (
                 io_opt.select_order_GEN(
@@ -1438,8 +1417,7 @@ def system_identification(
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(
                 y, u, SS_f, id_method, IC, SS_orders, SS_D_required, SS_A_stability
             )
-            model = OLSims_methods.SS_model(
-                A, B, C, D, K, Q, R, S, tsample, Vn)
+            model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
 
         # PARSIM-K
         elif id_method == "PARSIM-K":

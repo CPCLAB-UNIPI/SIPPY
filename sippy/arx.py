@@ -21,8 +21,8 @@ def ARX_id(y, u, na, nb, theta):
     phi = np.zeros(na + nb)
     PHI = np.zeros((N, na + nb))
     for i in range(N):
-        phi[0:na] = -y[i + val - 1:: -1][0:na]
-        phi[na: na + nb] = u[val + i - 1:: -1][theta: nb + theta]
+        phi[0:na] = -y[i + val - 1 :: -1][0:na]
+        phi[na : na + nb] = u[val + i - 1 :: -1][theta : nb + theta]
         PHI[i, :] = phi
     # coeffiecients
     THETA = np.dot(np.linalg.pinv(PHI), y[val::])
@@ -34,11 +34,11 @@ def ARX_id(y, u, na, nb, theta):
     y_id = np.hstack((y[:val], y_id0))
     NUM = np.zeros(val)
     # numerator
-    NUM[theta: nb + theta] = THETA[na::]
+    NUM[theta : nb + theta] = THETA[na::]
     DEN = np.zeros(val + 1)
     DEN[0] = 1.0
     # denominator
-    DEN[1: na + 1] = THETA[0:na]
+    DEN[1 : na + 1] = THETA[0:na]
     NUMH = np.zeros(val + 1)
     NUMH[0] = 1.0
 
@@ -56,8 +56,7 @@ def select_order_ARX(
     theta_Min = min(delays)
     theta_Max = max(delays) + 1
     # check orders
-    sum_ords = np.sum(na_Min + na_MAX + nb_Min +
-                      nb_MAX + theta_Min + theta_Max)
+    sum_ords = np.sum(na_Min + na_MAX + nb_Min + nb_MAX + theta_Min + theta_Max)
     if not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
@@ -81,8 +80,7 @@ def select_order_ARX(
         for i in range(na_Min, na_MAX):
             for j in range(nb_Min, nb_MAX):
                 for k in range(theta_Min, theta_Max):
-                    _, _, _, Vn, y_id = ARX_id(
-                        y, u, i, j, k)
+                    _, _, _, Vn, y_id = ARX_id(y, u, i, j, k)
                     IC = information_criterion(
                         i + j, y.size - max(i, j + k), Vn * 2, method
                     )
@@ -95,8 +93,8 @@ def select_order_ARX(
         # rerun identification
         NUM, DEN, NUMH, Vn, y_id = ARX_id(y, u, na_min, nb_min, theta_min)
         Y_id = np.atleast_2d(y_id) * ystd
-        NUM[theta_min: nb_min + theta_min] = (
-            NUM[theta_min: nb_min + theta_min] * ystd / Ustd
+        NUM[theta_min : nb_min + theta_min] = (
+            NUM[theta_min : nb_min + theta_min] * ystd / Ustd
         )
         # FdT
         g_identif = cnt.tf(NUM, DEN, tsample)

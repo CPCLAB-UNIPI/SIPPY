@@ -110,17 +110,16 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
         else:
             NUMH = np.zeros((1, valH + 1))
             NUMH[0, 0] = 1.0
-            NUMH[0, 1: nc + 1] = THETA[na + Nb: na + Nb + nc]
+            NUMH[0, 1 : nc + 1] = THETA[na + Nb : na + Nb + nc]
         #
         # DENH = np.zeros((1, val + 1))
         # DENH[0, 0] = 1.
         # DENH[0, 1:nd + 1] = THETA[Nb+na+nc:Nb+na+nc+nd]
 
-        A = cnt.tf(np.hstack((1, np.zeros((na)))),
-                   np.hstack((1, THETA[:na])), 1)
+        A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
         D = cnt.tf(
             np.hstack((1, np.zeros((nd)))),
-            np.hstack((1, THETA[na + Nb + nc: na + Nb + nc + nd])),
+            np.hstack((1, THETA[na + Nb + nc : na + Nb + nc + nd])),
             1,
         )
 
@@ -128,12 +127,12 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
             _, denh = cnt.tfdata(A * D)
         denH = np.array(denh[0])
         DENH = np.zeros((1, valH + 1))
-        DENH[0, 0: na + nd + 1] = denH
+        DENH[0, 0 : na + nd + 1] = denH
 
         # G = (B/(A*F))
         F = cnt.tf(
             np.hstack((1, np.zeros((nf)))),
-            np.hstack((1, THETA[na + Nb + nc + nd: na + Nb + nc + nd + nf])),
+            np.hstack((1, THETA[na + Nb + nc + nd : na + Nb + nc + nd + nf])),
             1,
         )
 
@@ -152,17 +151,17 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
         #
         for k in range(udim):
             if id_method != "ARMA":
-                THETA[na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])] = (
-                    THETA[na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])]
+                THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])] = (
+                    THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])]
                     * ystd
                     / Ustd[k]
                 )
-                NUM[k, theta[k]: theta[k] + nb[k]] = THETA[
-                    na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])
+                NUM[k, theta[k] : theta[k] + nb[k]] = THETA[
+                    na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])
                 ]
             # DEN[k, 1:den.shape[1] + 1] = den
             # DEN[k,:] = den
-            DEN[k, 0: na + nf + 1] = denG
+            DEN[k, 0 : na + nf + 1] = denG
 
         # check_stH = True if any(np.roots(DENH)>=1.0) else False
         # check_stG = True if any(np.roots(DEN)>=1.0) else False
@@ -189,8 +188,7 @@ def GEN_MIMO_id(
     [th1, th2] = theta.shape
     # check dimension
     sum_ords = (
-        np.sum(nb) + np.sum(na) + np.sum(nc) +
-        np.sum(nd) + np.sum(nf) + np.sum(theta)
+        np.sum(nb) + np.sum(na) + np.sum(nc) + np.sum(nd) + np.sum(nf) + np.sum(theta)
     )
     if na.size != ydim:
         sys.exit(

@@ -40,11 +40,11 @@ def ARX_MISO_id(y, u, na, nb, theta):
         phi = np.zeros(na + np.sum(nb[:]))
         PHI = np.zeros((N, na + np.sum(nb[:])))
         for k in range(N):
-            phi[0:na] = -y[k + val - 1:: -1][0:na]
+            phi[0:na] = -y[k + val - 1 :: -1][0:na]
             for nb_i in range(udim):
-                phi[na + np.sum(nb[0:nb_i]): na + np.sum(nb[0: nb_i + 1])] = u[
+                phi[na + np.sum(nb[0:nb_i]) : na + np.sum(nb[0 : nb_i + 1])] = u[
                     nb_i, :
-                ][val + k - 1:: -1][theta[nb_i]: nb[nb_i] + theta[nb_i]]
+                ][val + k - 1 :: -1][theta[nb_i] : nb[nb_i] + theta[nb_i]]
             PHI[k, :] = phi
         # coefficient vector
         THETA = np.dot(np.linalg.pinv(PHI), y[val::])
@@ -60,15 +60,15 @@ def ARX_MISO_id(y, u, na, nb, theta):
         DEN[:, 0] = np.ones(udim)
         NUM = np.zeros((udim, val))
         for k in range(udim):
-            THETA[na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])] = (
-                THETA[na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])]
+            THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])] = (
+                THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])]
                 * ystd
                 / Ustd[k]
             )
-            NUM[k, theta[k]: theta[k] + nb[k]] = THETA[
-                na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])
+            NUM[k, theta[k] : theta[k] + nb[k]] = THETA[
+                na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])
             ]
-            DEN[k, 1: na + 1] = THETA[0:na]
+            DEN[k, 1 : na + 1] = THETA[0:na]
         return DEN, NUM, NUMH, Vn, y_id
 
 

@@ -42,11 +42,11 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
         phi = np.zeros(na + np.sum(nb[:]) + nc)
         PHI = np.zeros((N, na + np.sum(nb[:]) + nc))
         for k in range(N):
-            phi[0:na] = -y[k + val - 1:: -1][0:na]
+            phi[0:na] = -y[k + val - 1 :: -1][0:na]
             for nb_i in range(udim):
-                phi[na + np.sum(nb[0:nb_i]): na + np.sum(nb[0: nb_i + 1])] = u[
+                phi[na + np.sum(nb[0:nb_i]) : na + np.sum(nb[0 : nb_i + 1])] = u[
                     nb_i, :
-                ][val + k - 1:: -1][theta[nb_i]: nb[nb_i] + theta[nb_i]]
+                ][val + k - 1 :: -1][theta[nb_i] : nb[nb_i] + theta[nb_i]]
             PHI[k, :] = phi
         Vn = np.inf
         Vn_old = np.inf
@@ -60,12 +60,11 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
             Vn_old = Vn
             iterations = iterations + 1
             for i in range(N):
-                PHI[i, na + np.sum(nb[:]): na + np.sum(nb[:]) + nc] = eps[
-                    val + i - 1:: -1
+                PHI[i, na + np.sum(nb[:]) : na + np.sum(nb[:]) + nc] = eps[
+                    val + i - 1 :: -1
                 ][0:nc]
             THETA = np.dot(np.linalg.pinv(PHI), y[val::])
-            Vn = (np.linalg.norm(
-                y[val::] - np.dot(PHI, THETA), 2) ** 2) / (2 * N)
+            Vn = (np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2) / (2 * N)
             THETA_new = THETA
             lambdak = 0.5
             while Vn > Vn_old:
@@ -74,8 +73,7 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
                 )
                 # Model Output
                 # y_id0 = np.dot(PHI,THETA)
-                Vn = (np.linalg.norm(
-                    y[val::] - np.dot(PHI, THETA), 2) ** 2) / (2 * N)
+                Vn = (np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2) / (2 * N)
 
                 if lambdak < np.finfo(np.float32).eps:
                     THETA = THETA_old
@@ -91,19 +89,19 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
         DEN = np.zeros((udim, val + 1))
         NUMH = np.zeros((1, val + 1))
         NUMH[0, 0] = 1.0
-        NUMH[0, 1: nc + 1] = THETA[na + np.sum(nb[:])::]
+        NUMH[0, 1 : nc + 1] = THETA[na + np.sum(nb[:]) : :]
         DEN[:, 0] = np.ones(udim)
         NUM = np.zeros((udim, val))
         for k in range(udim):
-            THETA[na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])] = (
-                THETA[na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])]
+            THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])] = (
+                THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])]
                 * ystd
                 / Ustd[k]
             )
-            NUM[k, theta[k]: theta[k] + nb[k]] = THETA[
-                na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])
+            NUM[k, theta[k] : theta[k] + nb[k]] = THETA[
+                na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])
             ]
-            DEN[k, 1: na + 1] = THETA[0:na]
+            DEN[k, 1 : na + 1] = THETA[0:na]
         return DEN, NUM, NUMH, Vn, y_id, Reached_max
 
 
@@ -144,8 +142,7 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         and np.min(nc) >= 0
         and np.min(theta) >= 0
     ):
-        sys.exit(
-            "Error! na, nb, nc, theta must contain only positive integer elements")
+        sys.exit("Error! na, nb, nc, theta must contain only positive integer elements")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:
         # preallocation
