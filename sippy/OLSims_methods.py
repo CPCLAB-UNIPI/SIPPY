@@ -8,6 +8,7 @@ Created on Thu Oct 12 2017
 import sys
 from builtins import object
 
+import control as cnt
 import numpy as np
 import scipy as sc
 from numpy.linalg import pinv
@@ -42,12 +43,10 @@ def SVD_weighted(y, u, f, l, weights="N4SID"):
         U_n, S_n, V_n = np.linalg.svd(OidotPIort_Uf, full_matrices=False)
 
     elif weights == "CVA":
-        W1 = np.linalg.inv(sc.linalg.sqrtm(
-            np.dot(YfdotPIort_Uf, YfdotPIort_Uf.T)).real)
+        W1 = np.linalg.inv(sc.linalg.sqrtm(np.dot(YfdotPIort_Uf, YfdotPIort_Uf.T)).real)
         W1dotOi = np.dot(W1, O_i)
         W1_dot_Oi_dot_PIort_Uf = Z_dot_PIort(W1dotOi, Uf)
-        U_n, S_n, V_n = np.linalg.svd(
-            W1_dot_Oi_dot_PIort_Uf, full_matrices=False)
+        U_n, S_n, V_n = np.linalg.svd(W1_dot_Oi_dot_PIort_Uf, full_matrices=False)
 
     elif weights == "N4SID":
         W1 = None  # is identity
@@ -70,8 +69,8 @@ def algorithm_1(
     else:
         Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
     X_fd = np.dot(np.linalg.pinv(Ob), O_i)
-    Sxterm = impile(X_fd[:, 1:N], y[:, f: f + N - 1])
-    Dxterm = impile(X_fd[:, 0: N - 1], u[:, f: f + N - 1])
+    Sxterm = impile(X_fd[:, 1:N], y[:, f : f + N - 1])
+    Dxterm = impile(X_fd[:, 0 : N - 1], u[:, f : f + N - 1])
     if D_required:
         M = np.dot(Sxterm, np.linalg.pinv(Dxterm))
     else:
@@ -87,16 +86,15 @@ def forcing_A_stability(M, n, Ob, l, X_fd, N, u, f):
     if np.max(np.abs(np.linalg.eigvals(M[0:n, 0:n]))) >= 1.0:
         Forced_A = True
         print("Forcing A stability")
-        M[0:n, 0:n] = np.dot(np.linalg.pinv(
-            Ob), impile(Ob[l::, :], np.zeros((l, n))))
+        M[0:n, 0:n] = np.dot(np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n))))
         M[0:n, n::] = np.dot(
-            X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0: N - 1]),
-            np.linalg.pinv(u[:, f: f + N - 1]),
+            X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1]),
+            np.linalg.pinv(u[:, f : f + N - 1]),
         )
     res = (
         X_fd[:, 1:N]
-        - np.dot(M[0:n, 0:n], X_fd[:, 0: N - 1])
-        - np.dot(M[0:n, n::], u[:, f: f + N - 1])
+        - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1])
+        - np.dot(M[0:n, n::], u[:, f : f + N - 1])
     )
     return M, res, Forced_A
 
@@ -137,8 +135,7 @@ def OLSims(
             [],
         )
     else:
-        threshold, max_order = check_inputs(
-            threshold, max_order, fixed_order, f)
+        threshold, max_order = check_inputs(threshold, max_order, fixed_order, f)
         N = L - 2 * f + 1
         Ustd = np.zeros(m)
         Ystd = np.zeros(l)
@@ -151,9 +148,7 @@ def OLSims(
             y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, D_required
         )
         if A_stability:
-            M, residuals[0:n, :], _ = forcing_A_stability(
-                M, n, Ob, l, X_fd, N, u, f
-            )
+            M, residuals[0:n, :], _ = forcing_A_stability(M, n, Ob, l, X_fd, N, u, f)
         A, B, C, D = extracting_matrices(M, n)
         Covariances = np.dot(residuals, residuals.T) / (N - 1)
         Q = Covariances[0:n, 0:n]
@@ -261,9 +256,7 @@ def select_order_SIM(
             y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0, n_min, D_required
         )
         if A_stability:
-            M, residuals[0:n, :], _ = forcing_A_stability(
-                M, n, Ob, l, X_fd, N, u, f
-            )
+            M, residuals[0:n, :], _ = forcing_A_stability(M, n, Ob, l, X_fd, N, u, f)
         A, B, C, D = extracting_matrices(M, n)
         Covariances = np.dot(residuals, residuals.T) / (N - 1)
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)

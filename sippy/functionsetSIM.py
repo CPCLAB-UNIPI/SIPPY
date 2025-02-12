@@ -17,13 +17,13 @@ def ordinate_sequence(y, f, p):
     Yp = np.zeros((l * f, N))
     Yf = np.zeros((l * f, N))
     for i in range(1, f + 1):
-        Yf[l * (i - 1): l * i] = y[:, p + i - 1: L - f + i]
-        Yp[l * (i - 1): l * i] = y[:, i - 1: L - f - p + i]
+        Yf[l * (i - 1) : l * i] = y[:, p + i - 1 : L - f + i]
+        Yp[l * (i - 1) : l * i] = y[:, i - 1 : L - f - p + i]
     return Yf, Yp
 
 
 def Z_dot_PIort(z, X):
-    """
+    r"""
     Compute the scalar product between a vector z and $I - x^T \cdot pinv(X^T)$, avoiding the direct computation of the matrix
 
     PI = np.dot(X.T, np.linalg.pinv(X.T)), causing high memory usage
@@ -61,8 +61,8 @@ def Vn_mat(y, yest):
 
 def impile(M1, M2):
     M = np.zeros((M1[:, 0].size + M2[:, 0].size, M1[0, :].size))
-    M[0: M1[:, 0].size] = M1
-    M[M1[:, 0].size::] = M2
+    M[0 : M1[:, 0].size] = M1
+    M[M1[:, 0].size : :] = M2
     return M
 
 
@@ -132,8 +132,7 @@ def SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0="None"):
     if not isinstance(x0, str):
         x[:, 0] = x0[:, 0]
     for i in range(0, L):
-        x[:, i + 1] = np.dot(A_K, x[:, i]) + np.dot(B_K,
-                                                    u[:, i]) + np.dot(K, y[:, i])
+        x[:, i + 1] = np.dot(A_K, x[:, i]) + np.dot(B_K, u[:, i]) + np.dot(K, y[:, i])
         y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
     return x, y_hat
 
@@ -148,8 +147,7 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0="None"):
     for i in range(0, L):
         y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
         x[:, i + 1] = (
-            np.dot(A, x[:, i]) + np.dot(B, u[:, i]) +
-            np.dot(K, y[:, i] - y_hat[:, i])
+            np.dot(A, x[:, i]) + np.dot(B, u[:, i]) + np.dot(K, y[:, i] - y_hat[:, i])
         )
     return x, y_hat
 

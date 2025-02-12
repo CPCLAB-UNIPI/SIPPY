@@ -73,18 +73,18 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         for k in range(N):
             if k > val:
                 # Step 1: Regressor vector
-                vecY = y[k - na: k][::-1]  # Y vector
-                vecYp = Yp[k - nf: k][::-1]  # Yp vector
+                vecY = y[k - na : k][::-1]  # Y vector
+                vecYp = Yp[k - nf : k][::-1]  # Yp vector
                 #
                 vecU = []
                 for nb_i in range(udim):  # U vector
-                    vecu = u[nb_i, :][k - nb[nb_i] - theta[nb_i]: k - theta[nb_i]][
+                    vecu = u[nb_i, :][k - nb[nb_i] - theta[nb_i] : k - theta[nb_i]][
                         ::-1
                     ]
                     vecU = np.hstack((vecU, vecu))
                 #
                 # vecE = E[k-nh:k][::-1]                   # E vector
-                vecE = E[k - nc: k][::-1]
+                vecE = E[k - nc : k][::-1]
 
                 # choose input-output model
                 if id_method == "ARMAX":
@@ -99,17 +99,16 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
 
                 # Step 2: Gain Update
                 # Gain of parameter teta
-                K_t[:, k: k + 1] = np.dot(
+                K_t[:, k : k + 1] = np.dot(
                     np.dot(P_t[:, :, k - 1], phi),
                     np.linalg.inv(
-                        l_t[k - 1] +
-                        np.dot(np.dot(phi.T, P_t[:, :, k - 1]), phi)
+                        l_t[k - 1] + np.dot(np.dot(phi.T, P_t[:, :, k - 1]), phi)
                     ),
                 )
 
                 # Step 3: Parameter Update
                 teta[:, k] = teta[:, k - 1] + np.dot(
-                    K_t[:, k: k + 1], (y[k] - np.dot(phi.T, teta[:, k - 1]))
+                    K_t[:, k : k + 1], (y[k] - np.dot(phi.T, teta[:, k - 1]))
                 )
 
                 # Step 4: A posteriori prediction-error
@@ -119,7 +118,7 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
                 # Step 5. Parameter estimate covariance update
                 P_t[:, :, k] = (1 / l_t[k - 1]) * (
                     np.dot(
-                        np.eye(nt - 1) - np.dot(K_t[:, k: k + 1], phi.T),
+                        np.eye(nt - 1) - np.dot(K_t[:, k : k + 1], phi.T),
                         P_t[:, :, k - 1],
                     )
                 )
@@ -128,7 +127,7 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
                 l_t[k] = 1.0
 
         # Error Norm
-        Vn = (np.linalg.norm(y - Yp, 2) ** 2), (2 * (N - val))
+        Vn = (np.linalg.norm(y - Yp, 2) ** 2) // (2 * (N - val))
 
         # Model Output
         y_id = Yp * ystd
@@ -151,17 +150,16 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         else:
             NUMH = np.zeros((1, valH + 1))
             NUMH[0, 0] = 1.0
-            NUMH[0, 1: nc + 1] = THETA[na + Nb: na + Nb + nc]
+            NUMH[0, 1 : nc + 1] = THETA[na + Nb : na + Nb + nc]
         #
         # DENH = np.zeros((1, val + 1))
         # DENH[0, 0] = 1.
         # DENH[0, 1:nd + 1] = THETA[Nb+na+nc:Nb+na+nc+nd]
 
-        A = cnt.tf(np.hstack((1, np.zeros((na)))),
-                   np.hstack((1, THETA[:na])), 1)
+        A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
         D = cnt.tf(
             np.hstack((1, np.zeros((nd)))),
-            np.hstack((1, THETA[na + Nb + nc: na + Nb + nc + nd])),
+            np.hstack((1, THETA[na + Nb + nc : na + Nb + nc + nd])),
             1,
         )
 
@@ -169,17 +167,15 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
             _, denh = cnt.tfdata(A * D)
         denH = np.array(denh[0])
         DENH = np.zeros((1, valH + 1))
-        DENH[0, 0: na + nd + 1] = denH
+        DENH[0, 0 : na + nd + 1] = denH
 
         # G = (B/(A*F))
         if id_method == "OE":
-            F = cnt.tf(np.hstack((1, np.zeros((nf)))),
-                       np.hstack((1, THETA[:nf])), 1)
+            F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[:nf])), 1)
         else:
             F = cnt.tf(
                 np.hstack((1, np.zeros((nf)))),
-                np.hstack(
-                    (1, THETA[na + Nb + nc + nd: na + Nb + nc + nd + nf])),
+                np.hstack((1, THETA[na + Nb + nc + nd : na + Nb + nc + nd + nf])),
                 1,
             )
 
@@ -199,17 +195,17 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         ng = nf if id_method == "OE" else na
         for k in range(udim):
             if id_method != "ARMA":
-                THETA[ng + np.sum(nb[0:k]): ng + np.sum(nb[0: k + 1])] = (
-                    THETA[ng + np.sum(nb[0:k]): ng + np.sum(nb[0: k + 1])]
+                THETA[ng + np.sum(nb[0:k]) : ng + np.sum(nb[0 : k + 1])] = (
+                    THETA[ng + np.sum(nb[0:k]) : ng + np.sum(nb[0 : k + 1])]
                     * ystd
                     / Ustd[k]
                 )
-                NUM[k, theta[k]: theta[k] + nb[k]] = THETA[
-                    ng + np.sum(nb[0:k]): ng + np.sum(nb[0: k + 1])
+                NUM[k, theta[k] : theta[k] + nb[k]] = THETA[
+                    ng + np.sum(nb[0:k]) : ng + np.sum(nb[0 : k + 1])
                 ]
             # DEN[k, 1:den.shape[1] + 1] = den
             # DEN[k,:] = den
-            DEN[k, 0: na + nf + 1] = denG
+            DEN[k, 0 : na + nf + 1] = denG
 
         return DEN, NUM, NUMH, DENH, Vn, y_id, Reached_max
 
@@ -253,8 +249,7 @@ def GEN_MIMO_id(
         and np.min(nc) >= 0
         and np.min(theta) >= 0
     ):
-        sys.exit(
-            "Error! na, nb, nc, theta must contain only positive integer elements")
+        sys.exit("Error! na, nb, nc, theta must contain only positive integer elements")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:
         # preallocation
