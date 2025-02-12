@@ -152,7 +152,7 @@ def mean_square_error(predictions, targets):
 # y: output data
 # Time: time sequence
 # k: k-step ahead
-def validation(SYS, u, y, Time, k=1, centering="None"):
+def validation(SYS, u, y, Time, k=1, centering=None):
     # check dimensions
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
@@ -178,7 +178,7 @@ def validation(SYS, u, y, Time, k=1, centering="None"):
             y_rif = np.mean(y, 1)
         for i in range(udim):
             u_rif = np.mean(u, 1)
-    elif centering == "None":
+    elif centering is None:
         y_rif = np.zeros(ydim)
         u_rif = np.zeros(udim)
     else:
@@ -196,9 +196,7 @@ def validation(SYS, u, y, Time, k=1, centering="None"):
     for i in range(ydim):
         # one-step ahead predictor
         if k == 1:
-            T, Y_u = cnt.forced_response(
-                (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u
-            )
+            T, Y_u = cnt.forced_response((1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u)
             T, Y_y = cnt.forced_response(
                 1 - (1 / SYS.H[i, 0]), Time, y[i, :] - y_rif[i]
             )
@@ -214,9 +212,7 @@ def validation(SYS, u, y, Time, k=1, centering="None"):
             # FdT of impulse response
             Hk = cnt.tf(h_k_num, h_k_den[0], SYS.ts)
             # k-step ahead prediction
-            T, Y_u = cnt.forced_response(
-                Hk * (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u
-            )
+            T, Y_u = cnt.forced_response(Hk * (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u)
             T, Y_y = cnt.forced_response(
                 1 - Hk * (1 / SYS.H[i, 0]), Time, y[i, :] - y_rif[i]
             )

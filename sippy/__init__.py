@@ -17,8 +17,8 @@ def system_identification(
     y,
     u,
     id_method,
-    centering="None",
-    IC="None",
+    centering=None,
+    IC=None,
     tsample=1.0,
     FIR_orders=[1, 0],
     ARX_orders=[1, 1, 0],
@@ -94,7 +94,7 @@ def system_identification(
         for i in range(ylength):
             y[:, i] = y[:, i] - y_rif
             u[:, i] = u[:, i] - u_mean
-    elif centering == "None":
+    elif centering is None:
         y_rif = 0.0 * y[:, 0]
     else:
         # elif centering != 'None':
@@ -118,7 +118,7 @@ def system_identification(
         # if none IC is selected
 
         # if something goes wrong
-        if IC != "None":
+        if IC is not None:
             sys.stdout.write("\033[0;35m")
             print(
                 "Warning, no correct information criterion selected, its value has been reset to 'None'"
@@ -137,36 +137,28 @@ def system_identification(
                     sys.exit(
                         "Error! FIR identification takes two arguments in FIR_orders"
                     )
-                    model = "None"
+                    model = None
 
                 # assigned orders
-                if isinstance(FIR_orders[0], list) and isinstance(
-                    FIR_orders[1], list
-                ):
+                if isinstance(FIR_orders[0], list) and isinstance(FIR_orders[1], list):
                     # na is set to 0
                     # na = [0]*ydim
                     nb = FIR_orders[0]
                     theta = FIR_orders[1]
 
                 # not assigned orders (read default)
-                elif isinstance(FIR_orders[0], int) and isinstance(
-                    FIR_orders[1], int
-                ):
+                elif isinstance(FIR_orders[0], int) and isinstance(FIR_orders[1], int):
                     # na is set to 0
                     # na = [0]*ydim
-                    nb = (
-                        FIR_orders[0] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    theta = (
-                        FIR_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                    nb = (FIR_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (FIR_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
                     sys.exit(
                         "Error! FIR_orders must be a list containing two lists or two integers"
                     )
-                    model = "None"
+                    model = None
 
             elif id_method == "ARX":
                 # not 3 inputs
@@ -174,7 +166,7 @@ def system_identification(
                     sys.exit(
                         "Error! ARX identification takes three arguments in ARX_orders"
                     )
-                    model = "None"
+                    model = None
 
                 # assigned orders
                 if (
@@ -193,19 +185,15 @@ def system_identification(
                     and isinstance(ARX_orders[2], int)
                 ):
                     na = (ARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (
-                        ARX_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    theta = (
-                        ARX_orders[2] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                    nb = (ARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    theta = (ARX_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
                     sys.exit(
                         "Error! ARX_orders must be a list containing three lists or three integers"
                     )
-                    model = "None"
+                    model = None
 
             # id ARX (also for FIR, which is a subcase)
 
@@ -215,8 +203,8 @@ def system_identification(
 
                 # import arxMIMO
                 # id ARX MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = (
-                    arxMIMO.ARX_MIMO_id(y, u, na, nb, theta, tsample)
+                DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = arxMIMO.ARX_MIMO_id(
+                    y, u, na, nb, theta, tsample
                 )
                 # recentering
                 Yid = data_recentering(Yid, y_rif, ylength)
@@ -312,22 +300,18 @@ def system_identification(
                 and isinstance(ARMAX_orders[3], int)
             ):
                 na = (ARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                nb = (
-                    ARMAX_orders[1] * np.ones((ydim, udim), dtype=int)
-                ).tolist()
+                nb = (ARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                 nc = (ARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                 # nd = [0]*ydim
                 # nf = [0]*ydim
-                theta = (
-                    ARMAX_orders[3] * np.ones((ydim, udim), dtype=int)
-                ).tolist()
+                theta = (ARMAX_orders[3] * np.ones((ydim, udim), dtype=int)).tolist()
 
             # something goes wrong
             else:
                 sys.exit(
                     "Error! ARMAX_orders must be a list containing four lists or four integers"
                 )
-                model = "None"
+                model = None
 
             # check identification method
 
@@ -470,16 +454,14 @@ def system_identification(
                 print(
                     "Warning: the selected method for solving the ARMAX model is not correct."
                 )
-                model = "None"
+                model = None
 
         # (OE) Output-Error
         elif id_method == "OE":
             # not 3 inputs
             if len(OE_orders) != 3:
-                sys.exit(
-                    "Error! OE identification takes three arguments in OE_orders"
-                )
-                model = "None"
+                sys.exit("Error! OE identification takes three arguments in OE_orders")
+                model = None
 
             # assigned orders
             if (
@@ -505,16 +487,14 @@ def system_identification(
                 # nc = [0]*ydim
                 # nd = [0]*ydim
                 nf = (OE_orders[1] * np.ones((ydim,), dtype=int)).tolist()
-                theta = (
-                    OE_orders[2] * np.ones((ydim, udim), dtype=int)
-                ).tolist()
+                theta = (OE_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
 
             # something goes wrong
             else:
                 sys.exit(
                     "Error! OE_orders must be a list containing three lists or three integers"
                 )
-                model = "None"
+                model = None
 
             # check identification method
 
@@ -622,7 +602,7 @@ def system_identification(
                 print(
                     "Warning: the selected method for solving the OE model is not correct."
                 )
-                model = "None"
+                model = None
 
         # other INPUT-OUTPUT STRUCTURES OPTIMIZATION-BASED:
         # ARMA, ARARX, ARARMAX
@@ -663,24 +643,20 @@ def system_identification(
                     and isinstance(ARMA_orders[1], int)
                     and isinstance(ARMA_orders[2], int)
                 ):
-                    na = (
-                        ARMA_orders[0] * np.ones((ydim,), dtype=int)
-                    ).tolist()
+                    na = (ARMA_orders[0] * np.ones((ydim,), dtype=int)).tolist()
                     # nb = (ARMA_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nb = np.zeros((ydim, udim), dtype=int).tolist()
                     nc = ARMA_orders[1]
                     # nd = [0]*ydim
                     # nf = [0]*ydim
-                    theta = (
-                        ARMA_orders[2] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                    theta = (ARMA_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
                     sys.exit(
                         "Error! ARMA_orders must be a list containing three lists or three integers"
                     )
-                    model = "None"
+                    model = None
 
             # ARARX
             elif id_method == "ARARX":
@@ -711,16 +687,10 @@ def system_identification(
                     and isinstance(ARARX_orders[2], int)
                     and isinstance(ARARX_orders[3], int)
                 ):
-                    na = (
-                        ARARX_orders[0] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    nb = (
-                        ARARX_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                    na = (ARARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    nb = (ARARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nc = [0] * ydim
-                    nd = (
-                        ARARX_orders[2] * np.ones((ydim,), dtype=int)
-                    ).tolist()
+                    nd = (ARARX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nf = [0] * ydim
                     theta = (
                         ARARX_orders[3] * np.ones((ydim, udim), dtype=int)
@@ -731,7 +701,7 @@ def system_identification(
                     sys.exit(
                         "Error! ARARX_orders must be a list containing four lists or four integers"
                     )
-                    model = "None"
+                    model = None
 
             # ARARMAX
             elif id_method == "ARARMAX":
@@ -764,18 +734,10 @@ def system_identification(
                     and isinstance(ARARMAX_orders[3], int)
                     and isinstance(ARARMAX_orders[4], int)
                 ):
-                    na = (
-                        ARARMAX_orders[0] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    nb = (
-                        ARARMAX_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    nc = (
-                        ARARMAX_orders[2] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    nd = (
-                        ARARMAX_orders[3] * np.ones((ydim,), dtype=int)
-                    ).tolist()
+                    na = (ARARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
+                    nb = (ARARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
+                    nc = (ARARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
+                    nd = (ARARMAX_orders[3] * np.ones((ydim,), dtype=int)).tolist()
                     # nf = [0]*ydim
                     theta = (
                         ARARMAX_orders[4] * np.ones((ydim, udim), dtype=int)
@@ -786,7 +748,7 @@ def system_identification(
                     sys.exit(
                         "Error! ARARMAX_orders must be a list containing five lists or five integers"
                     )
-                    model = "None"
+                    model = None
 
             # BJ
             elif id_method == "BJ":
@@ -820,22 +782,18 @@ def system_identification(
                     and isinstance(BJ_orders[4], int)
                 ):
                     # na = [0]*ydim
-                    nb = (
-                        BJ_orders[0] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                    nb = (BJ_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
                     nc = (BJ_orders[1] * np.ones((ydim,), dtype=int)).tolist()
                     nd = (BJ_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nf = (BJ_orders[3] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (
-                        BJ_orders[4] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                    theta = (BJ_orders[4] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
                     sys.exit(
                         "Error! BJ_orders must be a list containing five lists or five integers"
                     )
-                    model = "None"
+                    model = None
 
             # GEN
             elif id_method == "GEN":
@@ -871,22 +829,18 @@ def system_identification(
                     and isinstance(GEN_orders[5], int)
                 ):
                     na = (GEN_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (
-                        GEN_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                    nb = (GEN_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nc = (GEN_orders[2] * np.ones((ydim,), dtype=int)).tolist()
                     nd = (GEN_orders[3] * np.ones((ydim,), dtype=int)).tolist()
                     nf = (GEN_orders[4] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (
-                        GEN_orders[5] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                    theta = (GEN_orders[5] * np.ones((ydim, udim), dtype=int)).tolist()
 
                 # something goes wrong
                 else:
                     sys.exit(
                         "Error! GEN_orders must be a list containing six lists or six integers"
                     )
-                    model = "None"
+                    model = None
 
             # id MODEL: ARMA, ARARX, ARARMAX, BJ, GEN
             from . import io_optMIMO
@@ -941,9 +895,7 @@ def system_identification(
         # SS MODELS
 
         # N4SID-MOESP-CVA
-        elif (
-            id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA"
-        ):
+        elif id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA":
             from . import OLSims_methods
 
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(
@@ -957,9 +909,7 @@ def system_identification(
                 SS_D_required,
                 SS_A_stability,
             )
-            model = OLSims_methods.SS_model(
-                A, B, C, D, K, Q, R, S, tsample, Vn
-            )
+            model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
 
         # PARSIM-K
         elif id_method == "PARSIM-K":
@@ -1044,7 +994,7 @@ def system_identification(
                 sys.exit(
                     "Error! Information criteria are implemented ONLY in SISO case for INPUT-OUTPUT model sets.  Use subspace methods instead for MIMO cases"
                 )
-                model = "None"
+                model = None
 
         # FIR or ARX
         if id_method == "FIR" or id_method == "ARX":
@@ -1269,7 +1219,7 @@ def system_identification(
                 print(
                     "Warning: the selected method for solving the ARMAX model is not correct."
                 )
-                model = "None"
+                model = None
 
         # (OE) Output-Error
         elif id_method == "OE":
@@ -1388,7 +1338,7 @@ def system_identification(
                 print(
                     "Warning: the selected method for solving the ARMAX model is not correct."
                 )
-                model = "None"
+                model = None
 
         # (EOE or EARMAX) Extended Output-Error and Extended ARMAX
         elif id_method == "EOE" or id_method == "EARMAX":
@@ -1396,7 +1346,7 @@ def system_identification(
                 nc_ord = [0, 0]
 
             # TODO: fix the import and learn from RB about the implementation details
-            from . import io_opt
+            from . import io_optMIMO
 
             # id IO RLS MIMO (also SISO case)
             (
@@ -1522,9 +1472,7 @@ def system_identification(
         # SS-MODELS
 
         # N4SID-MOESP-CVA
-        elif (
-            id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA"
-        ):
+        elif id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA":
             from . import OLSims_methods
 
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(
@@ -1537,25 +1485,21 @@ def system_identification(
                 SS_D_required,
                 SS_A_stability,
             )
-            model = OLSims_methods.SS_model(
-                A, B, C, D, K, Q, R, S, tsample, Vn
-            )
+            model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
 
         # PARSIM-K
         elif id_method == "PARSIM-K":
             from . import Parsim_methods
 
-            A_K, C, B_K, D, K, A, B, x0, Vn = (
-                Parsim_methods.select_order_PARSIM_K(
-                    y,
-                    u,
-                    SS_f,
-                    SS_p,
-                    IC,
-                    SS_orders,
-                    SS_D_required,
-                    SS_PK_B_reval,
-                )
+            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_K(
+                y,
+                u,
+                SS_f,
+                SS_p,
+                IC,
+                SS_orders,
+                SS_D_required,
+                SS_PK_B_reval,
             )
             model = Parsim_methods.SS_PARSIM_model(
                 A, B, C, D, K, A_K, B_K, x0, tsample, Vn
@@ -1565,10 +1509,8 @@ def system_identification(
         elif id_method == "PARSIM-S":
             from . import Parsim_methods
 
-            A_K, C, B_K, D, K, A, B, x0, Vn = (
-                Parsim_methods.select_order_PARSIM_S(
-                    y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
-                )
+            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_S(
+                y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
             )
             model = Parsim_methods.SS_PARSIM_model(
                 A, B, C, D, K, A_K, B_K, x0, tsample, Vn
@@ -1578,10 +1520,8 @@ def system_identification(
         elif id_method == "PARSIM-P":
             from . import Parsim_methods
 
-            A_K, C, B_K, D, K, A, B, x0, Vn = (
-                Parsim_methods.select_order_PARSIM_P(
-                    y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
-                )
+            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_P(
+                y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
             )
             model = Parsim_methods.SS_PARSIM_model(
                 A, B, C, D, K, A_K, B_K, x0, tsample, Vn
@@ -1590,7 +1530,7 @@ def system_identification(
         # NO method selected
         else:
             sys.exit("Error! No identification method selected")
-            model = "None"
+            model = None
 
     return model
 

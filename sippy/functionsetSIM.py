@@ -109,7 +109,7 @@ def check_inputs(threshold, max_order, fixed_order, f):
     return threshold, max_order
 
 
-def SS_lsim_process_form(A, B, C, D, u, x0="None"):
+def SS_lsim_process_form(A, B, C, D, u, x0=None):
     _, L = u.shape
     l, n = C.shape
     y = np.zeros((l, L))
@@ -123,7 +123,7 @@ def SS_lsim_process_form(A, B, C, D, u, x0="None"):
     return x, y
 
 
-def SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0="None"):
+def SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0=None):
     _, L = u.shape
     l, n = C.shape
     y_hat = np.zeros((l, L))
@@ -131,14 +131,12 @@ def SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0="None"):
     if not isinstance(x0, str):
         x[:, 0] = x0[:, 0]
     for i in range(0, L):
-        x[:, i + 1] = (
-            np.dot(A_K, x[:, i]) + np.dot(B_K, u[:, i]) + np.dot(K, y[:, i])
-        )
+        x[:, i + 1] = np.dot(A_K, x[:, i]) + np.dot(B_K, u[:, i]) + np.dot(K, y[:, i])
         y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
     return x, y_hat
 
 
-def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0="None"):
+def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0=None):
     m, L = u.shape
     l, n = C.shape
     y_hat = np.zeros((l, L))
@@ -148,9 +146,7 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0="None"):
     for i in range(0, L):
         y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
         x[:, i + 1] = (
-            np.dot(A, x[:, i])
-            + np.dot(B, u[:, i])
-            + np.dot(K, y[:, i] - y_hat[:, i])
+            np.dot(A, x[:, i]) + np.dot(B, u[:, i]) + np.dot(K, y[:, i] - y_hat[:, i])
         )
     return x, y_hat
 
