@@ -23,12 +23,12 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
     Reached_max = False
     # checking dimension
     if nb.size != udim:
-        sys.exit(
-            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        raise RuntimeError(
+            " nb must be a matrix, whose dimensions must be equal to yxu"
         )
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf,Reached_max
     elif theta.size != udim:
-        sys.exit("Error! theta matrix must have yxu dimensions")
+        raise RuntimeError("theta matrix must have yxu dimensions")
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf,Reached_max
     else:
         nbth = nb + theta
@@ -133,12 +133,12 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
-        sys.exit(
-            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        raise RuntimeError(
+            " nb must be a matrix, whose dimensions must be equal to yxu"
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif th1 != ydim:
-        sys.exit("Error! theta matrix must have yxu dimensions")
+        raise RuntimeError("theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif not (
         (
@@ -150,8 +150,8 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         and np.min(nc) >= 0
         and np.min(theta) >= 0
     ):
-        sys.exit(
-            "Error! na, nb, nc, theta must contain only positive integer elements"
+        raise RuntimeError(
+            " na, nb, nc, theta must contain only positive integer elements"
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:

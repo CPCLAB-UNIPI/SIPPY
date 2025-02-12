@@ -125,9 +125,7 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
     A = cnt.tf(np.hstack((1, np.zeros(na))), np.hstack((1, THETA[:na])), 1)
 
     if id_method == "OE":
-        F = cnt.tf(
-            np.hstack((1, np.zeros(nf))), np.hstack((1, THETA[:nf])), 1
-        )
+        F = cnt.tf(np.hstack((1, np.zeros(nf))), np.hstack((1, THETA[:nf])), 1)
     else:
         F = cnt.tf(
             np.hstack((1, np.zeros(nf))),
@@ -222,7 +220,7 @@ def select_order_GEN(
         )
     #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     elif y.size != u.size:
-        sys.exit("Error! y and u must have tha same length")
+        raise RuntimeError("y and u must have tha same length")
     #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     else:
         ystd, y = rescale(y)

@@ -26,12 +26,12 @@ def GEN_MISO_id(
     Reached_max = False
     # checking dimension
     if nb.size != udim:
-        sys.exit(
-            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        raise RuntimeError(
+            " nb must be a matrix, whose dimensions must be equal to yxu"
         )
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf,Reached_max
     elif theta.size != udim:
-        sys.exit("Error! theta matrix must have yxu dimensions")
+        raise RuntimeError("theta matrix must have yxu dimensions")
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf,Reached_max
     else:
         nbth = nb + theta
@@ -118,9 +118,7 @@ def GEN_MISO_id(
         # DENH[0, 0] = 1.
         # DENH[0, 1:nd + 1] = THETA[Nb+na+nc:Nb+na+nc+nd]
 
-        A = cnt.tf(
-            np.hstack((1, np.zeros(na))), np.hstack((1, THETA[:na])), 1
-        )
+        A = cnt.tf(np.hstack((1, np.zeros(na))), np.hstack((1, THETA[:na])), 1)
         D = cnt.tf(
             np.hstack((1, np.zeros(nd))),
             np.hstack((1, THETA[na + Nb + nc : na + Nb + nc + nd])),
@@ -217,8 +215,8 @@ def GEN_MIMO_id(
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
-        sys.exit(
-            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        raise RuntimeError(
+            " nb must be a matrix, whose dimensions must be equal to yxu"
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nc.size != ydim:
@@ -237,7 +235,7 @@ def GEN_MIMO_id(
         )
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif th1 != ydim:
-        sys.exit("Error! theta matrix must have yxu dimensions")
+        raise RuntimeError("theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif not (
         (

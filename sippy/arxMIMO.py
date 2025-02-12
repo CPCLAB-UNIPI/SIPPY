@@ -21,12 +21,11 @@ def ARX_MISO_id(y, u, na, nb, theta):
     [udim, ulength] = u.shape
     # checking dimension
     if nb.size != udim:
-        sys.exit(
-            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        raise RuntimeError(
+            "nb must be a matrix, whose dimensions must be equal to yxu"
         )
-    #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
     elif theta.size != udim:
-        sys.exit("Error! theta matrix must have yxu dimensions")
+        raise RuntimeError("theta matrix must have yxu dimensions")
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
     else:
         nbth = nb + theta
@@ -90,12 +89,12 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
         )
     #        return 0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
-        sys.exit(
-            "Error! nb must be a matrix, whose dimensions must be equal to yxu"
+        raise RuntimeError(
+            "nb must be a matrix, whose dimensions must be equal to yxu"
         )
     #        return 0.,0.,0.,0.,np.inf
     elif th1 != ydim:
-        sys.exit("Error! theta matrix must have yxu dimensions")
+        raise RuntimeError("theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,np.inf
     elif not (
         (
@@ -106,8 +105,8 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
         and np.min(na) >= 0
         and np.min(theta) >= 0
     ):
-        sys.exit(
-            "Error! na, nb, theta must contain only positive integer elements"
+        raise RuntimeError(
+            "na, nb, theta must contain only positive integer elements"
         )
     #        return 0.,0.,0.,0.,np.inf
     else:

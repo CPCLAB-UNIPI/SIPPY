@@ -77,7 +77,7 @@ def select_order_ARX(
         )
     #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     elif y.size != u.size:
-        sys.exit("Error! y and u must have tha same length")
+        raise RuntimeError("y and u must have tha same length")
     #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     else:
         ystd, y = rescale(y)

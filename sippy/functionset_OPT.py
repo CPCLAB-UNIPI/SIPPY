@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
 """
 Created on 2021
 
 @author: RBdC & MV
 """
-
 
 import numpy as np
 from casadi import DM, SX, mtimes, nlpsol, norm_inf, vertcat
