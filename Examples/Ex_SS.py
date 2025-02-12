@@ -14,11 +14,13 @@ that the package slycot is not well-installed.
 # Checking path to access other files
 import matplotlib.pyplot as plt
 import numpy as np
+from utils import create_output_dir
 
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
 from sippy import system_identification
 
+output_dir = create_output_dir(__file__)
 # Example to test SS-methods
 
 # sample time
@@ -73,6 +75,6 @@ for i in range(len(METHOD)):
     )
     #
     plt.plot(Time, yid[0])
-    plt.show()
+    plt.savefig(output_dir + "/result.png")
     lege.append(method)
 plt.legend(lege)

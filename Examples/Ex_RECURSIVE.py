@@ -8,12 +8,14 @@ ARMAX Example
 
 # Checking path to access other files
 import control.matlab as cnt
-import matplotlib.pyplot as plt
 import numpy as np
+from utils import W_V, create_output_dir, plot_bode, plot_response, plot_responses
 
 from sippy import functionset as fset
 from sippy import system_identification
 
+output_dir = create_output_dir(__file__)
+ylegends = ["System", "ARMAX", "ARX", "OE"]
 # TEST RECURSIVE IDENTIFICATION METHODS
 
 # Define sampling time and Time vector
@@ -34,8 +36,7 @@ e_t = fset.white_noise_var(Usim.size, white_noise_variance)[0]
 
 # ### Numerator of noise transfer function has two roots: nc = 2
 
-NUM_H = [1.0, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0,
-         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+NUM_H = [1.0, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 # ### Common denominator between input and noise transfer functions has 4 roots: na = 4
 
@@ -67,43 +68,19 @@ g_sample = cnt.tf(NUM, DEN, sampling_time)
 h_sample = cnt.tf(NUM_H, DEN, sampling_time)
 
 # ## Time responses
-
-# ### Input reponse
-
 Y1, Time, Xsim = cnt.lsim(g_sample, Usim, Time)
-plt.figure(0)
-plt.plot(Time, Usim)
-plt.plot(Time, Y1)
-plt.xlabel("Time")
-plt.title(r"Time response y$_k$(u) = g$\cdot$u$_k$")
-plt.legend(["u(t)", "y(t)"])
-plt.grid()
-plt.show()
-
-# ### Noise response
-
 Y2, Time, Xsim = cnt.lsim(h_sample, e_t, Time)
-plt.figure(1)
-plt.plot(Time, e_t)
-plt.plot(Time, Y2)
-plt.xlabel("Time")
-plt.title(r"Time response y$_k$(e) = h$\cdot$e$_k$")
-plt.legend(["e(t)", "y(t)"])
-plt.grid()
-plt.show()
-
-# ## Total output
-# $$Y_t = Y_1 + Y_2 = G.u + H.e$$
-
 Ytot = Y1 + Y2
 Utot = Usim + e_t
-plt.figure(2)
-plt.plot(Time, Utot)
-plt.plot(Time, Ytot)
-plt.xlabel("Time")
-plt.title(r"Time response y$_k$ = g$\cdot$u$_k$ + h$\cdot$e$_k$")
-plt.legend(["u(t) + e(t)", "y_t(t)"])
-plt.grid()
+
+fig = plot_responses(
+    Time,
+    [Usim, e_t, Utot],
+    [Y1, Y2, Ytot],
+    ["u", "e", ["u", "e"]],
+)
+
+fig.savefig(output_dir + "/responses.png")
 
 
 # SYSTEM IDENTIFICATION from collected data
@@ -114,43 +91,30 @@ mode = "FIXED"
 if mode == "IC":
     # use Information criterion
 
-    Id_ARMAX = system_identification(
-        Ytot,
-        Usim,
-        "ARMAX",
-        IC="AIC",
-        na_ord=[4, 4],
-        nb_ord=[3, 3],
-        nc_ord=[2, 2],
-        delays=[11, 11],
-        max_iterations=300,
-        ARMAX_mod="RLLS",
-    )
-
-    Id_ARX = system_identification(
-        Ytot,
-        Usim,
-        "ARX",
-        IC="AICc",
-        na_ord=[4, 4],
-        nb_ord=[3, 3],
-        delays=[11, 11],
-        max_iterations=300,
-        ARX_mod="RLLS",
-    )
-
-    Id_OE = system_identification(
-        Ytot,
-        Usim,
-        "OE",
-        IC="BIC",
-        nb_ord=[3, 3],
-        nf_ord=[4, 4],
-        delays=[11, 11],
-        max_iterations=300,
-        OE_mod="RLLS",
-    )
-
+    identification_params = {
+        "ARMAX": {
+            "IC": "AIC",
+            "na_ord": [4, 4],
+            "nb_ord": [3, 3],
+            "nc_ord": [2, 2],
+            "delays": [11, 11],
+            "ARMAX_mod": "RLLS",
+        },
+        "ARX": {
+            "IC": "AICc",
+            "na_ord": [4, 4],
+            "nb_ord": [3, 3],
+            "delays": [11, 11],
+            "ARX_mod": "RLLS",
+        },
+        "OE": {
+            "IC": "BIC",
+            "nb_ord": [3, 3],
+            "nf_ord": [4, 4],
+            "delays": [11, 11],
+            "OE_mod": "RLLS",
+        },
+    }
 
 elif mode == "FIXED":
     # use fixed model orders
@@ -161,60 +125,41 @@ elif mode == "FIXED":
     nf_ord = [4]
     theta = [[11]]
 
-    Id_ARMAX = system_identification(
-        Ytot,
-        Usim,
-        "ARMAX",
-        ARMAX_orders=[na_ord, nb_ord, nc_ord, theta],
-        max_iterations=300,
-        ARMAX_mod="RLLS",
-    )
+    identification_params = {
+        "ARMAX": {
+            "ARMAX_orders": [na_ord, nb_ord, nc_ord, theta],
+            "ARMAX_mod": "RLLS",
+        },
+        "ARX": {
+            "ARX_orders": [na_ord, nb_ord, theta],
+            "ARX_mod": "RLLS",
+        },
+        "OE": {
+            "OE_orders": [nb_ord, nf_ord, theta],
+            "OE_mod": "RLLS",
+        },
+    }
 
-    Id_ARX = system_identification(
-        Ytot,
-        Usim,
-        "ARX",
-        ARX_orders=[na_ord, nb_ord, theta],
-        max_iterations=300,
-        ARX_mod="RLLS",
-    )
+syss = []
+for method, params in identification_params.items():
+    sys_id = system_identification(Ytot, Usim, method, max_iterations=300, **params)
+    syss.append(sys_id)
 
-    Id_OE = system_identification(
-        Ytot,
-        Usim,
-        "OE",
-        OE_orders=[nb_ord, nf_ord, theta],
-        max_iterations=300,
-        OE_mod="RLLS",
-    )
-
-Y_armax = Id_ARMAX.Yid.T
-Y_arx = Id_ARX.Yid.T
-Y_oe = Id_OE.Yid.T
+ys = [Ytot] + [getattr(sys, "Yid").T for sys in syss]
 
 
 # ## Check consistency of the identified system
-
-plt.figure(3)
-plt.plot(Time, Usim)
-plt.ylabel("Input GBN")
-plt.xlabel("Time")
-plt.title("Input, identification data (Switch probability=0.08)")
-plt.grid()
-plt.show()
-
-plt.figure(4)
-plt.plot(Time, Ytot)
-plt.plot(Time, Y_armax)
-plt.plot(Time, Y_arx)
-plt.plot(Time, Y_oe)
-plt.grid()
-plt.xlabel("Time")
-plt.ylabel("y(t)")
-plt.title("Output, (identification data)")
-plt.legend(["System", "ARMAX", "ARX", "OE"])
-plt.show()
-
+fig = plot_response(
+    Time,
+    Usim,
+    ys,
+    legends=[["U"], ylegends],
+    titles=[
+        "Input, identification data (Switch probability=0.08)",
+        "Output (identification data)",
+    ],
+)
+fig.savefig(output_dir + "/system_consistency.png")
 
 # VALIDATION of the identified system:
 # ## Generate new time series for input and noise
@@ -233,120 +178,58 @@ Ytotvalid = Yvalid1 + Yvalid2
 
 # ## Compute time responses for identified system with new inputs
 
-# ARMAX
-Yv_armax = fset.validation(Id_ARMAX, U_valid, Ytotvalid, Time)
-
-# ARX
-Yv_arx = fset.validation(Id_ARX, U_valid, Ytotvalid, Time)
-
-# OE
-Yv_oe = fset.validation(Id_OE, U_valid, Ytotvalid, Time)
+# ARMA - ARARX - ARARMAX
+ys = [Ytotvalid] + [fset.validation(sys, U_valid, Ytotvalid, Time) for sys in syss]
 
 # Plot
-plt.figure(5)
-plt.plot(Time, U_valid)
-plt.ylabel("Input GBN")
-plt.xlabel("Time")
-plt.title("Input, validation data (Switch probability=0.07)")
-plt.grid()
-plt.show()
-
-plt.figure(6)
-plt.plot(Time, Ytotvalid)
-plt.plot(Time, Yv_armax.T)
-plt.plot(Time, Yv_arx.T)
-plt.plot(Time, Yv_oe.T)
-plt.xlabel("Time")
-plt.ylabel("y_tot")
-plt.legend(["System", "ARMAX", "ARX", "OE"])
-plt.grid()
-plt.show()
+fig = plot_response(
+    Time,
+    Usim,
+    ys,
+    legends=[["U"], ylegends],
+    titles=[
+        "Input, identification data (Switch probability=0.07)",
+        "Output (identification data)",
+    ],
+)
+fig.savefig(output_dir + "/system_validation.png")
 
 # rmse = np.round(np.sqrt(np.mean((Ytotvalid - Yv_armaxi.T) ** 2)), 2)
-EV = 100 * (
-    np.round((1.0 - np.mean((Ytotvalid - Yv_armax) ** 2) / np.std(Ytotvalid)), 2)
-)
-# plt.title("Validation: | RMSE ARMAX_i = {}".format(rmse))
-plt.title("Validation: | Explained Variance ARMAX = {}%".format(EV))
+for y, sys in zip(ys, syss):
+    yv = y.T
+    rmse = np.round(np.sqrt(np.mean((Ytotvalid - yv) ** 2)), 2)
+    EV = 100.0 * (
+        np.round((1.0 - np.mean((Ytotvalid - yv) ** 2) / np.std(Ytotvalid)), 2)
+    )
+    print(f"RMSE = {rmse}")
+    print(f"Explained Variance = {EV}%")
 
+# Step tests
+u = np.ones_like(Time)
+u[0] = 0
 
-# Bode Plots
-w_v = np.logspace(-3, 4, num=701)
-plt.figure(7)
-mag, fi, om = cnt.bode(g_sample, w_v)
-mag1, fi1, om = cnt.bode(Id_ARMAX.G, w_v)
-mag2, fi2, om = cnt.bode(Id_ARX.G, w_v)
-mag3, fi3, om = cnt.bode(Id_OE.G, w_v)
-(
-    plt.subplot(2, 1, 1),
-    plt.loglog(om, mag),
-    plt.grid(),
-)
-plt.loglog(om, mag1), plt.loglog(om, mag2), plt.loglog(om, mag3)
-plt.xlabel("w"), plt.ylabel("Amplitude Ratio"), plt.title("Bode Plot G(iw)")
-plt.subplot(2, 1, 2), plt.semilogx(om, fi), plt.grid()
-(
-    plt.semilogx(om, fi1),
-    plt.semilogx(om, fi2),
-    plt.semilogx(om, fi3),
-)
-plt.xlabel("w"), plt.ylabel("phase")
-plt.legend(["System", "ARMAX", "ARX", "OE"])
+for tf in ["G", "H"]:
+    syss_tfs = [
+        locals()[f"{tf.lower()}_sample"],
+        *[getattr(sys, tf) for sys in syss],
+    ]
+    mags, fis, oms = zip(*[cnt.bode(sys, W_V) for sys in syss_tfs])
 
-plt.figure(8)
-mag, fi, om = cnt.bode(h_sample, w_v)
-mag1, fi1, om = cnt.bode(Id_ARMAX.H, w_v)
-mag2, fi2, om = cnt.bode(Id_ARX.H, w_v)
-mag3, fi3, om = cnt.bode(Id_OE.H, w_v)
-(
-    plt.subplot(2, 1, 1),
-    plt.loglog(om, mag),
-    plt.grid(),
-)
-plt.loglog(om, mag1), plt.loglog(om, mag2), plt.loglog(om, mag3)
-plt.xlabel("w"), plt.ylabel("Amplitude Ratio"), plt.title("Bode Plot H(iw)")
-plt.subplot(2, 1, 2), plt.semilogx(om, fi), plt.grid()
-(
-    plt.semilogx(om, fi1),
-    plt.semilogx(om, fi2),
-    plt.semilogx(om, fi3),
-)
-plt.xlabel("w"), plt.ylabel("phase")
-plt.legend(["System", "ARMAX", "ARX", "OE"])
+    fig = plot_bode(
+        oms[0],
+        mags,
+        fis,
+        ylegends,
+    )
+    fig.savefig(output_dir + f"/bode_{tf}.png")
 
+    ys, _ = zip(*[cnt.step(sys, Time) for sys in syss_tfs])
 
-# Step test
-# G(z)
-plt.figure(9)
-yg1 = cnt.step(g_sample, Time)
-yg2 = cnt.step(Id_ARMAX.G, Time)
-yg3 = cnt.step(Id_ARX.G, Time)
-yg4 = cnt.step(Id_OE.G, Time)
-plt.plot(Time, yg1[0].T)
-plt.plot(Time, yg2[0].T)
-plt.plot(Time, yg3[0].T)
-plt.plot(Time, yg4[0].T)
-plt.title("Step Response G(z)")
-(
-    plt.xlabel("time"),
-    plt.ylabel("y(t)"),
-    plt.grid(),
-)
-plt.legend(["System", "ARMAX", "ARX", "OE"])
-# H(z)
-plt.figure(10)
-yh1 = cnt.step(h_sample, Time)
-yh2 = cnt.step(Id_ARMAX.H, Time)
-yh3 = cnt.step(Id_ARX.H, Time)
-yh4 = cnt.step(Id_OE.H, Time)
-plt.plot(Time, yh1[0].T)
-plt.plot(Time, yh2[0].T)
-plt.plot(Time, yh3[0].T)
-plt.plot(Time, yh4[0].T)
-plt.title("Step Response H(z)")
-(
-    plt.xlabel("time"),
-    plt.ylabel("y(t)"),
-    plt.grid(),
-)
-plt.legend(["System", "ARMAX", "ARX", "OE"])
+    fig = plot_response(
+        Time,
+        u,
+        ys,
+        legends=[["U"], ylegends],
+        titles=["Step Response G(z)", None],
+    )
+    fig.savefig(output_dir + f"/step_{tf}.png")

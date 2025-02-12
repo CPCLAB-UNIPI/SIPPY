@@ -9,13 +9,15 @@ case 3 outputs x 4 inputs
 """
 
 # Checking path to access other files
-import matplotlib.pyplot as plt
 import control.matlab as cnt
+import matplotlib.pyplot as plt
 import numpy as np
+from utils import create_output_dir
 
 from sippy import functionset as fset
 from sippy import system_identification
 
+output_dir = create_output_dir(__file__)
 # 4*3 MIMO system
 # generating transfer functions in z-operator
 var_list = [50.0, 100.0, 1.0]
@@ -223,4 +225,4 @@ plt.grid()
 plt.xlabel("Time")
 plt.legend(["System", "ARX", "FIR"])
 
-plt.show()
+plt.savefig(output_dir + "/result.png")
