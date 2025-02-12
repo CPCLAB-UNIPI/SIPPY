@@ -1,0 +1,39 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-dockerfile
+{
+	"name": "SIPPY Dev Container",
+	"image": "sippy:latest",
+	// if production stage is latest, build only up to development stage
+	// "build": {
+	// 	"dockerfile": "../Dockerfile",
+	// 	"context": "..",
+	// 	"target": "development"
+	// },
+	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
+	"workspaceFolder": "/app",
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"terminal.integrated.cwd": "/app",
+				"python.pythonPath": "/opt/pysetup/.venv/bin/python"
+			}
+		}
+	},
+	// "postCreateCommand": "poetry install"
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/python:1": {},
+		"ghcr.io/jsburckhardt/devcontainer-features/ruff:1": {},
+		"ghcr.io/devcontainers-extra/features/flake8:2": {},
+		"ghcr.io/devcontainers-extra/features/mypy:2": {},
+		"ghcr.io/devcontainers/features/git:1": {}
+	}
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Uncomment the next line to run commands after the container is created.
+	// "postCreateCommand": "cat /etc/os-release",
+	// Configure tool-specific properties.
+	// "customizations": {},
+	// Uncomment to connect as an existing user other than the container default. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "devcontainer"
+}

@@ -125,3 +125,6 @@ simulator.sublime-project
 
 # MacOS
 .DS_Store
+
+# Misc
+Examples/results

@@ -40,19 +40,47 @@ RUN apt-get update && \
     curl \
     # deps for building python deps
     # gfortran libopenblas-dev cmake \
-    gfortran libopenblas-dev build-essential && \
+    gfortran libopenblas-dev coinor-libipopt-dev build-essential && \
+    # dev deps
     rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org | python
 # copy project requirement files here to ensure they will be cached.
-# TODO: learn about poetry.lock which I removed
 WORKDIR $PYSETUP_PATH
 # Copy project files
-COPY . ./
+# TODO: return poetry.lock when versions are stable
+COPY pyproject.toml README.md ./
+COPY sippy/ sippy/
 
 # install runtime deps - uses $POETRY_VIRTUALENVS_IN_PROJECT internally
+RUN poetry install --without dev
+
+# `development` image is used during development / testing
+FROM python-base AS development
+WORKDIR $PYSETUP_PATH
+
+# Install git and pipx required for dev-container in VSCode
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+    git pipx libopenblas-dev coinor-libipopt-dev
+
+# copy in our built poetry + venv; copy in the source code
+COPY --from=builder-base $POETRY_HOME $POETRY_HOME
+COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
+
+# quicker install as runtime deps are already installed
 RUN poetry install
+
+# will become mountpoint of our code
+WORKDIR /app
+COPY . /app/
+
+# # `production` image used for runtime
+# FROM python-base AS production
+# COPY --from=builder-base $PYSETUP_PATH $PYSETUP_PATH
+# COPY . /app/
+# WORKDIR /app
 
 # Set the entrypoint
 CMD ["poetry", "run", "python"]
