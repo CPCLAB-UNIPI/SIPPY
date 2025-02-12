@@ -9,10 +9,9 @@ import sys
 from builtins import object
 
 import control.matlab as cnt
+import numpy as np
 
-from .functionset import *
-
-# from functionset import *
+from .functionset import rescale
 
 
 def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
@@ -22,7 +21,7 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
     ylength = y.size
     ystd, y = rescale(y)
     [udim, ulength] = u.shape
-    eps = np.zeros(y.size)
+    # eps = np.zeros(y.size)
     Reached_max = False
     # checking dimension
     if nb.size != udim:
@@ -44,11 +43,11 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
 
         # Total Order: both LTI and time varying part
         nt = na + np.sum(nb[:]) + nc + nd + nf + 1
-        nh = max([na, nc, nf])
+        # nh = max([na, nc, nf])
 
-        ## Iterative Identification Algorithm
+        # Iterative Identification Algorithm
 
-        ## Parameters Initialization
+        # Parameters Initialization
         # Confidence Parameter
         Beta = 1e4
         # Covariance matrix of parameter teta
@@ -70,22 +69,22 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         E = np.zeros(N)
         fi = np.zeros((1, nt - 1, N))
 
-        ## Propagation
+        # Propagation
         for k in range(N):
             if k > val:
-                ## Step 1: Regressor vector
-                vecY = y[k - na : k][::-1]  # Y vector
-                vecYp = Yp[k - nf : k][::-1]  # Yp vector
+                # Step 1: Regressor vector
+                vecY = y[k - na: k][::-1]  # Y vector
+                vecYp = Yp[k - nf: k][::-1]  # Yp vector
                 #
                 vecU = []
                 for nb_i in range(udim):  # U vector
-                    vecu = u[nb_i, :][k - nb[nb_i] - theta[nb_i] : k - theta[nb_i]][
+                    vecu = u[nb_i, :][k - nb[nb_i] - theta[nb_i]: k - theta[nb_i]][
                         ::-1
                     ]
                     vecU = np.hstack((vecU, vecu))
                 #
                 # vecE = E[k-nh:k][::-1]                   # E vector
-                vecE = E[k - nc : k][::-1]
+                vecE = E[k - nc: k][::-1]
 
                 # choose input-output model
                 if id_method == "ARMAX":
@@ -98,33 +97,34 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
                     fi[:, :, k] = np.hstack((vecU))
                 phi = fi[:, :, k].T
 
-                ## Step 2: Gain Update
+                # Step 2: Gain Update
                 # Gain of parameter teta
-                K_t[:, k : k + 1] = np.dot(
+                K_t[:, k: k + 1] = np.dot(
                     np.dot(P_t[:, :, k - 1], phi),
                     np.linalg.inv(
-                        l_t[k - 1] + np.dot(np.dot(phi.T, P_t[:, :, k - 1]), phi)
+                        l_t[k - 1] +
+                        np.dot(np.dot(phi.T, P_t[:, :, k - 1]), phi)
                     ),
                 )
 
-                ## Step 3: Parameter Update
+                # Step 3: Parameter Update
                 teta[:, k] = teta[:, k - 1] + np.dot(
-                    K_t[:, k : k + 1], (y[k] - np.dot(phi.T, teta[:, k - 1]))
+                    K_t[:, k: k + 1], (y[k] - np.dot(phi.T, teta[:, k - 1]))
                 )
 
-                ## Step 4: A posteriori prediction-error
+                # Step 4: A posteriori prediction-error
                 Yp[k] = np.dot(phi.T, teta[:, k])  # + eta[k]
                 E[k] = y[k] - Yp[k]
 
-                ## Step 5. Parameter estimate covariance update
+                # Step 5. Parameter estimate covariance update
                 P_t[:, :, k] = (1 / l_t[k - 1]) * (
                     np.dot(
-                        np.eye(nt - 1) - np.dot(K_t[:, k : k + 1], phi.T),
+                        np.eye(nt - 1) - np.dot(K_t[:, k: k + 1], phi.T),
                         P_t[:, :, k - 1],
                     )
                 )
 
-                ## Step 6: Forgetting factor update
+                # Step 6: Forgetting factor update
                 l_t[k] = 1.0
 
         # Error Norm
@@ -151,35 +151,40 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         else:
             NUMH = np.zeros((1, valH + 1))
             NUMH[0, 0] = 1.0
-            NUMH[0, 1 : nc + 1] = THETA[na + Nb : na + Nb + nc]
+            NUMH[0, 1: nc + 1] = THETA[na + Nb: na + Nb + nc]
         #
         # DENH = np.zeros((1, val + 1))
         # DENH[0, 0] = 1.
         # DENH[0, 1:nd + 1] = THETA[Nb+na+nc:Nb+na+nc+nd]
 
-        A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
+        A = cnt.tf(np.hstack((1, np.zeros((na)))),
+                   np.hstack((1, THETA[:na])), 1)
         D = cnt.tf(
             np.hstack((1, np.zeros((nd)))),
-            np.hstack((1, THETA[na + Nb + nc : na + Nb + nc + nd])),
+            np.hstack((1, THETA[na + Nb + nc: na + Nb + nc + nd])),
             1,
         )
 
-        _, denh = cnt.tfdata(A * D)
+        if A is not None:
+            _, denh = cnt.tfdata(A * D)
         denH = np.array(denh[0])
         DENH = np.zeros((1, valH + 1))
-        DENH[0, 0 : na + nd + 1] = denH
+        DENH[0, 0: na + nd + 1] = denH
 
         # G = (B/(A*F))
         if id_method == "OE":
-            F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[:nf])), 1)
+            F = cnt.tf(np.hstack((1, np.zeros((nf)))),
+                       np.hstack((1, THETA[:nf])), 1)
         else:
             F = cnt.tf(
                 np.hstack((1, np.zeros((nf)))),
-                np.hstack((1, THETA[na + Nb + nc + nd : na + Nb + nc + nd + nf])),
+                np.hstack(
+                    (1, THETA[na + Nb + nc + nd: na + Nb + nc + nd + nf])),
                 1,
             )
 
-        _, deng = cnt.tfdata(A * F)
+        if A is not None:
+            _, deng = cnt.tfdata(A * F)
         denG = np.array(deng[0])
         DEN = np.zeros((udim, valG + 1))
         # DEN = np.zeros((udim, den.shape[1] + 1))
@@ -194,17 +199,17 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         ng = nf if id_method == "OE" else na
         for k in range(udim):
             if id_method != "ARMA":
-                THETA[ng + np.sum(nb[0:k]) : ng + np.sum(nb[0 : k + 1])] = (
-                    THETA[ng + np.sum(nb[0:k]) : ng + np.sum(nb[0 : k + 1])]
+                THETA[ng + np.sum(nb[0:k]): ng + np.sum(nb[0: k + 1])] = (
+                    THETA[ng + np.sum(nb[0:k]): ng + np.sum(nb[0: k + 1])]
                     * ystd
                     / Ustd[k]
                 )
-                NUM[k, theta[k] : theta[k] + nb[k]] = THETA[
-                    ng + np.sum(nb[0:k]) : ng + np.sum(nb[0 : k + 1])
+                NUM[k, theta[k]: theta[k] + nb[k]] = THETA[
+                    ng + np.sum(nb[0:k]): ng + np.sum(nb[0: k + 1])
                 ]
             # DEN[k, 1:den.shape[1] + 1] = den
             # DEN[k,:] = den
-            DEN[k, 0 : na + nf + 1] = denG
+            DEN[k, 0: na + nf + 1] = denG
 
         return DEN, NUM, NUMH, DENH, Vn, y_id, Reached_max
 
@@ -238,7 +243,7 @@ def GEN_MIMO_id(
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
-    elif (
+    elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
             or np.issubdtype(sum_ords, np.unsignedinteger)
@@ -247,8 +252,9 @@ def GEN_MIMO_id(
         and np.min(na) >= 0
         and np.min(nc) >= 0
         and np.min(theta) >= 0
-    ) == False:
-        sys.exit("Error! na, nb, nc, theta must contain only positive integer elements")
+    ):
+        sys.exit(
+            "Error! na, nb, nc, theta must contain only positive integer elements")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:
         # preallocation
@@ -272,7 +278,7 @@ def GEN_MIMO_id(
                 theta[i, :],
                 max_iterations,
             )
-            if Reached_max == True:
+            if Reached_max:
                 print("at ", (i + 1), "° output")
                 print("-------------------------------------")
             # append values to vectors

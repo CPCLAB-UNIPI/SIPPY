@@ -8,10 +8,7 @@ Created on Sun Oct 08 2017
 import math
 
 import control.matlab as cnt
-
-from .functionset import *
-
-# from functionset import *
+import numpy as np
 
 
 def ordinate_sequence(y, f, p):
@@ -20,8 +17,8 @@ def ordinate_sequence(y, f, p):
     Yp = np.zeros((l * f, N))
     Yf = np.zeros((l * f, N))
     for i in range(1, f + 1):
-        Yf[l * (i - 1) : l * i] = y[:, p + i - 1 : L - f + i]
-        Yp[l * (i - 1) : l * i] = y[:, i - 1 : L - f - p + i]
+        Yf[l * (i - 1): l * i] = y[:, p + i - 1: L - f + i]
+        Yp[l * (i - 1): l * i] = y[:, i - 1: L - f - p + i]
     return Yf, Yp
 
 
@@ -64,8 +61,8 @@ def Vn_mat(y, yest):
 
 def impile(M1, M2):
     M = np.zeros((M1[:, 0].size + M2[:, 0].size, M1[0, :].size))
-    M[0 : M1[:, 0].size] = M1
-    M[M1[:, 0].size : :] = M2
+    M[0: M1[:, 0].size] = M1
+    M[M1[:, 0].size::] = M2
     return M
 
 
@@ -83,42 +80,42 @@ def check_types(threshold, max_order, fixed_order, f, p=20):
     if threshold < 0.0 or threshold >= 1.0:
         print("Error! The threshold value must be >=0. and <1.")
         return False
-    if (np.isnan(max_order)) == False:
-        if type(max_order) != int:
+    if not np.isnan(max_order):
+        if not isinstance(max_order, int):
             print("Error! The max_order value must be integer")
             return False
-    if (np.isnan(fixed_order)) == False:
-        if type(fixed_order) != int:
+    if not np.isnan(fixed_order):
+        if not isinstance(fixed_order, int):
             print("Error! The fixed_order value must be integer")
             return False
-    if type(f) != int:
+    if not isinstance(f, int):
         print("Error! The future horizon (f) must be integer")
         return False
-    if type(p) != int:
+    if not isinstance(p, int):
         print("Error! The past horizon (p) must be integer")
         return False
     return True
 
 
 def check_inputs(threshold, max_order, fixed_order, f):
-    if (math.isnan(fixed_order)) == False:
+    if not math.isnan(fixed_order):
         threshold = 0.0
         max_order = fixed_order
     if f < max_order:
         print(
             "Warning! The horizon must be larger than the model order, max_order setted as f"
         )
-    if (max_order < f) == False:
+    if not max_order < f:
         max_order = f
     return threshold, max_order
 
 
 def SS_lsim_process_form(A, B, C, D, u, x0="None"):
-    m, L = u.shape
+    _, L = u.shape
     l, n = C.shape
     y = np.zeros((l, L))
     x = np.zeros((n, L))
-    if type(x0) != str:
+    if not isinstance(x0, str):
         x[:, 0] = x0[:, 0]
     y[:, 0] = np.dot(C, x[:, 0]) + np.dot(D, u[:, 0])
     for i in range(1, L):
@@ -128,14 +125,15 @@ def SS_lsim_process_form(A, B, C, D, u, x0="None"):
 
 
 def SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0="None"):
-    m, L = u.shape
+    _, L = u.shape
     l, n = C.shape
     y_hat = np.zeros((l, L))
     x = np.zeros((n, L + 1))
-    if type(x0) != str:
+    if not isinstance(x0, str):
         x[:, 0] = x0[:, 0]
     for i in range(0, L):
-        x[:, i + 1] = np.dot(A_K, x[:, i]) + np.dot(B_K, u[:, i]) + np.dot(K, y[:, i])
+        x[:, i + 1] = np.dot(A_K, x[:, i]) + np.dot(B_K,
+                                                    u[:, i]) + np.dot(K, y[:, i])
         y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
     return x, y_hat
 
@@ -145,12 +143,13 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0="None"):
     l, n = C.shape
     y_hat = np.zeros((l, L))
     x = np.zeros((n, L + 1))
-    if type(x0) != str:
+    if not isinstance(x0, str):
         x[:, 0] = x0[:, 0]
     for i in range(0, L):
         y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
         x[:, i + 1] = (
-            np.dot(A, x[:, i]) + np.dot(B, u[:, i]) + np.dot(K, y[:, i] - y_hat[:, i])
+            np.dot(A, x[:, i]) + np.dot(B, u[:, i]) +
+            np.dot(K, y[:, i] - y_hat[:, i])
         )
     return x, y_hat
 
@@ -158,7 +157,7 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0="None"):
 def K_calc(A, C, Q, R, S):
     n_A = A[0, :].size
     try:
-        P, L, G = cnt.dare(A.T, C.T, Q, R, S, np.identity(n_A))
+        P, _, _ = cnt.dare(A.T, C.T, Q, R, S, np.identity(n_A))
         K = np.dot(np.dot(A, P), C.T) + S
         K = np.dot(K, np.linalg.inv(np.dot(np.dot(C, P), C.T) + R))
         Calculated = True

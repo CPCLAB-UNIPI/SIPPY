@@ -9,11 +9,10 @@ import sys
 from builtins import object
 
 import control.matlab as cnt
+import numpy as np
 
-from .functionset import *
-from .functionset_OPT import *
-
-# from functionset import *
+from .functionset import information_criterion, rescale
+from .functionset_OPT import opt_id
 
 
 def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c):
@@ -65,9 +64,9 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
     sol = solver(lbx=w_lb, ubx=w_ub, x0=w_0, lbg=g_lb, ubg=g_ub)
 
     # model output: info from the solver
-    f_opt = sol["f"]  # objective function
+    # f_opt = sol["f"]  # objective function
     x_opt = sol["x"]  # optimization variables = model coefficients
-    iterations = solver.stats()["iter_count"]  # iteration number
+    # iterations = solver.stats()["iter_count"]  # iteration number
     y_id = x_opt[-ylength:].full()[:, 0]  # model output
     THETA = np.array(x_opt[:n_coeff])[:, 0]
 
@@ -84,18 +83,19 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
         NUM = 1.0
     else:
         NUM = np.zeros(valG)
-        NUM[theta : nb + theta] = THETA[na : nb + na]
+        NUM[theta: nb + theta] = THETA[na: nb + na]
     # denG (A*F)
     A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
     F = cnt.tf(
         np.hstack((1, np.zeros((nf)))),
-        np.hstack((1, THETA[na + nb + nc + nd : na + nb + nc + nd + nf])),
+        np.hstack((1, THETA[na + nb + nc + nd: na + nb + nc + nd + nf])),
         1,
     )
-    _, deng = cnt.tfdata(A * F)
+    if A is not None:
+        _, deng = cnt.tfdata(A * F)
     denG = np.array(deng[0])
     DEN = np.zeros(valG + 1)
-    DEN[0 : na + nf + 1] = denG
+    DEN[0: na + nf + 1] = denG
 
     # H
     # numH (C)
@@ -104,17 +104,18 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
     else:
         NUMH = np.zeros(valH + 1)
         NUMH[0] = 1.0
-        NUMH[1 : nc + 1] = THETA[na + nb : na + nb + nc]
+        NUMH[1: nc + 1] = THETA[na + nb: na + nb + nc]
     # denH (A*D)
     D = cnt.tf(
         np.hstack((1, np.zeros((nd)))),
-        np.hstack((1, THETA[na + nb + nc : na + nb + nc + nd])),
+        np.hstack((1, THETA[na + nb + nc: na + nb + nc + nd])),
         1,
     )
-    _, denh = cnt.tfdata(A * D)
+    if A is not None:
+        _, denh = cnt.tfdata(A * D)
     denH = np.array(denh[0])
     DENH = np.zeros(valH + 1)
-    DENH[0 : na + nd + 1] = denH
+    DENH[0: na + nd + 1] = denH
 
     return NUM, DEN, NUMH, DENH, Vn, y_id
 
@@ -192,7 +193,7 @@ def select_order_GEN(
                     for i_d in range(nd_Min, nd_MAX):
                         for i_f in range(nf_Min, nf_MAX):
                             for i_t in range(theta_Min, theta_Max):
-                                useless1, useless2, useless3, useless4, Vn, y_id = (
+                                _, _, _, _, Vn, y_id = (
                                     GEN_id(
                                         id_method,
                                         y,
@@ -210,7 +211,8 @@ def select_order_GEN(
                                 )
                                 IC = information_criterion(
                                     i_a + i_b + i_c + i_d + i_f,
-                                    y.size - max(i_a, i_b + i_t, i_c, i_d, i_f),
+                                    y.size - max(i_a, i_b + i_t,
+                                                 i_c, i_d, i_f),
                                     Vn * 2,
                                     method,
                                 )
@@ -259,23 +261,23 @@ def select_order_GEN(
 
         # rescale NUM coeff
         if id_method != "ARMA":
-            NUM[theta_min : nb_min + theta_min] = (
-                NUM[theta_min : nb_min + theta_min] * ystd / Ustd
+            NUM[theta_min: nb_min + theta_min] = (
+                NUM[theta_min: nb_min + theta_min] * ystd / Ustd
             )
 
         # FdT
         G = cnt.tf(NUM, DEN, tsample)
         H = cnt.tf(NUMH, DENH, tsample)
 
-        check_st_H = np.zeros(1) if id_method == "OE" else np.abs(cnt.pole(H))
-        if max(np.abs(cnt.pole(G))) > 1.0 or max(check_st_H) > 1.0:
+        check_st_H = np.zeros(1) if id_method == "OE" else np.abs(cnt.poles(H))
+        if max(np.abs(cnt.poles(G))) > 1.0 or max(check_st_H) > 1.0:
             print("Warning: One of the identified system is not stable")
             if st_c is True:
-                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))} \
+                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.poles(H))), max(np.abs(cnt.poles(G))))} \
                           ... against the imposed stability margin {st_m}")
             else:
                 print(
-                    f"Consider activating the stability constraint. The maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))}  "
+                    f"Consider activating the stability constraint. The maximum pole is {max(max(np.abs(cnt.poles(H))), max(np.abs(cnt.poles(G))))}  "
                 )
 
         return (

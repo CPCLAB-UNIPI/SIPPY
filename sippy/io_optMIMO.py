@@ -9,11 +9,10 @@ import sys
 from builtins import object
 
 import control.matlab as cnt
+import numpy as np
 
-from .functionset import *
-from .functionset_OPT import *
-
-# from functionset import *
+from .functionset import rescale
+from .functionset_OPT import opt_id
 
 
 def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c):
@@ -23,7 +22,7 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
     ylength = y.size
     ystd, y = rescale(y)
     [udim, ulength] = u.shape
-    eps = np.zeros(y.size)
+    # eps = np.zeros(y.size)
     Reached_max = False
     # checking dimension
     if nb.size != udim:
@@ -83,7 +82,7 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
         sol = solver(lbx=w_lb, ubx=w_ub, x0=w_0, lbg=g_lb, ubg=g_ub)
 
         # model output: info from the solver
-        f_opt = sol["f"]  # objective function
+        # f_opt = sol["f"]  # objective function
         x_opt = sol["x"]  # optimization variables = model coefficients
         iterations = solver.stats()["iter_count"]  # iteration number
         y_id0 = x_opt[-ylength:].full()[:, 0]  # model output
@@ -111,32 +110,35 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
         else:
             NUMH = np.zeros((1, valH + 1))
             NUMH[0, 0] = 1.0
-            NUMH[0, 1 : nc + 1] = THETA[na + Nb : na + Nb + nc]
+            NUMH[0, 1: nc + 1] = THETA[na + Nb: na + Nb + nc]
         #
         # DENH = np.zeros((1, val + 1))
         # DENH[0, 0] = 1.
         # DENH[0, 1:nd + 1] = THETA[Nb+na+nc:Nb+na+nc+nd]
 
-        A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])), 1)
+        A = cnt.tf(np.hstack((1, np.zeros((na)))),
+                   np.hstack((1, THETA[:na])), 1)
         D = cnt.tf(
             np.hstack((1, np.zeros((nd)))),
-            np.hstack((1, THETA[na + Nb + nc : na + Nb + nc + nd])),
+            np.hstack((1, THETA[na + Nb + nc: na + Nb + nc + nd])),
             1,
         )
 
-        _, denh = cnt.tfdata(A * D)
+        if A is not None:
+            _, denh = cnt.tfdata(A * D)
         denH = np.array(denh[0])
         DENH = np.zeros((1, valH + 1))
-        DENH[0, 0 : na + nd + 1] = denH
+        DENH[0, 0: na + nd + 1] = denH
 
         # G = (B/(A*F))
         F = cnt.tf(
             np.hstack((1, np.zeros((nf)))),
-            np.hstack((1, THETA[na + Nb + nc + nd : na + Nb + nc + nd + nf])),
+            np.hstack((1, THETA[na + Nb + nc + nd: na + Nb + nc + nd + nf])),
             1,
         )
 
-        _, deng = cnt.tfdata(A * F)
+        if A is not None:
+            _, deng = cnt.tfdata(A * F)
         denG = np.array(deng[0])
         DEN = np.zeros((udim, valG + 1))
         # DEN = np.zeros((udim, den.shape[1] + 1))
@@ -150,17 +152,17 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
         #
         for k in range(udim):
             if id_method != "ARMA":
-                THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])] = (
-                    THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])]
+                THETA[na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])] = (
+                    THETA[na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])]
                     * ystd
                     / Ustd[k]
                 )
-                NUM[k, theta[k] : theta[k] + nb[k]] = THETA[
-                    na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])
+                NUM[k, theta[k]: theta[k] + nb[k]] = THETA[
+                    na + np.sum(nb[0:k]): na + np.sum(nb[0: k + 1])
                 ]
             # DEN[k, 1:den.shape[1] + 1] = den
             # DEN[k,:] = den
-            DEN[k, 0 : na + nf + 1] = denG
+            DEN[k, 0: na + nf + 1] = denG
 
         # check_stH = True if any(np.roots(DENH)>=1.0) else False
         # check_stG = True if any(np.roots(DEN)>=1.0) else False
@@ -187,7 +189,8 @@ def GEN_MIMO_id(
     [th1, th2] = theta.shape
     # check dimension
     sum_ords = (
-        np.sum(nb) + np.sum(na) + np.sum(nc) + np.sum(nd) + np.sum(nf) + np.sum(theta)
+        np.sum(nb) + np.sum(na) + np.sum(nc) +
+        np.sum(nd) + np.sum(nf) + np.sum(theta)
     )
     if na.size != ydim:
         sys.exit(
@@ -215,7 +218,7 @@ def GEN_MIMO_id(
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
-    elif (
+    elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
             or np.issubdtype(sum_ords, np.unsignedinteger)
@@ -226,7 +229,7 @@ def GEN_MIMO_id(
         and np.min(nd) >= 0
         and np.min(nf) >= 0
         and np.min(theta) >= 0
-    ) == False:
+    ):
         sys.exit(
             "Error! nf, nb, nc, nd, theta must contain only positive integer elements"
         )
@@ -256,7 +259,7 @@ def GEN_MIMO_id(
                 st_c,
             )
 
-            if Reached_max == True:
+            if Reached_max:
                 print("at ", (i + 1), "° output")
                 print("-------------------------------------")
 
@@ -272,11 +275,11 @@ def GEN_MIMO_id(
         G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
         H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
 
-        check_st_H = np.zeros(1) if id_method == "OE" else np.abs(cnt.pole(H))
-        if max(np.abs(cnt.pole(G))) > 1.0 or max(check_st_H) > 1.0:
+        check_st_H = np.zeros(1) if id_method == "OE" else np.abs(cnt.poles(H))
+        if max(np.abs(cnt.poles(G))) > 1.0 or max(check_st_H) > 1.0:
             print("Warning: One of the identified system is not stable")
             if st_c is True:
-                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))} \
+                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.poles(H))), max(np.abs(cnt.poles(G))))} \
                       ... against the imposed stability margin {st_m}")
 
         return DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Y_id

@@ -8,10 +8,22 @@ Created on Thu Oct 12 2017
 import sys
 from builtins import object
 
+import numpy as np
 import scipy as sc
 from numpy.linalg import pinv
 
-from .functionsetSIM import *
+from .functionset import information_criterion, rescale
+from .functionsetSIM import (
+    K_calc,
+    SS_lsim_process_form,
+    Vn_mat,
+    Z_dot_PIort,
+    check_inputs,
+    check_types,
+    impile,
+    ordinate_sequence,
+    reducingOrder,
+)
 
 
 def SVD_weighted(y, u, f, l, weights="N4SID"):
@@ -30,14 +42,15 @@ def SVD_weighted(y, u, f, l, weights="N4SID"):
         U_n, S_n, V_n = np.linalg.svd(OidotPIort_Uf, full_matrices=False)
 
     elif weights == "CVA":
-        W1 = np.linalg.inv(sc.linalg.sqrtm(np.dot(YfdotPIort_Uf, YfdotPIort_Uf.T)).real)
+        W1 = np.linalg.inv(sc.linalg.sqrtm(
+            np.dot(YfdotPIort_Uf, YfdotPIort_Uf.T)).real)
         W1dotOi = np.dot(W1, O_i)
         W1_dot_Oi_dot_PIort_Uf = Z_dot_PIort(W1dotOi, Uf)
-        U_n, S_n, V_n = np.linalg.svd(W1_dot_Oi_dot_PIort_Uf, full_matrices=False)
+        U_n, S_n, V_n = np.linalg.svd(
+            W1_dot_Oi_dot_PIort_Uf, full_matrices=False)
 
     elif weights == "N4SID":
         W1 = None  # is identity
-        W2 = None  # not used in 'N4SID'
         U_n, S_n, V_n = np.linalg.svd(
             O_i, full_matrices=False
         )  # full matrices not used
@@ -57,9 +70,9 @@ def algorithm_1(
     else:
         Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
     X_fd = np.dot(np.linalg.pinv(Ob), O_i)
-    Sxterm = impile(X_fd[:, 1:N], y[:, f : f + N - 1])
-    Dxterm = impile(X_fd[:, 0 : N - 1], u[:, f : f + N - 1])
-    if D_required == True:
+    Sxterm = impile(X_fd[:, 1:N], y[:, f: f + N - 1])
+    Dxterm = impile(X_fd[:, 0: N - 1], u[:, f: f + N - 1])
+    if D_required:
         M = np.dot(Sxterm, np.linalg.pinv(Dxterm))
     else:
         M = np.zeros((n + l, n + m))
@@ -74,15 +87,16 @@ def forcing_A_stability(M, n, Ob, l, X_fd, N, u, f):
     if np.max(np.abs(np.linalg.eigvals(M[0:n, 0:n]))) >= 1.0:
         Forced_A = True
         print("Forcing A stability")
-        M[0:n, 0:n] = np.dot(np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n))))
+        M[0:n, 0:n] = np.dot(np.linalg.pinv(
+            Ob), impile(Ob[l::, :], np.zeros((l, n))))
         M[0:n, n::] = np.dot(
-            X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1]),
-            np.linalg.pinv(u[:, f : f + N - 1]),
+            X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0: N - 1]),
+            np.linalg.pinv(u[:, f: f + N - 1]),
         )
     res = (
         X_fd[:, 1:N]
-        - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1])
-        - np.dot(M[0:n, n::], u[:, f : f + N - 1])
+        - np.dot(M[0:n, 0:n], X_fd[:, 0: N - 1])
+        - np.dot(M[0:n, n::], u[:, f: f + N - 1])
     )
     return M, res, Forced_A
 
@@ -110,7 +124,7 @@ def OLSims(
     u = 1.0 * np.atleast_2d(u)
     l, L = y.shape
     m = u[:, 0].size
-    if check_types(threshold, max_order, fixed_order, f) == False:
+    if not check_types(threshold, max_order, fixed_order, f):
         return (
             np.array([[0.0]]),
             np.array([[0.0]]),
@@ -123,7 +137,8 @@ def OLSims(
             [],
         )
     else:
-        threshold, max_order = check_inputs(threshold, max_order, fixed_order, f)
+        threshold, max_order = check_inputs(
+            threshold, max_order, fixed_order, f)
         N = L - 2 * f + 1
         Ustd = np.zeros(m)
         Ystd = np.zeros(l)
@@ -135,8 +150,8 @@ def OLSims(
         Ob, X_fd, M, n, residuals = algorithm_1(
             y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, D_required
         )
-        if A_stability == True:
-            M, residuals[0:n, :], useless = forcing_A_stability(
+        if A_stability:
+            M, residuals[0:n, :], _ = forcing_A_stability(
                 M, n, Ob, l, X_fd, N, u, f
             )
         A, B, C, D = extracting_matrices(M, n)
@@ -155,7 +170,7 @@ def OLSims(
         for j in range(l):
             C[j, :] = C[j, :] * Ystd[j]
             D[j, :] = D[j, :] * Ystd[j]
-            if K_calculated == True:
+            if K_calculated:
                 K[:, j] = K[:, j] / Ystd[j]
         return A, B, C, D, Vn, Q, R, S, K
 
@@ -175,7 +190,7 @@ def select_order_SIM(
     min_ord = min(orders)
     l, L = y.shape
     m, L = u.shape
-    if check_types(0.0, np.nan, np.nan, f) == False:
+    if not check_types(0.0, np.nan, np.nan, f):
         return (
             np.array([[0.0]]),
             np.array([[0.0]]),
@@ -221,11 +236,11 @@ def select_order_SIM(
             Ob, X_fd, M, n, residuals = algorithm_1(
                 y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0, i, D_required
             )
-            if A_stability == True:
+            if A_stability:
                 M, residuals[0:n, :], ForcedA = forcing_A_stability(
                     M, n, Ob, l, X_fd, N, u, f
                 )
-                if ForcedA == True:
+                if ForcedA:
                     print("at n=", n)
                     print("--------------------")
             A, B, C, D = extracting_matrices(M, n)
@@ -235,7 +250,7 @@ def select_order_SIM(
             Vn = Vn_mat(y, Y_estimate)
 
             K_par = n * l + m * n
-            if D_required == True:
+            if D_required:
                 K_par = K_par + l * m
             IC = information_criterion(K_par, L, Vn, method)
             if IC < IC_old:
@@ -245,8 +260,8 @@ def select_order_SIM(
         Ob, X_fd, M, n, residuals = algorithm_1(
             y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0, n_min, D_required
         )
-        if A_stability == True:
-            M, residuals[0:n, :], useless = forcing_A_stability(
+        if A_stability:
+            M, residuals[0:n, :], _ = forcing_A_stability(
                 M, n, Ob, l, X_fd, N, u, f
             )
         A, B, C, D = extracting_matrices(M, n)
@@ -265,7 +280,7 @@ def select_order_SIM(
         for j in range(l):
             C[j, :] = C[j, :] * Ystd[j]
             D[j, :] = D[j, :] * Ystd[j]
-            if K_calculated == True:
+            if K_calculated:
                 K[:, j] = K[:, j] / Ystd[j]
         return A, B, C, D, Vn, Q, R, S, K
 

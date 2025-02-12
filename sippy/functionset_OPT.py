@@ -9,11 +9,10 @@ Created on 2021
 from builtins import range
 
 import numpy as np
-from casadi import *
-from casadi.tools import *
+from casadi import DM, SX, mtimes, nlpsol, norm_inf, vertcat
 
 
-###### Defining the optimization problem
+# Defining the optimization problem
 def opt_id(
     m,
     p,
@@ -59,22 +58,22 @@ def opt_id(
     a = w_opt[0:Na]
 
     # Get subset b
-    b = w_opt[Na : Na + Nb]
+    b = w_opt[Na: Na + Nb]
 
     # Get subsets c and d
-    c = w_opt[Na + Nb : Na + Nb + Nc]
-    d = w_opt[Na + Nb + Nc : Na + Nb + Nc + Nd]
+    c = w_opt[Na + Nb: Na + Nb + Nc]
+    d = w_opt[Na + Nb + Nc: Na + Nb + Nc + Nd]
 
     # Get subset f
-    f = w_opt[Na + Nb + Nd + Nc : Na + Nb + Nc + Nd + Nf]
+    f = w_opt[Na + Nb + Nd + Nc: Na + Nb + Nc + Nd + Nf]
 
     # Optimization variables
     Yidw = w_opt[-N:]
 
     # Additional optimization variables
     if Nd != 0:
-        Ww = w_opt[-3 * N : -2 * N]
-        Vw = w_opt[-2 * N : -N]
+        Ww = w_opt[-3 * N: -2 * N]
+        Vw = w_opt[-2 * N: -N]
 
     # Initializing bounds on optimization variables
     w_lb = -1e0 * DM.inf(n_opt)
@@ -83,7 +82,7 @@ def opt_id(
     w_lb = -1e2 * DM.ones(n_opt)
     w_ub = 1e2 * DM.ones(n_opt)
 
-    ## Build Regressor
+    # Build Regressor
     # depending on the model structure
 
     # Building coefficient vector
@@ -104,7 +103,6 @@ def opt_id(
 
     # Define Yid output model
     Yid = Y * SX.ones(1)
-    Yid1 = Y * SX.ones(1)
 
     # Preallocate internal variables
     if Nd != 0:
@@ -129,30 +127,30 @@ def opt_id(
                 # inputs
                 vecU = []
                 for nb_i in range(m):
-                    vecu = U[nb_i, :][k - nb[nb_i] - theta[nb_i] : k - theta[nb_i]][
+                    vecu = U[nb_i, :][k - nb[nb_i] - theta[nb_i]: k - theta[nb_i]][
                         ::-1
                     ]
                     vecU = vertcat(vecU, vecu)
 
             # measured output Y
             if Na != 0:
-                vecY = Y[k - Na : k][::-1]
+                vecY = Y[k - Na: k][::-1]
 
             # auxiliary variable V
             if Nd != 0:
-                vecV = Vw[k - Nd : k][::-1]
+                vecV = Vw[k - Nd: k][::-1]
 
                 # auxiliary variable W
                 if Nf != 0:
-                    vecW = Ww[k - Nf : k][::-1]
+                    vecW = Ww[k - Nf: k][::-1]
 
             # prediction error
             if Nc != 0:
-                vecE = Epsi[k - Nc : k][::-1]
+                vecE = Epsi[k - Nc: k][::-1]
 
             # regressor
             if FLAG == "OE":
-                vecY = Yidw[k - Nf : k][::-1]
+                vecY = Yidw[k - Nf: k][::-1]
                 phi = vertcat(vecU, -vecY)
             elif FLAG == "BJ":
                 phi = vertcat(vecU, -vecW, vecE, -vecV)
@@ -197,7 +195,7 @@ def opt_id(
     # if  FLAG != 'ARARX' or FLAG != 'OE':
     #   f_obj += 1e-4*mtimes(c.T,c)   # weighting c
 
-    ## Getting constrains
+    # Getting constrains
     g = []
 
     # Equality constraints
