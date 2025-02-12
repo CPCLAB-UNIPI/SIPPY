@@ -104,3 +104,25 @@ def plot_bode(om, mags, fis, legends):
 
     axs[-1].set_xlabel("w")
     return fig
+
+
+def plot_comparison(t, Us, ylabels, legend=None, title=None):
+    if not isinstance(Us, list):
+        Us = [Us]
+    m = Us[0].shape[0]
+    fig, axs = plt.subplots(m, 1, sharex=True)
+    if not isinstance(axs, np.ndarray):
+        axs = [axs]
+    for i in range(m):
+        for U in Us:
+            axs[i].plot(t, U[i, :])
+        # axs[i].plot(t, U[i, :])
+        axs[i].set_ylabel(ylabels[i])
+        # axs[i].set_ylim([0.95 * np.amin(U[i, :]), 1.05 * np.amax(U[i, :])])
+
+    if title is not None:
+        axs[0].set_title(title)
+    if legend is not None:
+        axs[-1].legend(legend)
+    axs[-1].set_xlabel("Time")
+    return fig

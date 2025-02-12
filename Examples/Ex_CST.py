@@ -13,15 +13,16 @@ A Continuous Stirred Tank to be identified from input-output data
 # import package
 # compatibility layer between Python 2 and Python 3
 
-import matplotlib.pyplot as plt
-
 #
 #
 import numpy as np
+from utils import create_output_dir, plot_comparison
 
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
 from sippy import system_identification
+
+output_dir = create_output_dir(__file__)
 
 # sampling time
 ts = 1.0  # [min]
@@ -76,8 +77,7 @@ def Fdyn(X, U):
     # Energy Balance
     # ro*cp*F*T_in - ro*cp*F*T + W*Lam = (V*ro*cp)*dT/dt
     #
-    dx_1 = (ro * cp * U[0] * U[3] - ro * cp * U[0]
-            * X[1] + U[1] * Lam) / (V * ro * cp)
+    dx_1 = (ro * cp * U[0] * U[3] - ro * cp * U[0] * X[1] + U[1] * Lam) / (V * ro * cp)
 
     fx = np.append(dx_0, dx_1)
 
@@ -161,49 +161,41 @@ n_iter = 300
 
 # IN-OUT Models: ARX - ARMAX - OE - BJ - GEN
 
-Id_ARX = system_identification(
-    Y, U, "ARX", centering="MeanVal", ARX_orders=[na_ords, nb_ords, theta]
-)
+identification_params = {
+    "ARX": {
+        "ARX_orders": [na_ords, nb_ords, theta],
+        "centering": "MeanVal",
+    },
+    "ARMAX": {
+        "ARMAX_orders": [na_ords, nb_ords, nc_ords, theta],
+        "centering": "MeanVal",
+        "max_iterations": n_iter,
+        "ARMAX_mod": "OPT",
+    },
+    "OE": {
+        "OE_orders": [nb_ords, nf_ords, theta],
+        "centering": "MeanVal",
+        "max_iterations": n_iter,
+    },
+    "BJ": {
+        "BJ_orders": [nb_ords, nc_ords, nd_ords, nf_ords, theta],
+        "centering": "MeanVal",
+        "max_iterations": n_iter,
+        "stab_cons": True,
+    },
+    "GEN": {
+        "GEN_orders": [na_ords, nb_ords, nc_ords, nd_ords, nf_ords, theta],
+        "centering": "MeanVal",
+        "max_iterations": n_iter,
+        "stab_cons": True,
+        "stab_marg": 0.98,
+    },
+}
 
-Id_ARMAX = system_identification(
-    Y,
-    U,
-    "ARMAX",
-    centering="MeanVal",
-    ARMAX_orders=[na_ords, nb_ords, nc_ords, theta],
-    max_iterations=n_iter,
-    ARMAX_mod="OPT",
-)
-
-Id_OE = system_identification(
-    Y,
-    U,
-    "OE",
-    centering="MeanVal",
-    OE_orders=[nb_ords, nf_ords, theta],
-    max_iterations=n_iter,
-)
-
-Id_BJ = system_identification(
-    Y,
-    U,
-    "BJ",
-    centering="MeanVal",
-    BJ_orders=[nb_ords, nc_ords, nd_ords, nf_ords, theta],
-    max_iterations=n_iter,
-    stab_cons=True,
-)
-
-Id_GEN = system_identification(
-    Y,
-    U,
-    "GEN",
-    centering="MeanVal",
-    GEN_orders=[na_ords, nb_ords, nc_ords, nd_ords, nf_ords, theta],
-    max_iterations=n_iter,
-    stab_cons=True,
-    stab_marg=0.98,
-)
+syss = []
+for method, params in identification_params.items():
+    sys_id = system_identification(Y, U, method, **params)
+    syss.append(sys_id)
 
 # SS - mimo
 # choose method
@@ -212,60 +204,29 @@ SS_ord = 2
 Id_SS = system_identification(Y, U, method, SS_fixed_order=SS_ord)
 
 # GETTING RESULTS (Y_id)
-# IN-OUT
-Y_arx = Id_ARX.Yid
-Y_armax = Id_ARMAX.Yid
-Y_oe = Id_OE.Yid
-Y_bj = Id_BJ.Yid
-Y_gen = Id_GEN.Yid
 # SS
 x_ss, Y_ss = fsetSIM.SS_lsim_process_form(
     Id_SS.A, Id_SS.B, Id_SS.C, Id_SS.D, U, Id_SS.x0
 )
 
+Ys = [Y] + [getattr(sys, "Yid") for sys in syss] + [Y_ss]
 
 # PLOTS
 
-# Input
-plt.close("all")
-plt.figure(1)
+# Inputs
+fig = plot_comparison(
+    Time, U, ["F [m$^3$/min]", "W [kg/min]", "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"]
+)
+fig.savefig(output_dir + "/response_us.png")
 
-str_input = ["F [m$^3$/min]", "W [kg/min]",
-             "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"]
-for i in range(m):
-    plt.subplot(m, 1, i + 1)
-    plt.plot(Time, U[i, :])
-    plt.ylabel("Input " + str(i + 1))
-    plt.ylabel(str_input[i])
-    plt.grid()
-    plt.xlabel("Time")
-    plt.axis([0, tfin, 0.95 * np.amin(U[i, :]), 1.05 * np.amax(U[i, :])])
-    if i == 0:
-        plt.title("identification")
-
-# Output
-plt.figure(2)
-str_output = ["Ca [kg/m$^3$]", "T [$^o$C]"]
-for i in range(p):
-    plt.subplot(p, 1, i + 1)
-    plt.plot(Time, Y[i, :])
-    plt.plot(Time, Y_arx[i, :])
-    # plt.plot(Time,Y_arma[i,:])
-    plt.plot(Time, Y_armax[i, :])
-    # plt.plot(Time,Y_ararx[i,:])
-    # plt.plot(Time,Y_ararmax[i,:])
-    plt.plot(Time, Y_oe[i, :])
-    plt.plot(Time, Y_bj[i, :])
-    plt.plot(Time, Y_gen[i, :])
-    plt.plot(Time, Y_ss[i, :])
-    plt.ylabel("Output " + str(i + 1))
-    plt.ylabel(str_output[i])
-    plt.legend(["Data", "ARX", "ARMAX", "OE", "BJ", "GEN", "SS"])
-    plt.grid()
-    plt.xlabel("Time")
-    if i == 0:
-        plt.title("identification")
-
+# Outputs
+fig = plot_comparison(
+    Time,
+    Ys,
+    ["Ca [kg/m$^3$]", "T [$^o$C]"],
+    legend=["Data", "ARX", "ARMAX", "OE", "BJ", "GEN", "SS"],
+)
+fig.savefig(output_dir + "/response_ys.png")
 
 # VALIDATION STAGE
 
@@ -334,56 +295,29 @@ Y_val = X_val + noise_val
 # MODEL VALIDATION
 
 # IN-OUT Models: ARX - ARMAX - OE - BJ
-Yv_arx = fset.validation(Id_ARX, U_val, Y_val, Time, centering="MeanVal")
-Yv_armax = fset.validation(Id_ARMAX, U_val, Y_val, Time, centering="MeanVal")
-Yv_oe = fset.validation(Id_OE, U_val, Y_val, Time, centering="MeanVal")
-Yv_bj = fset.validation(Id_BJ, U_val, Y_val, Time, centering="MeanVal")
-Yv_gen = fset.validation(Id_GEN, U_val, Y_val, Time, centering="MeanVal")
+Yv_arx, Yv_armax, Yv_oe, Yv_bj, Yv_gen = [
+    fset.validation(sys, U_val, Y_val, Time, centering="MeanVal") for sys in syss
+]
 # SS
 x_ss, Yv_ss = fsetSIM.SS_lsim_process_form(
     Id_SS.A, Id_SS.B, Id_SS.C, Id_SS.D, U_val, Id_SS.x0
 )
 
+Ys_val = [Y_val] + [Yv_arx, Yv_armax, Yv_oe, Yv_bj, Yv_gen, Yv_ss]
 
 # PLOTS
 
-# Input
-plt.figure(3)
-str_input = ["F [m$^3$/min]", "W [kg/min]",
-             "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"]
-for i in range(m):
-    plt.subplot(m, 1, i + 1)
-    plt.plot(Time, U_val[i, :])
-    # plt.ylabel("Input " + str(i+1))
-    plt.ylabel(str_input[i])
-    plt.grid()
-    plt.xlabel("Time")
-    plt.axis([0, tfin, 0.95 * np.amin(U_val[i, :]), 1.05 * np.amax(U_val[i, :])])
-    if i == 0:
-        plt.title("validation")
+fig = plot_comparison(
+    Time,
+    U_val,
+    ["F [m$^3$/min]", "W [kg/min]", "Ca$_{in}$ [kg/m$^3$]", "T$_{in}$ [$^o$C]"],
+)
+fig.savefig(output_dir + "/validation_us.png")
 
-# Output
-plt.figure(4)
-str_output = ["Ca [kg/m$^3$]", "T [$^o$C]"]
-for i in range(p):
-    plt.subplot(p, 1, i + 1)
-    plt.plot(Time, Y_val[i, :])
-    # plt.plot(Time,Yv_fir[i,:])
-    plt.plot(Time, Yv_arx[i, :])
-    # plt.plot(Time,Yv_arma[i,:])
-    plt.plot(Time, Yv_armax[i, :])
-    # plt.plot(Time,Yv_ararx[i,:])
-    # plt.plot(Time,Yv_ararmax[i,:])
-    plt.plot(Time, Yv_oe[i, :])
-    plt.plot(Time, Yv_bj[i, :])
-    plt.plot(Time, Yv_gen[i, :])
-    plt.plot(Time, Yv_ss[i, :])
-    # plt.ylabel("Output " + str(i+1))
-    plt.ylabel(str_output[i])
-    plt.legend(["Data", "ARX", "ARMAX", "OE", "BJ", "GEN", "SS"])
-    # plt.legend(['Data','ARX','ARMAX','GEN','SS'])
-    # plt.legend(['Data','ARMAX'])
-    plt.grid()
-    plt.xlabel("Time")
-    if i == 0:
-        plt.title("validation")
+fig = plot_comparison(
+    Time,
+    Ys_val,
+    ["Ca [kg/m$^3$]", "T [$^o$C]"],
+    legend=["Data", "ARX", "ARMAX", "OE", "BJ", "GEN", "SS"],
+)
+fig.savefig(output_dir + "/validation_ys.png")
