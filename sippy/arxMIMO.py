@@ -133,20 +133,3 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
         G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
         H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
         return DENOMINATOR, NUMERATOR, G, H, Vn_tot, Y_id
-
-
-# creating object ARX MIMO model
-class ARX_MIMO_model:
-    def __init__(
-        self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid
-    ):
-        self.na = na
-        self.nb = nb
-        self.theta = theta
-        self.ts = ts
-        self.NUMERATOR = NUMERATOR
-        self.DENOMINATOR = DENOMINATOR
-        self.G = G
-        self.H = H
-        self.Vn = Vn
-        self.Yid = Yid

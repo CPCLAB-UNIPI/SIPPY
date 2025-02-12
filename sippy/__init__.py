@@ -6,23 +6,146 @@ Created on 2017
 @updates: Riccardo Bacci di Capaci, Marco Vaccari, Federico Pelagagge
 """
 
+from typing import Literal
 from warnings import warn
 
 import numpy as np
 
+from .functionset import data_recentering
+
+
 # SIPPY package: main file
+class SISO_Model:
+    def __init__(
+        self,
+        na,
+        nb,
+        nc,
+        nd,
+        nf,
+        theta,
+        ts,
+        NUMERATOR,
+        DENOMINATOR,
+        G,
+        H,
+        Vn,
+        Yid,
+    ):
+        self.na = na
+        self.nb = nb
+        self.nc = nc
+        self.nd = nd
+        self.nf = nf
+        self.theta = theta
+        self.ts = ts
+        self.NUMERATOR = NUMERATOR
+        self.DENOMINATOR = DENOMINATOR
+        self.G = G
+        self.H = H
+        self.Vn = Vn
+        self.Yid = Yid
+
+
+class MIMO_Model(SISO_Model):
+    def __init__(
+        self,
+        na,
+        nb,
+        nc,
+        nd,
+        nf,
+        theta,
+        ts,
+        NUMERATOR,
+        DENOMINATOR,
+        NUMERATOR_H,
+        DENOMINATOR_H,
+        G,
+        H,
+        Vn,
+        Yid,
+    ):
+        super().__init__(
+            na,
+            nb,
+            nc,
+            nd,
+            nf,
+            theta,
+            ts,
+            NUMERATOR,
+            DENOMINATOR,
+            G,
+            H,
+            Vn,
+            Yid,
+        )
+        self.NUMERATOR_H = NUMERATOR_H
+        self.DENOMINATOR_H = DENOMINATOR_H
+
+
+def areinstances(objs, class_or_tuple) -> bool:
+    return all(isinstance(obj, class_or_tuple) for obj in objs)
+
+
+def check_orders(method, orders, desired_order):
+    if method == "FIR" and len(orders) != desired_order:
+        raise RuntimeError(
+            f"{method} identification takes {desired_order} arguments in {method}_orders"
+        )
+
+
+def check_fix_orders(
+    method: str,
+    orders: tuple[int | list, int | list],
+    desired_order: int,
+    desired_shapes: list[tuple[int, int]],
+):
+    check_orders(method, orders, desired_order)
+
+    if areinstances(orders, int):
+        orders_ = [
+            (order * np.ones(shape, dtype=int))
+            for order, shape in zip(orders, desired_shapes)
+        ]
+    elif areinstances(orders, list):
+        orders_ = orders
+    else:
+        raise RuntimeError(
+            f"{method}_orders must be a list containing {desired_order} lists or {desired_order} integers"
+        )
+    return orders_
 
 
 def system_identification(
     y,
     u,
-    id_method: str,
+    id_method: Literal[
+        "FIR",
+        "ARX",
+        "ARMA",
+        "ARMAX",
+        "OE",
+        "ARARX",
+        "ARARMAX",
+        "BJ",
+        "GEN",
+        "EARMAX",
+        "EOE",
+        "N4SID",
+        "MOESP",
+        "CVA",
+        "PARSIM-K",
+        "PARSIM-S",
+        "PARSIM-P",
+    ],
     centering: str | None = None,
     IC: str | None = None,
     tsample=1.0,
-    FIR_orders: tuple[int, int] = (1, 0),
+    FIR_orders: tuple[int | list, int | list] = (1, 0),
     ARX_orders: list[int] = [1, 1, 0],
-    ARMA_orders: list[int] = [1, 0],
+    ARMA_orders: list[int] = [1, 1, 0],
     ARMAX_orders: list[int] = [1, 1, 1, 0],
     ARARX_orders: list[int] = [1, 1, 1, 0],
     ARARMAX_orders: list[int] = [1, 1, 1, 1, 0],
@@ -35,10 +158,10 @@ def system_identification(
     nd_ord: list[int] = [0, 5],
     nf_ord: list[int] = [0, 5],
     delays: list[int] = [0, 5],
-    FIR_mod: str = "LLS",
-    ARX_mod: str = "LLS",
-    ARMAX_mod: str = "ILLS",
-    OE_mod: str = "OPT",
+    FIR_mod: Literal["LLS", "RLLS"] = "LLS",
+    ARX_mod: Literal["LLS", "RLLS"] = "LLS",
+    ARMAX_mod: Literal["ILLS", "RLLS", "OPT"] = "ILLS",
+    OE_mod: Literal["EOE", "RLLS", "OPT"] = "OPT",
     max_iterations: int = 200,
     stab_marg: float = 1.0,
     stab_cons: bool = False,
@@ -93,18 +216,21 @@ def system_identification(
             y[:, i] = y[:, i] - y_rif
             u[:, i] = u[:, i] - u_mean
     else:
-        if not centering:
+        if centering is not None:
             warn(
-                "'Centering' argument is not valid, its value has been reset to 'None'"
+                "'centering' argument is not valid, its value has been reset to 'None'"
             )
         y_rif = 0.0 * y[:, 0]
 
     # Defining default values for orders
-    na = [0] * ydim
-    nb = [0] * ydim
-    nc = [0] * ydim
-    nd = [0] * ydim
-    nf = [0] * ydim
+    na = np.zeros((ydim,), dtype=int)
+    nb = np.zeros((ydim, udim), dtype=int)
+    nc = np.zeros((ydim,), dtype=int)
+    nd = np.zeros((ydim,), dtype=int)
+    nf = np.zeros((ydim,), dtype=int)
+    theta = np.zeros((ydim, udim), dtype=int)
+
+    model = None
 
     ##### Check Information Criterion #####
 
@@ -117,792 +243,296 @@ def system_identification(
 
         # INPUT-OUTPUT MODELS
         io_models = {
-            "FIR": (FIR_orders, "LLS", "RLLS"),
-            "ARX": (ARX_orders, "LLS", "RLLS"),
-            "ARMAX": (ARMAX_orders, "ILLS", "RLLS", "OPT"),
-            "OE": (OE_orders, "RLLS", "OPT"),
+            "FIR": (FIR_orders, 2, [nb.shape, theta.shape]),
+            "ARX": (ARX_orders, 3, [na.shape, nb.shape, theta.shape]),
+            "ARMAX": (
+                ARMAX_orders,
+                4,
+                [na.shape, nb.shape, nc.shape, theta.shape],
+            ),
+            "OE": (OE_orders, 3, [nb.shape, nf.shape, theta.shape]),
+            "ARMA": (ARMA_orders, 3, [na.shape, nc.shape, theta.shape]),
+            "ARARX": (
+                ARARX_orders,
+                4,
+                [na.shape, nb.shape, nd.shape, theta.shape],
+            ),
+            "ARARMAX": (
+                ARARMAX_orders,
+                5,
+                [na.shape, nb.shape, nc.shape, nd.shape, theta.shape],
+            ),
+            "BJ": (
+                BJ_orders,
+                5,
+                [nb.shape, nc.shape, nd.shape, nf.shape, theta.shape],
+            ),
+            "GEN": (
+                GEN_orders,
+                6,
+                [
+                    na.shape,
+                    nb.shape,
+                    nc.shape,
+                    nd.shape,
+                    nf.shape,
+                    theta.shape,
+                ],
+            ),
+            "EARMAX": (
+                ARMAX_orders,
+                4,
+                [na.shape, nb.shape, nc.shape, theta.shape],
+            ),
+            "EOE": (OE_orders, 3, [nb.shape, nf.shape, theta.shape]),
         }
 
-        # FIR or ARX
-        if id_method == "FIR" or id_method == "ARX":
+        if id_method in io_models:
+            orders, n_args, shapes = io_models[id_method]
+
+            orders = check_fix_orders(id_method, orders, n_args, shapes)
+
             if id_method == "FIR":
-                # not 2 inputs
-                if len(FIR_orders) != 2:
-                    raise RuntimeError(
-                        "FIR identification takes two arguments in FIR_orders"
-                    )
-
-                # assigned orders
-                if isinstance(FIR_orders[0], list) and isinstance(
-                    FIR_orders[1], list
-                ):
-                    nb = FIR_orders[0]
-                    theta = FIR_orders[1]
-
-                # not assigned orders (read default)
-                elif isinstance(FIR_orders[0], int) and isinstance(
-                    FIR_orders[1], int
-                ):
-                    nb = (
-                        FIR_orders[0] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    theta = (
-                        FIR_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-
-                # something goes wrong
-                else:
-                    raise RuntimeError(
-                        "FIR_orders must be a list containing two lists or two integers"
-                    )
-
+                nb, theta = orders
             elif id_method == "ARX":
-                # not 3 inputs
-                if len(ARX_orders) != 3:
-                    raise RuntimeError(
-                        "ARX identification takes three arguments in ARX_orders"
-                    )
-
-                # assigned orders
-                if (
-                    isinstance(ARX_orders[0], list)
-                    and isinstance(ARX_orders[1], list)
-                    and isinstance(ARX_orders[2], list)
-                ):
-                    na = ARX_orders[0]
-                    nb = ARX_orders[1]
-                    theta = ARX_orders[2]
-
-                # not assigned orders (read default)
-                elif (
-                    isinstance(ARX_orders[0], int)
-                    and isinstance(ARX_orders[1], int)
-                    and isinstance(ARX_orders[2], int)
-                ):
-                    na = (ARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (
-                        ARX_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    theta = (
-                        ARX_orders[2] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-
-                # something goes wrong
-                else:
-                    raise RuntimeError(
-                        "ARX_orders must be a list containing three lists or three integers"
-                    )
-
-            # id ARX (also for FIR, which is a subcase)
-
-            # Standard Linear Least Square
-            if ARX_mod == "LLS" or FIR_mod == "LLS":
-                from . import arxMIMO
-
-                # import arxMIMO
-                # id ARX MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = (
-                    arxMIMO.ARX_MIMO_id(y, u, na, nb, theta, tsample)
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                # form model
-                model = arxMIMO.ARX_MIMO_model(
-                    na,
-                    nb,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                )
-
-            # Recursive Least Square
-            elif ARX_mod == "RLLS" or FIR_mod == "RLLS":
-                from . import io_rlsMIMO
-
-                # import io_rlsMIMO
-                # id ARMAX RLS MIMO (also SISO case)
-                (
-                    DENOMINATOR,
-                    NUMERATOR,
-                    DENOMINATOR_H,
-                    NUMERATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                ) = io_rlsMIMO.GEN_MIMO_id(
-                    id_method,
-                    y,
-                    u,
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    max_iterations,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = io_rlsMIMO.GEN_MIMO_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    NUMERATOR_H,
-                    DENOMINATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                )
-
-        # ARMAX
-        elif id_method == "ARMAX":
-            # not 4 inputs
-            if len(ARMAX_orders) != 4:
-                raise RuntimeError(
-                    "ARMAX identification takes four arguments in ARMAX_orders"
-                )
-
-            # assigned orders
-            if (
-                isinstance(ARMAX_orders[0], list)
-                and isinstance(ARMAX_orders[1], list)
-                and isinstance(ARMAX_orders[2], list)
-                and isinstance(ARMAX_orders[3], list)
-            ):
-                na = ARMAX_orders[0]
-                nb = ARMAX_orders[1]
-                nc = ARMAX_orders[2]
-                # nd = [0]*ydim
-                # nf = [0]*ydim
-                theta = ARMAX_orders[3]
-
-            # not assigned orders (read default)
-            elif (
-                isinstance(ARMAX_orders[0], int)
-                and isinstance(ARMAX_orders[1], int)
-                and isinstance(ARMAX_orders[2], int)
-                and isinstance(ARMAX_orders[3], int)
-            ):
-                na = (ARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                nb = (
-                    ARMAX_orders[1] * np.ones((ydim, udim), dtype=int)
-                ).tolist()
-                nc = (ARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                # nd = [0]*ydim
-                # nf = [0]*ydim
-                theta = (
-                    ARMAX_orders[3] * np.ones((ydim, udim), dtype=int)
-                ).tolist()
-
-            # something goes wrong
-            else:
-                raise RuntimeError(
-                    "ARMAX_orders must be a list containing four lists or four integers"
-                )
-                model = None
-
-            # check identification method
-
-            # Iterative Linear Least Squares
-            if ARMAX_mod == "ILLS":
-                from . import armaxMIMO
-
-                # id ARMAX MIMO (also SISO case)
-                (
-                    DENOMINATOR,
-                    NUMERATOR,
-                    DENOMINATOR_H,
-                    NUMERATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                ) = armaxMIMO.ARMAX_MIMO_id(
-                    y, u, na, nb, nc, theta, tsample, max_iterations
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = armaxMIMO.ARMAX_MIMO_model(
-                    na,
-                    nb,
-                    nc,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    NUMERATOR_H,
-                    DENOMINATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                )
-
-            # Recursive Least Square
-            elif ARMAX_mod == "RLLS":
-                from . import io_rlsMIMO
-
-                # import io_rlsMIMO
-                # id ARMAX RLS MIMO (also SISO case)
-                (
-                    DENOMINATOR,
-                    NUMERATOR,
-                    DENOMINATOR_H,
-                    NUMERATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                ) = io_rlsMIMO.GEN_MIMO_id(
-                    id_method,
-                    y,
-                    u,
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    max_iterations,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = io_rlsMIMO.GEN_MIMO_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    NUMERATOR_H,
-                    DENOMINATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                )
-
-            # OPTMIZATION-BASED
-            elif ARMAX_mod == "OPT":
-                from . import io_optMIMO
-
-                # import io_optMIMO
-                # id GEN MIMO (also SISO case)
-                (
-                    DENOMINATOR,
-                    NUMERATOR,
-                    DENOMINATOR_H,
-                    NUMERATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                ) = io_optMIMO.GEN_MIMO_id(
-                    id_method,
-                    y,
-                    u,
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    max_iterations,
-                    stab_marg,
-                    stab_cons,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                # form model
-                model = io_optMIMO.GEN_MIMO_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    NUMERATOR_H,
-                    DENOMINATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                )
-
-            else:
-                # error in writing the identification mode
-                raise RuntimeError(
-                    "The selected method for solving the ARMAX model is not correct."
-                )
-
-        # (OE) Output-Error
-        elif id_method == "OE":
-            # not 3 inputs
-            if len(OE_orders) != 3:
-                raise RuntimeError(
-                    "OE identification takes three arguments in OE_orders"
-                )
-
-            # assigned orders
-            if (
-                isinstance(OE_orders[0], list)
-                and isinstance(OE_orders[1], list)
-                and isinstance(OE_orders[2], list)
-            ):
-                # na = [0]*ydim
-                nb = OE_orders[0]
-                # nc = [0]*ydim
-                # nd = [0]*ydim
-                nf = OE_orders[1]
-                theta = OE_orders[2]
-
-            # not assigned orders (read default)
-            elif (
-                isinstance(OE_orders[0], int)
-                and isinstance(OE_orders[1], int)
-                and isinstance(OE_orders[2], int)
-            ):
-                # na = [0]*ydim
-                nb = (OE_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
-                # nc = [0]*ydim
-                # nd = [0]*ydim
-                nf = (OE_orders[1] * np.ones((ydim,), dtype=int)).tolist()
-                theta = (
-                    OE_orders[2] * np.ones((ydim, udim), dtype=int)
-                ).tolist()
-
-            # something goes wrong
-            else:
-                raise RuntimeError(
-                    "OE_orders must be a list containing three lists or three integers"
-                )
-
-            # check identification method
-
-            # Iterative Linear Least Squares
-            if OE_mod == "RLLS":
-                from . import io_rlsMIMO
-
-                # import io_rlsMIMO
-                # id ARMAX RLS MIMO (also SISO case)
-                (
-                    DENOMINATOR,
-                    NUMERATOR,
-                    DENOMINATOR_H,
-                    NUMERATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                ) = io_rlsMIMO.GEN_MIMO_id(
-                    id_method,
-                    y,
-                    u,
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    max_iterations,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = io_rlsMIMO.GEN_MIMO_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    NUMERATOR_H,
-                    DENOMINATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                )
-
-            # OPTMIZATION-BASED
-            elif OE_mod == "OPT":
-                from . import io_optMIMO
-
-                # import io_optMIMO
-                # id GEN MIMO (also SISO case)
-                (
-                    DENOMINATOR,
-                    NUMERATOR,
-                    DENOMINATOR_H,
-                    NUMERATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                ) = io_optMIMO.GEN_MIMO_id(
-                    id_method,
-                    y,
-                    u,
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    max_iterations,
-                    stab_marg,
-                    stab_cons,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                # form model
-                model = io_optMIMO.GEN_MIMO_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    NUMERATOR_H,
-                    DENOMINATOR_H,
-                    G,
-                    H,
-                    Vn_tot,
-                    Yid,
-                )
-
-            else:
-                # error in writing the identification mode
-                raise RuntimeError(
-                    "The selected method for solving the OE model is not correct."
-                )
-
-        # other INPUT-OUTPUT STRUCTURES OPTIMIZATION-BASED:
-        # ARMA, ARARX, ARARMAX
-        # BJ (BOX-JENKINS), GEN-MOD (GENERALIZED MODEL)
-
-        elif (
-            id_method == "ARMA"
-            or id_method == "ARARX"
-            or id_method == "ARARMAX"
-            or id_method == "GEN"
-            or id_method == "BJ"
-            or id_method == "OE"
-        ):
-            # ARMA
-            if id_method == "ARMA":
-                # not 3 inputs
-                if len(ARMA_orders) != 3:
-                    raise RuntimeError(
-                        "ARMA identification takes three arguments in ARMA_orders"
-                    )
-
-                # assigned orders
-                if (
-                    isinstance(ARMA_orders[0], list)
-                    and isinstance(ARMA_orders[1], list)
-                    and isinstance(ARMA_orders[2], list)
-                ):
-                    na = ARMA_orders[0]
-                    nb = np.zeros((ydim, udim), dtype=int).tolist()
-                    nc = ARMA_orders[1]
-                    # nd = [0]*ydim
-                    # nf = [0]*ydim
-                    theta = ARMA_orders[2]
-
-                # not assigned orders (read default)
-                elif (
-                    isinstance(ARMA_orders[0], int)
-                    and isinstance(ARMA_orders[1], int)
-                    and isinstance(ARMA_orders[2], int)
-                ):
-                    na = (
-                        ARMA_orders[0] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    # nb = (ARMA_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                    nb = np.zeros((ydim, udim), dtype=int).tolist()
-                    nc = ARMA_orders[1]
-                    # nd = [0]*ydim
-                    # nf = [0]*ydim
-                    theta = (
-                        ARMA_orders[2] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-
-                # something goes wrong
-                else:
-                    raise RuntimeError(
-                        "ARMA_orders must be a list containing three lists or three integers"
-                    )
-                    model = None
-
-            # ARARX
+                na, nb, theta = orders
+            elif id_method == "ARMAX":
+                na, nb, nc, theta = orders
+            elif id_method == "OE":
+                nb, nf, theta = orders
+            elif id_method == "ARMA":
+                na, nc, theta = orders
             elif id_method == "ARARX":
-                # not 4 inputs
-                if len(ARARX_orders) != 4:
-                    raise RuntimeError(
-                        "ARARX identification takes four arguments in ARARX_orders"
-                    )
-
-                # assigned orders
-                if (
-                    isinstance(ARARX_orders[0], list)
-                    and isinstance(ARARX_orders[1], list)
-                    and isinstance(ARARX_orders[2], list)
-                    and isinstance(ARARX_orders[3], list)
-                ):
-                    na = ARARX_orders[0]
-                    nb = ARARX_orders[1]
-                    # nc = [0]*ydim
-                    nd = ARARX_orders[2]
-                    # nf = [0]*ydim
-                    theta = ARARX_orders[3]
-
-                # not assigned orders (read default)
-                elif (
-                    isinstance(ARARX_orders[0], int)
-                    and isinstance(ARARX_orders[1], int)
-                    and isinstance(ARARX_orders[2], int)
-                    and isinstance(ARARX_orders[3], int)
-                ):
-                    na = (
-                        ARARX_orders[0] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    nb = (
-                        ARARX_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    nc = [0] * ydim
-                    nd = (
-                        ARARX_orders[2] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    nf = [0] * ydim
-                    theta = (
-                        ARARX_orders[3] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-
-                # something goes wrong
-                else:
-                    raise RuntimeError(
-                        "ARARX_orders must be a list containing four lists or four integers"
-                    )
-                    model = None
-
-            # ARARMAX
+                na, nb, nd, theta = orders
             elif id_method == "ARARMAX":
-                # not 5 inputs
-                if len(ARARMAX_orders) != 5:
-                    raise RuntimeError(
-                        "ARARMAX identification takes five arguments in ARARMAX_orders"
-                    )
-
-                # assigned orders
-                if (
-                    isinstance(ARARMAX_orders[0], list)
-                    and isinstance(ARARMAX_orders[1], list)
-                    and isinstance(ARARMAX_orders[2], list)
-                    and isinstance(ARARMAX_orders[3], list)
-                    and isinstance(ARARMAX_orders[4], list)
-                ):
-                    na = ARARMAX_orders[0]
-                    nb = ARARMAX_orders[1]
-                    nc = ARARMAX_orders[2]
-                    nd = ARARMAX_orders[3]
-                    # nf = [0]*ydim
-                    theta = ARARMAX_orders[4]
-
-                # not assigned orders (read default)
-                elif (
-                    isinstance(ARARMAX_orders[0], int)
-                    and isinstance(ARARMAX_orders[1], int)
-                    and isinstance(ARARMAX_orders[2], int)
-                    and isinstance(ARARMAX_orders[3], int)
-                    and isinstance(ARARMAX_orders[4], int)
-                ):
-                    na = (
-                        ARARMAX_orders[0] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    nb = (
-                        ARARMAX_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    nc = (
-                        ARARMAX_orders[2] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    nd = (
-                        ARARMAX_orders[3] * np.ones((ydim,), dtype=int)
-                    ).tolist()
-                    # nf = [0]*ydim
-                    theta = (
-                        ARARMAX_orders[4] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-
-                # something goes wrong
-                else:
-                    raise RuntimeError(
-                        "ARARMAX_orders must be a list containing five lists or five integers"
-                    )
-                    model = None
-
-            # BJ
+                na, nb, nc, nd, theta = orders
             elif id_method == "BJ":
-                # not 5 inputs
-                if len(BJ_orders) != 5:
-                    raise RuntimeError(
-                        "BJ identification takes five arguments in BJ_orders"
-                    )
-
-                # assigned orders
-                if (
-                    isinstance(BJ_orders[0], list)
-                    and isinstance(BJ_orders[1], list)
-                    and isinstance(BJ_orders[2], list)
-                    and isinstance(BJ_orders[3], list)
-                    and isinstance(BJ_orders[4], list)
-                ):
-                    # na = [0]*ydim
-                    nb = BJ_orders[0]
-                    nc = BJ_orders[1]
-                    nd = BJ_orders[2]
-                    nf = BJ_orders[3]
-                    theta = BJ_orders[4]
-
-                # not assigned orders (read default)
-                elif (
-                    isinstance(BJ_orders[0], int)
-                    and isinstance(BJ_orders[1], int)
-                    and isinstance(BJ_orders[2], int)
-                    and isinstance(BJ_orders[3], int)
-                    and isinstance(BJ_orders[4], int)
-                ):
-                    # na = [0]*ydim
-                    nb = (
-                        BJ_orders[0] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    nc = (BJ_orders[1] * np.ones((ydim,), dtype=int)).tolist()
-                    nd = (BJ_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                    nf = (BJ_orders[3] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (
-                        BJ_orders[4] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-
-                # something goes wrong
-                else:
-                    raise RuntimeError(
-                        "BJ_orders must be a list containing five lists or five integers"
-                    )
-                    model = None
-
-            # GEN
+                nb, nc, nd, nf, theta = orders
             elif id_method == "GEN":
-                # not 6 inputs
-                if len(GEN_orders) != 6:
-                    raise RuntimeError(
-                        "GEN-MODEL identification takes six arguments in GEN_orders"
+                na, nb, nc, nd, nf, theta = orders
+            elif id_method == "EARMAX":
+                na, nb, nc, theta = orders
+            elif id_method == "EOE":
+                nb, nf, theta = orders
+
+            # FIR or ARX
+            if id_method in ["FIR", "ARX"]:
+                # Standard Linear Least Square
+                if ARX_mod == "LLS" or FIR_mod == "LLS":
+                    from . import arxMIMO
+
+                    DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = (
+                        arxMIMO.ARX_MIMO_id(y, u, na, nb, theta, tsample)
+                    )
+                    nc = None
+                    nd = None
+                    nf = None
+                    DENOMINATOR_H = None
+                    NUMERATOR_H = None
+
+                # Recursive Least Square
+                elif ARX_mod == "RLLS" or FIR_mod == "RLLS":
+                    from . import io_rlsMIMO
+
+                    (
+                        DENOMINATOR,
+                        NUMERATOR,
+                        DENOMINATOR_H,
+                        NUMERATOR_H,
+                        G,
+                        H,
+                        Vn_tot,
+                        Yid,
+                    ) = io_rlsMIMO.GEN_MIMO_id(
+                        id_method,
+                        y,
+                        u,
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        tsample,
+                        max_iterations,
                     )
 
-                # assigned orders
-                if (
-                    isinstance(GEN_orders[0], list)
-                    and isinstance(GEN_orders[1], list)
-                    and isinstance(GEN_orders[2], list)
-                    and isinstance(GEN_orders[3], list)
-                    and isinstance(GEN_orders[4], list)
-                    and isinstance(GEN_orders[5], list)
-                ):
-                    na = GEN_orders[0]
-                    nb = GEN_orders[1]
-                    nc = GEN_orders[2]
-                    nd = GEN_orders[3]
-                    nf = GEN_orders[4]
-                    theta = GEN_orders[5]
+            # ARMAX
+            elif id_method == "ARMAX":
+                # check identification method
 
-                # not assigned orders (read default)
-                elif (
-                    isinstance(GEN_orders[0], int)
-                    and isinstance(GEN_orders[1], int)
-                    and isinstance(GEN_orders[2], int)
-                    and isinstance(GEN_orders[3], int)
-                    and isinstance(GEN_orders[4], int)
-                    and isinstance(GEN_orders[5], int)
-                ):
-                    na = (GEN_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (
-                        GEN_orders[1] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
-                    nc = (GEN_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                    nd = (GEN_orders[3] * np.ones((ydim,), dtype=int)).tolist()
-                    nf = (GEN_orders[4] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (
-                        GEN_orders[5] * np.ones((ydim, udim), dtype=int)
-                    ).tolist()
+                # Iterative Linear Least Squares
+                if ARMAX_mod == "ILLS":
+                    from . import armaxMIMO
 
-                # something goes wrong
-                else:
-                    raise RuntimeError(
-                        "GEN_orders must be a list containing six lists or six integers"
+                    (
+                        DENOMINATOR,
+                        NUMERATOR,
+                        DENOMINATOR_H,
+                        NUMERATOR_H,
+                        G,
+                        H,
+                        Vn_tot,
+                        Yid,
+                    ) = armaxMIMO.ARMAX_MIMO_id(
+                        y, u, na, nb, nc, theta, tsample, max_iterations
                     )
-                    model = None
+                    nd = None
+                    nf = None
 
-            # id MODEL: ARMA, ARARX, ARARMAX, BJ, GEN
-            from . import io_optMIMO
+                # Recursive Least Square
+                elif ARMAX_mod == "RLLS":
+                    from . import io_rlsMIMO
 
-            # import io_optMIMO
-            # id MIMO (also SISO case)
-            (
-                DENOMINATOR,
-                NUMERATOR,
-                DENOMINATOR_H,
-                NUMERATOR_H,
-                G,
-                H,
-                Vn_tot,
-                Yid,
-            ) = io_optMIMO.GEN_MIMO_id(
-                id_method,
-                y,
-                u,
-                na,
-                nb,
-                nc,
-                nd,
-                nf,
-                theta,
-                tsample,
-                max_iterations,
-                stab_marg,
-                stab_cons,
-            )
-            # recentering
+                    (
+                        DENOMINATOR,
+                        NUMERATOR,
+                        DENOMINATOR_H,
+                        NUMERATOR_H,
+                        G,
+                        H,
+                        Vn_tot,
+                        Yid,
+                    ) = io_rlsMIMO.GEN_MIMO_id(
+                        id_method,
+                        y,
+                        u,
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        tsample,
+                        max_iterations,
+                    )
+
+                # OPTMIZATION-BASED
+                elif ARMAX_mod == "OPT":
+                    from . import io_optMIMO
+
+                    (
+                        DENOMINATOR,
+                        NUMERATOR,
+                        DENOMINATOR_H,
+                        NUMERATOR_H,
+                        G,
+                        H,
+                        Vn_tot,
+                        Yid,
+                    ) = io_optMIMO.GEN_MIMO_id(
+                        id_method,
+                        y,
+                        u,
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        tsample,
+                        max_iterations,
+                        stab_marg,
+                        stab_cons,
+                    )
+
+            # (OE) Output-Error
+            elif id_method == "OE":
+                # check identification method
+
+                # Iterative Linear Least Squares
+                if OE_mod == "RLLS":
+                    from . import io_rlsMIMO
+
+                    (
+                        DENOMINATOR,
+                        NUMERATOR,
+                        DENOMINATOR_H,
+                        NUMERATOR_H,
+                        G,
+                        H,
+                        Vn_tot,
+                        Yid,
+                    ) = io_rlsMIMO.GEN_MIMO_id(
+                        id_method,
+                        y,
+                        u,
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        tsample,
+                        max_iterations,
+                    )
+
+                # OPTMIZATION-BASED
+                elif OE_mod == "OPT":
+                    from . import io_optMIMO
+
+                    (
+                        DENOMINATOR,
+                        NUMERATOR,
+                        DENOMINATOR_H,
+                        NUMERATOR_H,
+                        G,
+                        H,
+                        Vn_tot,
+                        Yid,
+                    ) = io_optMIMO.GEN_MIMO_id(
+                        id_method,
+                        y,
+                        u,
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        tsample,
+                        max_iterations,
+                        stab_marg,
+                        stab_cons,
+                    )
+
+            elif (
+                id_method == "ARMA"
+                or id_method == "ARARX"
+                or id_method == "ARARMAX"
+                or id_method == "GEN"
+                or id_method == "BJ"
+                or id_method == "EOE"
+            ):
+                from . import io_optMIMO
+
+                (
+                    DENOMINATOR,
+                    NUMERATOR,
+                    DENOMINATOR_H,
+                    NUMERATOR_H,
+                    G,
+                    H,
+                    Vn_tot,
+                    Yid,
+                ) = io_optMIMO.GEN_MIMO_id(
+                    id_method,
+                    y,
+                    u,
+                    na,
+                    nb,
+                    nc,
+                    nd,
+                    nf,
+                    theta,
+                    tsample,
+                    max_iterations,
+                    stab_marg,
+                    stab_cons,
+                )
+
             Yid = data_recentering(Yid, y_rif, ylength)
-            # form model
-            model = io_optMIMO.GEN_MIMO_model(
+            model = MIMO_Model(
                 na,
                 nb,
                 nc,
@@ -921,612 +551,425 @@ def system_identification(
             )
 
         # SS MODELS
+        ss_models = {
+            "N4SID": "OLSims_methods",
+            "MOESP": "OLSims_methods",
+            "CVA": "OLSims_methods",
+            "PARSIM-K": "Parsim_methods",
+            "PARSIM-S": "Parsim_methods",
+            "PARSIM-P": "Parsim_methods",
+        }
+        if id_method in ss_models:
+            if id_method in ["N4SID", "MOESP", "CVA"]:
+                from . import OLSims_methods
 
-        # N4SID-MOESP-CVA
-        elif (
-            id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA"
-        ):
-            from . import OLSims_methods
+                A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(
+                    y,
+                    u,
+                    SS_f,
+                    id_method,
+                    SS_threshold,
+                    SS_max_order,
+                    SS_fixed_order,
+                    SS_D_required,
+                    SS_A_stability,
+                )
+                model = OLSims_methods.SS_model(
+                    A, B, C, D, K, Q, R, S, tsample, Vn
+                )
+            else:
+                from . import Parsim_methods
 
-            A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(
-                y,
-                u,
-                SS_f,
-                id_method,
-                SS_threshold,
-                SS_max_order,
-                SS_fixed_order,
-                SS_D_required,
-                SS_A_stability,
-            )
-            model = OLSims_methods.SS_model(
-                A, B, C, D, K, Q, R, S, tsample, Vn
-            )
-
-        # PARSIM-K
-        elif id_method == "PARSIM-K":
-            from . import Parsim_methods
-
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_K(
-                y,
-                u,
-                SS_f,
-                SS_p,
-                SS_threshold,
-                SS_max_order,
-                SS_fixed_order,
-                SS_D_required,
-                SS_PK_B_reval,
-            )
-            model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
-            )
-
-        # PARSIM-S
-        elif id_method == "PARSIM-S":
-            from . import Parsim_methods
-
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_S(
-                y,
-                u,
-                SS_f,
-                SS_p,
-                SS_threshold,
-                SS_max_order,
-                SS_fixed_order,
-                SS_D_required,
-            )
-            model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
-            )
-
-        # PARSIM-P
-        elif id_method == "PARSIM-P":
-            from . import Parsim_methods
-
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_P(
-                y,
-                u,
-                SS_f,
-                SS_p,
-                SS_threshold,
-                SS_max_order,
-                SS_fixed_order,
-                SS_D_required,
-            )
-            model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
-            )
+                A_K, C, B_K, D, K, A, B, x0, Vn = getattr(
+                    Parsim_methods, id_method.replace("-", "_")
+                )(
+                    y,
+                    u,
+                    SS_f,
+                    SS_p,
+                    SS_threshold,
+                    SS_max_order,
+                    SS_fixed_order,
+                    SS_D_required,
+                    SS_PK_B_reval,
+                )
+                model = Parsim_methods.SS_PARSIM_model(
+                    A, B, C, D, K, A_K, B_K, x0, tsample, Vn
+                )
 
         # NO method selected
-        else:
+        if model is None:
             raise RuntimeError("No identification method selected")
 
-    #####
+    # =========================================================================
     # MODE 2) order range
     # if an IC is selected
     else:
-        # method choice
+        if ydim != 1 or udim != 1:
+            raise RuntimeError(
+                "Information criteria are implemented ONLY in SISO case "
+                "for INPUT-OUTPUT model sets. Use subspace methods instead"
+                " for MIMO cases"
+            )
 
-        # INPUT-OUTPUT MODELS (MIMO case --> not implemented)
-        if (
-            id_method == "FIR"
-            or id_method == "ARX"
-            or id_method == "ARMA"
-            or id_method == "ARMAX"
-            or id_method == "ARARX"
-            or id_method == "ARARMAX"
-            or id_method == "OE"
-            or id_method == "BJ"
-            or id_method == "GEN"
-            or id_method == "EARMAX"
-            or id_method == "EOE"
-        ):
-            if ydim != 1 or udim != 1:
-                raise RuntimeError(
-                    "Information criteria are implemented ONLY in SISO case for INPUT-OUTPUT model sets.  Use subspace methods instead for MIMO cases"
-                )
-                model = None
+        io_models = {
+            "FIR": {
+                "LSS": ["arx", "select_order_ARX"],
+                "RLLS": ["io_rls", "select_order_GEN"],
+            },
+            "ARX": {"LSS": "arx", "RLLS": "io_rls"},
+            "ARMA": "io_opt",
+            "ARMAX": {"ILLS": "armax", "RLLS": "io_rls", "OPT": "io_opt"},
+            "ARARX": "io_opt",
+            "ARARMAX": "io_opt",
+            "OE": {"RLLS": "io_rls", "OPT": "io_opt"},
+            "BJ": "io_opt",
+            "GEN": "io_opt",
+            "EARMAX": "io_opt",
+            "EOE": "io_opt",
+        }
+        modules = {
+            "LSS": "arx",
+            "RLLS": "io_rls",
+            "ILLS": "armax",
+            "OPT": "io_opt",
+        }
 
-        # FIR or ARX
-        if id_method == "FIR" or id_method == "ARX":
-            if ARX_mod == "LLS" or FIR_mod == "LLS":
-                from . import arx
-
-                if id_method == "FIR":
-                    # no iteration on A order: rewrite na
-                    na_ord = [0, 0]
-                # import arx
-                (
-                    na,
-                    nb,
-                    theta,
-                    g_identif,
-                    h_identif,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    Vn,
-                    Yid,
-                ) = arx.select_order_ARX(
-                    y[0], u[0], tsample, na_ord, nb_ord, delays, IC
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = arx.ARX_model(
-                    na,
-                    nb,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    g_identif,
-                    h_identif,
-                    Vn,
-                    Yid,
-                )
-
-            elif ARX_mod == "RLLS" or FIR_mod == "RLLS":
-                # no iteration on C, D and F orders: rewrite nc, nd and nf
-                if id_method == "FIR":
-                    # no iteration on A order: rewrite na
-                    na_ord = [0, 0]
+        if id_method in io_models:
+            if id_method == "FIR":
+                na_ord = [0, 0]
+            if (id_method == "FIR" or id_method == "ARX") and (
+                ARX_mod == "RLLS" or FIR_mod == "RLLS"
+            ):
                 nc_ord = [0, 0]
                 nd_ord = [0, 0]
                 nf_ord = [0, 0]
-                from . import io_rls
-
-                # import io_rlsMIMO
-                # id IO RLS MIMO (also SISO case)
-                (
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    g_identif,
-                    h_identif,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    Vn,
-                    Yid,
-                ) = io_rls.select_order_GEN(
-                    id_method,
-                    y[0],
-                    u[0],
-                    tsample,
-                    na_ord,
-                    nb_ord,
-                    nc_ord,
-                    nd_ord,
-                    nf_ord,
-                    delays,
-                    IC,
-                    max_iterations,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = io_rls.GEN_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    g_identif,
-                    h_identif,
-                    Vn,
-                    Yid,
-                )
-
-        # ARMAX
-        elif id_method == "ARMAX":
-            # Iterative Linear Least Squares
-            if ARMAX_mod == "ILLS":
-                from . import armax
-
-                # import armax
-                # file updated by people external from CPCLAB
-                model = armax.Armax(
-                    na_ord, nb_ord, nc_ord, delays, tsample, IC, max_iterations
-                )
-                #
-                model.find_best_estimate(y[0], u[0])
-                # recentering
-                Yid = data_recentering(model.Yid, y_rif, ylength)
-
-            # Recursive Least Square
-            elif ARMAX_mod == "RLLS":
-                # no iteration on D and F orders: rewrite nd and nf
+            if id_method == "ARMAX" and (
+                ARMAX_mod == "RLLS" or ARMAX_mod == "OPT"
+            ):
                 nd_ord = [0, 0]
                 nf_ord = [0, 0]
-                from . import io_rls
-
-                # import io_rlsMIMO
-                # id IO RLS MIMO (also SISO case)
-                (
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    g_identif,
-                    h_identif,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    Vn,
-                    Yid,
-                ) = io_rls.select_order_GEN(
-                    id_method,
-                    y[0],
-                    u[0],
-                    tsample,
-                    na_ord,
-                    nb_ord,
-                    nc_ord,
-                    nd_ord,
-                    nf_ord,
-                    delays,
-                    IC,
-                    max_iterations,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = io_rls.GEN_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    g_identif,
-                    h_identif,
-                    Vn,
-                    Yid,
-                )
-
-            # OPTMIZATION-BASED
-            elif ARMAX_mod == "OPT":
-                # no iteration on D and F orders: rewrite nd and nf
-                nd_ord = [0, 0]
-                nf_ord = [0, 0]
-                from . import io_opt
-
-                # import io_opt
-                (
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    g_identif,
-                    h_identif,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    Vn,
-                    Yid,
-                ) = io_opt.select_order_GEN(
-                    id_method,
-                    y[0],
-                    u[0],
-                    tsample,
-                    na_ord,
-                    nb_ord,
-                    nc_ord,
-                    nd_ord,
-                    nf_ord,
-                    delays,
-                    IC,
-                    max_iterations,
-                    stab_marg,
-                    stab_cons,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = io_opt.GEN_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    g_identif,
-                    h_identif,
-                    Vn,
-                    Yid,
-                )
-
-            else:  # error in writing the mode
-                raise RuntimeError(
-                    "The selected method for solving the ARMAX model is not correct."
-                )
-
-        # (OE) Output-Error
-        elif id_method == "OE":
-            if OE_mod == "RLLS":
-                # no iteration on A, C, and D orders: rewrite na, nc, nd
+            if id_method == "OE":
                 na_ord = [0, 0]
                 nc_ord = [0, 0]
                 nd_ord = [0, 0]
-
-                from . import io_rls
-
-                # import io_rlsMIMO
-                # id IO RLS MIMO (also SISO case)
-                (
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    g_identif,
-                    h_identif,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    Vn,
-                    Yid,
-                ) = io_rls.select_order_GEN(
-                    id_method,
-                    y[0],
-                    u[0],
-                    tsample,
-                    na_ord,
-                    nb_ord,
-                    nc_ord,
-                    nd_ord,
-                    nf_ord,
-                    delays,
-                    IC,
-                    max_iterations,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = io_rls.GEN_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    g_identif,
-                    h_identif,
-                    Vn,
-                    Yid,
-                )
-
-            elif OE_mod == "OPT":
-                # no iteration on A, C, and D orders: rewrite na, nc, nd
-                na_ord = [0, 0]
-                nc_ord = [0, 0]
-                nd_ord = [0, 0]
-
-                from . import io_opt
-
-                # import io_opt
-                (
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    g_identif,
-                    h_identif,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    Vn,
-                    Yid,
-                ) = io_opt.select_order_GEN(
-                    id_method,
-                    y[0],
-                    u[0],
-                    tsample,
-                    na_ord,
-                    nb_ord,
-                    nc_ord,
-                    nd_ord,
-                    nf_ord,
-                    delays,
-                    IC,
-                    max_iterations,
-                    stab_marg,
-                    stab_cons,
-                )
-                # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
-                model = io_opt.GEN_model(
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    NUMERATOR,
-                    DENOMINATOR,
-                    g_identif,
-                    h_identif,
-                    Vn,
-                    Yid,
-                )
-
-            else:  # error in writing the mode
-                raise RuntimeError(
-                    "The selected method for solving the ARMAX model is not correct."
-                )
-
-        # (EOE or EARMAX) Extended Output-Error and Extended ARMAX
-        elif id_method == "EOE" or id_method == "EARMAX":
             if OE_mod == "EOE":
                 nc_ord = [0, 0]
-
-            # TODO: fix the import and learn from RB about the implementation details
-            from . import io_optMIMO
-
-            # id IO RLS MIMO (also SISO case)
-            (
-                na,
-                nb,
-                nc,
-                theta,
-                g_identif,
-                h_identif,
-                NUMERATOR,
-                DENOMINATOR,
-                Vn,
-                Yid,
-            ) = io_opt.select_order_GEN(
-                id_method,
-                y[0],
-                u[0],
-                tsample,
-                nf_ord,
-                nb_ord,
-                nc_ord,
-                delays,
-                IC,
-                max_iterations,
-            )
-            # recentering
-            Yid = data_recentering(Yid, y_rif, ylength)
-            model = io_opt.GEN_model(
-                na,
-                nb,
-                nc,
-                theta,
-                tsample,
-                NUMERATOR,
-                DENOMINATOR,
-                g_identif,
-                h_identif,
-                Vn,
-                Yid,
-            )
-
-        # INPUT-OUTPUT STRUCTURES OPTIMIZATION-BASED:
-        # ARMA, ARARX, ARARMAX and OE, BJ (BOX-JENKINS), GEN-MOD (GENERALIZED MODEL)
-
-        elif (
-            id_method == "ARMA"
-            or id_method == "ARARX"
-            or id_method == "ARARMAX"
-            or id_method == "GEN"
-            or id_method == "BJ"
-        ):
-            # ARMA
             if id_method == "ARMA":
                 nb_ord = [1, 1]
                 nd_ord = [0, 0]
                 nf_ord = [0, 0]
-
-            # ARARX
-            elif id_method == "ARARX":
+            if id_method == "ARARX":
                 nc_ord = [0, 0]
                 nf_ord = [0, 0]
-
-            # ARARMAX
-            elif id_method == "ARARMAX":
+            if id_method == "ARARMAX":
                 nf_ord = [0, 0]
-
-            # BJ
-            elif id_method == "BJ":
+            if id_method == "BJ":
                 na_ord = [0, 0]
 
-            # GEN MODEL (all parameters already defined or by-default)
+            if id_method in ["FIR", "ARX"]:
+                if ARX_mod == "LLS" or FIR_mod == "LLS":
+                    from . import arx
 
-            from . import io_opt
+                    (
+                        na,
+                        nb,
+                        theta,
+                        g_identif,
+                        h_identif,
+                        NUMERATOR,
+                        DENOMINATOR,
+                        Vn,
+                        Yid,
+                    ) = arx.select_order_ARX(
+                        y[0], u[0], tsample, na_ord, nb_ord, delays, IC
+                    )
+                    nc = None
+                    nd = None
+                    nf = None
+                elif ARX_mod == "RLLS" or FIR_mod == "RLLS":
+                    from . import io_rls
 
-            # import io_opt
-            (
-                na,
-                nb,
-                nc,
-                nd,
-                nf,
-                theta,
-                g_identif,
-                h_identif,
-                NUMERATOR,
-                DENOMINATOR,
-                Vn,
-                Yid,
-            ) = io_opt.select_order_GEN(
-                id_method,
-                y[0],
-                u[0],
-                tsample,
-                na_ord,
-                nb_ord,
-                nc_ord,
-                nd_ord,
-                nf_ord,
-                delays,
-                IC,
-                max_iterations,
-                stab_marg,
-                stab_cons,
-            )
-            # recentering
-            Yid = data_recentering(Yid, y_rif, ylength)
-            model = io_opt.GEN_model(
-                na,
-                nb,
-                nc,
-                nd,
-                nf,
-                theta,
-                tsample,
-                NUMERATOR,
-                DENOMINATOR,
-                g_identif,
-                h_identif,
-                Vn,
-                Yid,
-            )
+                    (
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        g_identif,
+                        h_identif,
+                        NUMERATOR,
+                        DENOMINATOR,
+                        Vn,
+                        Yid,
+                    ) = io_rls.select_order_GEN(
+                        id_method,
+                        y[0],
+                        u[0],
+                        tsample,
+                        na_ord,
+                        nb_ord,
+                        nc_ord,
+                        nd_ord,
+                        nf_ord,
+                        delays,
+                        IC,
+                        max_iterations,
+                    )
 
+            # ARMAX
+            elif id_method == "ARMAX":
+                # Iterative Linear Least Squares
+                if ARMAX_mod == "ILLS":
+                    from . import armax
+
+                    # import armax
+                    # file updated by people external from CPCLAB
+                    model = armax.Armax(
+                        na_ord,
+                        nb_ord,
+                        nc_ord,
+                        delays,
+                        tsample,
+                        IC,
+                        max_iterations,
+                    )
+                    #
+                    model.find_best_estimate(y[0], u[0])
+                    # recentering
+                    Yid = data_recentering(model.Yid, y_rif, ylength)
+
+                # Recursive Least Square
+                elif ARMAX_mod == "RLLS":
+                    from . import io_rls
+
+                    # import io_rlsMIMO
+                    # id IO RLS MIMO (also SISO case)
+                    (
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        g_identif,
+                        h_identif,
+                        NUMERATOR,
+                        DENOMINATOR,
+                        Vn,
+                        Yid,
+                    ) = io_rls.select_order_GEN(
+                        id_method,
+                        y[0],
+                        u[0],
+                        tsample,
+                        na_ord,
+                        nb_ord,
+                        nc_ord,
+                        nd_ord,
+                        nf_ord,
+                        delays,
+                        IC,
+                        max_iterations,
+                    )
+
+                # OPTMIZATION-BASED
+                elif ARMAX_mod == "OPT":
+                    from . import io_opt
+
+                    # import io_opt
+                    (
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        g_identif,
+                        h_identif,
+                        NUMERATOR,
+                        DENOMINATOR,
+                        Vn,
+                        Yid,
+                    ) = io_opt.select_order_GEN(
+                        id_method,
+                        y[0],
+                        u[0],
+                        tsample,
+                        na_ord,
+                        nb_ord,
+                        nc_ord,
+                        nd_ord,
+                        nf_ord,
+                        delays,
+                        IC,
+                        max_iterations,
+                        stab_marg,
+                        stab_cons,
+                    )
+
+            # (OE) Output-Error
+            elif id_method == "OE":
+                if OE_mod == "RLLS":
+                    from . import io_rls
+
+                    # import io_rlsMIMO
+                    # id IO RLS MIMO (also SISO case)
+                    (
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        g_identif,
+                        h_identif,
+                        NUMERATOR,
+                        DENOMINATOR,
+                        Vn,
+                        Yid,
+                    ) = io_rls.select_order_GEN(
+                        id_method,
+                        y[0],
+                        u[0],
+                        tsample,
+                        na_ord,
+                        nb_ord,
+                        nc_ord,
+                        nd_ord,
+                        nf_ord,
+                        delays,
+                        IC,
+                        max_iterations,
+                    )
+
+                elif OE_mod == "OPT":
+                    from . import io_opt
+
+                    (
+                        na,
+                        nb,
+                        nc,
+                        nd,
+                        nf,
+                        theta,
+                        g_identif,
+                        h_identif,
+                        NUMERATOR,
+                        DENOMINATOR,
+                        Vn,
+                        Yid,
+                    ) = io_opt.select_order_GEN(
+                        id_method,
+                        y[0],
+                        u[0],
+                        tsample,
+                        na_ord,
+                        nb_ord,
+                        nc_ord,
+                        nd_ord,
+                        nf_ord,
+                        delays,
+                        IC,
+                        max_iterations,
+                        stab_marg,
+                        stab_cons,
+                    )
+            # INPUT-OUTPUT STRUCTURES OPTIMIZATION-BASED:
+            # ARMA, ARARX, ARARMAX and OE, BJ (BOX-JENKINS), GEN-MOD (GENERALIZED MODEL)
+
+            elif id_method in [
+                "ARMA",
+                "ARARX",
+                "ARARMAX",
+                "GEN",
+                "BJ",
+                "EOE",
+                "EARMAX",
+            ]:
+                from . import io_opt
+
+                (
+                    na,
+                    nb,
+                    nc,
+                    nd,
+                    nf,
+                    theta,
+                    g_identif,
+                    h_identif,
+                    NUMERATOR,
+                    DENOMINATOR,
+                    Vn,
+                    Yid,
+                ) = io_opt.select_order_GEN(
+                    id_method,
+                    y[0],
+                    u[0],
+                    tsample,
+                    na_ord,
+                    nb_ord,
+                    nc_ord,
+                    nd_ord,
+                    nf_ord,
+                    delays,
+                    IC,
+                    max_iterations,
+                    stab_marg,
+                    stab_cons,
+                )
+
+        Yid = data_recentering(Yid, y_rif, ylength)
+        model = SISO_Model(
+            na,
+            nb,
+            nc,
+            nd,
+            nf,
+            theta,
+            tsample,
+            NUMERATOR,
+            DENOMINATOR,
+            g_identif,
+            h_identif,
+            Vn,
+            Yid,
+        )
         # SS-MODELS
 
-        # N4SID-MOESP-CVA
-        elif (
-            id_method == "N4SID" or id_method == "MOESP" or id_method == "CVA"
-        ):
-            from . import OLSims_methods
+        ss_models = {
+            "N4SID": "OLSims_methods",
+            "MOESP": "OLSims_methods",
+            "CVA": "OLSims_methods",
+            "PARSIM-K": "Parsim_methods",
+            "PARSIM-S": "Parsim_methods",
+            "PARSIM-P": "Parsim_methods",
+        }
+        if id_method in ss_models:
+            if id_method in ["N4SID", "MOESP", "CVA"]:
+                from . import OLSims_methods
 
-            A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(
-                y,
-                u,
-                SS_f,
-                id_method,
-                IC,
-                SS_orders,
-                SS_D_required,
-                SS_A_stability,
-            )
-            model = OLSims_methods.SS_model(
-                A, B, C, D, K, Q, R, S, tsample, Vn
-            )
+                A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(
+                    y,
+                    u,
+                    SS_f,
+                    id_method,
+                    IC,
+                    SS_orders,
+                    SS_D_required,
+                    SS_A_stability,
+                )
+                model = OLSims_methods.SS_model(
+                    A, B, C, D, K, Q, R, S, tsample, Vn
+                )
+            else:
+                from . import Parsim_methods
 
-        # PARSIM-K
-        elif id_method == "PARSIM-K":
-            from . import Parsim_methods
-
-            A_K, C, B_K, D, K, A, B, x0, Vn = (
-                Parsim_methods.select_order_PARSIM_K(
+                A_K, C, B_K, D, K, A, B, x0, Vn = getattr(
+                    Parsim_methods,
+                    f"select_order_{id_method.replace("-", "_")}",
+                )(
                     y,
                     u,
                     SS_f,
@@ -1536,46 +979,12 @@ def system_identification(
                     SS_D_required,
                     SS_PK_B_reval,
                 )
-            )
-            model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
-            )
-
-        # PARSIM-S
-        elif id_method == "PARSIM-S":
-            from . import Parsim_methods
-
-            A_K, C, B_K, D, K, A, B, x0, Vn = (
-                Parsim_methods.select_order_PARSIM_S(
-                    y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
+                model = Parsim_methods.SS_PARSIM_model(
+                    A, B, C, D, K, A_K, B_K, x0, tsample, Vn
                 )
-            )
-            model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
-            )
-
-        # PARSIM-P
-        elif id_method == "PARSIM-P":
-            from . import Parsim_methods
-
-            A_K, C, B_K, D, K, A, B, x0, Vn = (
-                Parsim_methods.select_order_PARSIM_P(
-                    y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
-                )
-            )
-            model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
-            )
 
         # NO method selected
-        else:
+        if model is None:
             raise RuntimeError("No identification method selected")
 
     return model
-
-
-# Data recentering
-def data_recentering(y, y_rif, ylength):
-    for i in range(ylength):
-        y[:, i] = y[:, i] + y_rif
-    return y

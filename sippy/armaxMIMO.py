@@ -190,36 +190,3 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
             Vn_tot,
             Y_id,
         )
-
-
-# creating object ARMAX MIMO model
-class ARMAX_MIMO_model:
-    def __init__(
-        self,
-        na,
-        nb,
-        nc,
-        theta,
-        ts,
-        NUMERATOR,
-        DENOMINATOR,
-        NUMERATOR_H,
-        DENOMINATOR_H,
-        G,
-        H,
-        Vn,
-        Yid,
-    ):
-        self.na = na
-        self.nb = nb
-        self.nc = nc
-        self.theta = theta
-        self.ts = ts
-        self.NUMERATOR = NUMERATOR
-        self.DENOMINATOR = DENOMINATOR
-        self.NUMERATOR_H = NUMERATOR_H
-        self.DENOMINATOR_H = DENOMINATOR_H
-        self.G = G
-        self.H = H
-        self.Vn = Vn
-        self.Yid = Yid

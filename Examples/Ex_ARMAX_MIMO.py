@@ -128,7 +128,7 @@ identification_params = {
         "ARMAX_orders": [ordersna, ordersnb, ordersnc, theta_list],
         "ARMAX_mod": "OPT",
         "max_iterations": 20,
-        "centering": "None",
+        "centering": None,
     },
     "ARMAX-R": {
         "ARMAX_orders": [ordersna, ordersnb, ordersnc, theta_list],

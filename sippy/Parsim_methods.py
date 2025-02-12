@@ -183,6 +183,7 @@ def PARSIM_K(
     fixed_order=np.nan,
     D_required=False,
     B_recalc=False,
+    *_,
 ):
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
@@ -409,6 +410,7 @@ def PARSIM_S(
     max_order=np.nan,
     fixed_order=np.nan,
     D_required=False,
+    *_,
 ):
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
@@ -477,7 +479,7 @@ def PARSIM_S(
 
 
 def select_order_PARSIM_S(
-    y, u, f=20, p=20, method="AIC", orders=[1, 10], D_required=False
+    y, u, f=20, p=20, method="AIC", orders=[1, 10], D_required=False, *_
 ):
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
@@ -592,6 +594,7 @@ def PARSIM_P(
     max_order=np.nan,
     fixed_order=np.nan,
     D_required=False,
+    *_,
 ):
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
@@ -658,7 +661,7 @@ def PARSIM_P(
 
 
 def select_order_PARSIM_P(
-    y, u, f=20, p=20, method="AIC", orders=[1, 10], D_required=False
+    y, u, f=20, p=20, method="AIC", orders=[1, 10], D_required=False, *_
 ):
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)

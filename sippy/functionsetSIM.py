@@ -114,7 +114,7 @@ def SS_lsim_process_form(A, B, C, D, u, x0=None):
     l, n = C.shape
     y = np.zeros((l, L))
     x = np.zeros((n, L))
-    if not isinstance(x0, str):
+    if x0 is not None:
         x[:, 0] = x0[:, 0]
     y[:, 0] = np.dot(C, x[:, 0]) + np.dot(D, u[:, 0])
     for i in range(1, L):
@@ -128,7 +128,7 @@ def SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0=None):
     l, n = C.shape
     y_hat = np.zeros((l, L))
     x = np.zeros((n, L + 1))
-    if not isinstance(x0, str):
+    if x0 is not None:
         x[:, 0] = x0[:, 0]
     for i in range(0, L):
         x[:, i + 1] = (
@@ -143,7 +143,7 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0=None):
     l, n = C.shape
     y_hat = np.zeros((l, L))
     x = np.zeros((n, L + 1))
-    if not isinstance(x0, str):
+    if x0 is not None:
         x[:, 0] = x0[:, 0]
     for i in range(0, L):
         y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
