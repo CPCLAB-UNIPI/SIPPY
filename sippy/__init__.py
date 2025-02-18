@@ -6,6 +6,7 @@ Created on 2017
 @updates: Riccardo Bacci di Capaci, Marco Vaccari, Federico Pelagagge
 """
 
+from collections.abc import Mapping
 from typing import Literal
 from warnings import warn
 
@@ -15,42 +16,58 @@ from .functionset import data_recentering
 from .model import IO_MIMO_Model, IO_SISO_Model, SS_Model
 
 
-def areinstances(objs, class_or_tuple) -> bool:
-    return all(isinstance(obj, class_or_tuple) for obj in objs)
-
-
-def check_orders(method, orders, desired_order):
-    if method == "FIR" and len(orders) != desired_order:
-        raise RuntimeError(
-            f"{method} identification takes {desired_order} arguments in {method}_orders"
-        )
-
-
 def check_fix_orders(
-    method: str,
-    orders: tuple[int | list, int | list],
-    desired_order: int,
-    desired_shapes: list[tuple[int, int]],
-):
-    check_orders(method, orders, desired_order)
+    orders: Mapping[str, int | list | np.ndarray],
+    orders_defaults: Mapping[str, np.ndarray],
+) -> dict[str, np.ndarray]:
+    """
+    Ensure that the orders dictionary has the correct shape and type.
 
-    if areinstances(orders, int):
-        orders_ = [
-            (order * np.ones(shape, dtype=int))
-            for order, shape in zip(orders, desired_shapes)
-        ]
-    elif areinstances(orders, list):
-        orders_ = orders
-    else:
-        raise RuntimeError(
-            f"{method}_orders must be a list containing {desired_order} lists or {desired_order} integers"
-        )
+    Parameters:
+    orders (Mapping[str, int | list | np.ndarray]): The orders to check.
+    orders_defaults (Mapping[str, np.ndarray]): The default orders to use for shape reference.
+
+    Returns:
+    dict[str, np.ndarray]: The validated and fixed orders.
+
+    Raises:
+    RuntimeError: If the order is not an int, list, or np.ndarray, or if the list length does not match the default shape.
+
+    Examples:
+    >>> orders_defaults = {'na': np.zeros((1,)), 'nb': np.zeros((2,2)), 'nc': np.zeros((2,))}
+    >>> orders = {'na': 2, 'nb': [[1, 2], [3, 4]], 'nc': np.array([3, 4])}
+    >>> check_fix_orders(orders, orders_defaults)
+    {'na': array([2]), 'nb': array([[1, 2], [3, 4]]), 'nc': array([3, 4])}
+
+    >>> orders = {'na': 2, 'nb': [1, 2, 3], 'nc': np.array([3, 4])}
+    >>> check_fix_orders(orders, orders_defaults)
+    Traceback (most recent call last):
+        ...
+    RuntimeError: Order for nb must have 2 elements
+    """
+    orders_: dict[str, np.ndarray] = {}
+    for name, order in orders.items():
+        if isinstance(order, int):
+            orders_[name] = order * np.ones(
+                orders_defaults[name].shape, dtype=int
+            )
+        elif isinstance(order, list | np.ndarray):
+            orders_[name] = np.array(order, dtype=int)
+            if orders_[name].shape != orders_defaults[name].shape:
+                raise RuntimeError(
+                    f"Order for {name} must have {len(orders_defaults[name])} elements"
+                )
+        else:
+            raise RuntimeError(
+                f"Order for {name} must be a list of integers of shape {orders_defaults[name].shape}"
+            )
+
     return orders_
 
 
 def system_identification(
-    y,
-    u,
+    y: np.ndarray,
+    u: np.ndarray,
     id_method: Literal[
         "FIR",
         "ARX",
@@ -72,16 +89,38 @@ def system_identification(
     ],
     centering: str | None = None,
     IC: str | None = None,
-    tsample: int = 1,
+    ts: float = 1.0,
     FIR_orders: tuple[int | list, int | list] = (1, 0),
-    ARX_orders: list[int] = [1, 1, 0],
-    ARMA_orders: list[int] = [1, 1, 0],
-    ARMAX_orders: list[int] = [1, 1, 1, 0],
-    ARARX_orders: list[int] = [1, 1, 1, 0],
-    ARARMAX_orders: list[int] = [1, 1, 1, 1, 0],
-    OE_orders: list[int] = [1, 1, 0],
-    BJ_orders: list[int] = [1, 1, 1, 1, 0],
-    GEN_orders: list[int] = [1, 1, 1, 1, 1, 0],
+    ARX_orders: tuple[int | list, int | list, int | list] = (1, 1, 0),
+    ARMA_orders: tuple[int | list, int | list, int | list] = (1, 1, 0),
+    ARMAX_orders: tuple[int | list, int | list, int | list, int | list] = (
+        1,
+        1,
+        1,
+        0,
+    ),
+    ARARX_orders: tuple[int | list, int | list, int | list, int | list] = (
+        1,
+        1,
+        1,
+        0,
+    ),
+    ARARMAX_orders: tuple[
+        int | list, int | list, int | list, int | list, int | list
+    ] = (1, 1, 1, 1, 0),
+    OE_orders: tuple[int | list, int | list, int | list] = (1, 1, 0),
+    BJ_orders: tuple[
+        int | list, int | list, int | list, int | list, int | list
+    ] = (
+        1,
+        1,
+        1,
+        1,
+        0,
+    ),
+    GEN_orders: tuple[
+        int | list, int | list, int | list, int | list, int | list, int | list
+    ] = (1, 1, 1, 1, 1, 0),
     na_ord: tuple[int, int] = (0, 5),
     nb_ord: tuple[int, int] = (1, 5),
     nc_ord: tuple[int, int] = (0, 5),
@@ -93,15 +132,14 @@ def system_identification(
     ARMAX_mod: Literal["ILLS", "RLLS", "OPT"] = "ILLS",
     OE_mod: Literal["EOE", "RLLS", "OPT"] = "OPT",
     id_mode: Literal["LLS", "ILLS", "EOE", "RLLS", "OPT"] = "OPT",
-    max_iterations: int = 200,
+    max_iter: int = 200,
     stab_marg: float = 1.0,
     stab_cons: bool = False,
     SS_f: int = 20,
     SS_p: int = 20,
     SS_threshold: float = 0.1,
-    SS_max_order: float = np.nan,
-    SS_fixed_order: float = np.nan,
-    SS_orders: list[int] = [1, 10],
+    SS_order: int = 0,
+    SS_orders: tuple[int, int] = (1, 10),
     SS_D_required: bool = False,
     SS_A_stability: bool = False,
     SS_PK_B_reval: bool = False,
@@ -154,12 +192,14 @@ def system_identification(
         y_rif = 0.0 * y[:, 0]
 
     # Defining default values for orders
-    na = np.zeros((ydim,), dtype=int)
-    nb = np.zeros((ydim, udim), dtype=int)
-    nc = np.zeros((ydim,), dtype=int)
-    nd = np.zeros((ydim,), dtype=int)
-    nf = np.zeros((ydim,), dtype=int)
-    theta = np.zeros((ydim, udim), dtype=int)
+    orders_defaults: Mapping[str, np.ndarray] = {
+        "na": np.zeros((ydim,), dtype=int),
+        "nb": np.zeros((ydim, udim), dtype=int),
+        "nc": np.zeros((ydim,), dtype=int),
+        "nd": np.zeros((ydim,), dtype=int),
+        "nf": np.zeros((ydim,), dtype=int),
+        "theta": np.zeros((ydim, udim), dtype=int),
+    }
 
     model = None
 
@@ -174,77 +214,29 @@ def system_identification(
 
         # INPUT-OUTPUT MODELS
         io_models = {
-            "FIR": (FIR_orders, 2, [nb.shape, theta.shape]),
-            "ARX": (ARX_orders, 3, [na.shape, nb.shape, theta.shape]),
-            "ARMAX": (
-                ARMAX_orders,
-                4,
-                [na.shape, nb.shape, nc.shape, theta.shape],
+            "FIR": dict(zip(["na", "nb", "theta"], (0, *FIR_orders))),
+            "ARX": dict(zip(["na", "nb", "theta"], ARX_orders)),
+            "ARMAX": dict(zip(["na", "nb", "nc", "theta"], ARMAX_orders)),
+            "OE": dict(zip(["nb", "nf", "theta"], OE_orders)),
+            "ARMA": dict(zip(["na", "nc", "theta"], ARMA_orders)),
+            "ARARX": dict(zip(["na", "nb", "nd", "theta"], ARARX_orders)),
+            "ARARMAX": dict(
+                zip(["na", "nb", "nc", "nd", "theta"], ARARMAX_orders)
             ),
-            "OE": (OE_orders, 3, [nb.shape, nf.shape, theta.shape]),
-            "ARMA": (ARMA_orders, 3, [na.shape, nc.shape, theta.shape]),
-            "ARARX": (
-                ARARX_orders,
-                4,
-                [na.shape, nb.shape, nd.shape, theta.shape],
+            "BJ": dict(zip(["nb", "nc", "nd", "nf", "theta"], BJ_orders)),
+            "GEN": dict(
+                zip(["na", "nb", "nc", "nd", "nf", "theta"], GEN_orders)
             ),
-            "ARARMAX": (
-                ARARMAX_orders,
-                5,
-                [na.shape, nb.shape, nc.shape, nd.shape, theta.shape],
-            ),
-            "BJ": (
-                BJ_orders,
-                5,
-                [nb.shape, nc.shape, nd.shape, nf.shape, theta.shape],
-            ),
-            "GEN": (
-                GEN_orders,
-                6,
-                [
-                    na.shape,
-                    nb.shape,
-                    nc.shape,
-                    nd.shape,
-                    nf.shape,
-                    theta.shape,
-                ],
-            ),
-            "EARMAX": (
-                ARMAX_orders,
-                4,
-                [na.shape, nb.shape, nc.shape, theta.shape],
-            ),
-            "EOE": (OE_orders, 3, [nb.shape, nf.shape, theta.shape]),
+            "EARMAX": dict(zip(["na", "nb", "nc", "theta"], ARMAX_orders)),
+            "EOE": dict(zip(["nb", "nf", "theta"], OE_orders)),
         }
 
         if id_method in io_models:
-            orders, n_args, shapes = io_models[id_method]
-
-            orders = check_fix_orders(id_method, orders, n_args, shapes)
-
-            if id_method == "FIR":
-                nb, theta = orders
-            elif id_method == "ARX":
-                na, nb, theta = orders
-            elif id_method == "ARMAX":
-                na, nb, nc, theta = orders
-            elif id_method == "OE":
-                nb, nf, theta = orders
-            elif id_method == "ARMA":
-                na, nc, theta = orders
-            elif id_method == "ARARX":
-                na, nb, nd, theta = orders
-            elif id_method == "ARARMAX":
-                na, nb, nc, nd, theta = orders
-            elif id_method == "BJ":
-                nb, nc, nd, nf, theta = orders
-            elif id_method == "GEN":
-                na, nb, nc, nd, nf, theta = orders
-            elif id_method == "EARMAX":
-                na, nb, nc, theta = orders
-            elif id_method == "EOE":
-                nb, nf, theta = orders
+            orders_: dict = io_models[id_method]
+            orders = dict(orders_defaults)
+            orders.update(orders_)
+            orders = check_fix_orders(orders, orders_defaults)
+            params = {**orders, "ts": ts, "max_iter": max_iter}
 
             # FIR or ARX
             if id_method in ["FIR", "ARX"]:
@@ -252,41 +244,26 @@ def system_identification(
                 if ARX_mod == "LLS" or FIR_mod == "LLS":
                     from . import arxMIMO
 
-                    DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = arxMIMO.ARX_MIMO_id(
-                        y, u, na, nb, theta, tsample
+                    denominator, numerator, G, H, Vn_tot, Yid = (
+                        arxMIMO.ARX_MIMO_id(y, u, **params)
                     )
-                    nc = None
-                    nd = None
-                    nf = None
-                    DENOMINATOR_H = None
-                    NUMERATOR_H = None
+                    denominator_H = None
+                    numerator_H = None
 
                 # Recursive Least Square
                 elif ARX_mod == "RLLS" or FIR_mod == "RLLS":
                     from . import io_rlsMIMO
 
                     (
-                        DENOMINATOR,
-                        NUMERATOR,
-                        DENOMINATOR_H,
-                        NUMERATOR_H,
+                        denominator,
+                        numerator,
+                        denominator_H,
+                        numerator_H,
                         G,
                         H,
                         Vn_tot,
                         Yid,
-                    ) = io_rlsMIMO.GEN_MIMO_id(
-                        id_method,
-                        y,
-                        u,
-                        na,
-                        nb,
-                        nc,
-                        nd,
-                        nf,
-                        theta,
-                        tsample,
-                        max_iterations,
-                    )
+                    ) = io_rlsMIMO.GEN_MIMO_id(id_method, y, u, **params)
 
             # ARMAX
             elif id_method == "ARMAX":
@@ -297,56 +274,40 @@ def system_identification(
                     from . import armaxMIMO
 
                     (
-                        DENOMINATOR,
-                        NUMERATOR,
-                        DENOMINATOR_H,
-                        NUMERATOR_H,
+                        denominator,
+                        numerator,
+                        denominator_H,
+                        numerator_H,
                         G,
                         H,
                         Vn_tot,
                         Yid,
-                    ) = armaxMIMO.ARMAX_MIMO_id(
-                        y, u, na, nb, nc, theta, tsample, max_iterations
-                    )
-                    nd = None
-                    nf = None
+                    ) = armaxMIMO.ARMAX_MIMO_id(y, u, **params)
 
                 # Recursive Least Square
                 elif ARMAX_mod == "RLLS":
                     from . import io_rlsMIMO
 
                     (
-                        DENOMINATOR,
-                        NUMERATOR,
-                        DENOMINATOR_H,
-                        NUMERATOR_H,
+                        denominator,
+                        numerator,
+                        denominator_H,
+                        numerator_H,
                         G,
                         H,
                         Vn_tot,
                         Yid,
-                    ) = io_rlsMIMO.GEN_MIMO_id(
-                        id_method,
-                        y,
-                        u,
-                        na,
-                        nb,
-                        nc,
-                        nd,
-                        nf,
-                        theta,
-                        tsample,
-                        max_iterations,
-                    )
+                    ) = io_rlsMIMO.GEN_MIMO_id(id_method, y, u, **params)
 
                 # OPTMIZATION-BASED
                 elif ARMAX_mod == "OPT":
                     from . import io_optMIMO
 
                     (
-                        DENOMINATOR,
-                        NUMERATOR,
-                        DENOMINATOR_H,
-                        NUMERATOR_H,
+                        denominator,
+                        numerator,
+                        denominator_H,
+                        numerator_H,
                         G,
                         H,
                         Vn_tot,
@@ -355,16 +316,9 @@ def system_identification(
                         id_method,
                         y,
                         u,
-                        na,
-                        nb,
-                        nc,
-                        nd,
-                        nf,
-                        theta,
-                        tsample,
-                        max_iterations,
-                        stab_marg,
-                        stab_cons,
+                        **params,
+                        st_m=stab_marg,
+                        st_c=stab_cons,
                     )
 
             # (OE) Output-Error
@@ -376,37 +330,25 @@ def system_identification(
                     from . import io_rlsMIMO
 
                     (
-                        DENOMINATOR,
-                        NUMERATOR,
-                        DENOMINATOR_H,
-                        NUMERATOR_H,
+                        denominator,
+                        numerator,
+                        denominator_H,
+                        numerator_H,
                         G,
                         H,
                         Vn_tot,
                         Yid,
-                    ) = io_rlsMIMO.GEN_MIMO_id(
-                        id_method,
-                        y,
-                        u,
-                        na,
-                        nb,
-                        nc,
-                        nd,
-                        nf,
-                        theta,
-                        tsample,
-                        max_iterations,
-                    )
+                    ) = io_rlsMIMO.GEN_MIMO_id(id_method, y, u, **params)
 
                 # OPTMIZATION-BASED
                 elif OE_mod == "OPT":
                     from . import io_optMIMO
 
                     (
-                        DENOMINATOR,
-                        NUMERATOR,
-                        DENOMINATOR_H,
-                        NUMERATOR_H,
+                        denominator,
+                        numerator,
+                        denominator_H,
+                        numerator_H,
                         G,
                         H,
                         Vn_tot,
@@ -415,16 +357,9 @@ def system_identification(
                         id_method,
                         y,
                         u,
-                        na,
-                        nb,
-                        nc,
-                        nd,
-                        nf,
-                        theta,
-                        tsample,
-                        max_iterations,
-                        stab_marg,
-                        stab_cons,
+                        **params,
+                        st_m=stab_marg,
+                        st_c=stab_cons,
                     )
 
             elif (
@@ -438,10 +373,10 @@ def system_identification(
                 from . import io_optMIMO
 
                 (
-                    DENOMINATOR,
-                    NUMERATOR,
-                    DENOMINATOR_H,
-                    NUMERATOR_H,
+                    denominator,
+                    numerator,
+                    denominator_H,
+                    numerator_H,
                     G,
                     H,
                     Vn_tot,
@@ -450,35 +385,22 @@ def system_identification(
                     id_method,
                     y,
                     u,
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                    tsample,
-                    max_iterations,
-                    stab_marg,
-                    stab_cons,
+                    **params,
+                    st_m=stab_marg,
+                    st_c=stab_cons,
                 )
 
             Yid = data_recentering(Yid, y_rif, ylength)
             model = IO_MIMO_Model(
-                na,
-                nb,
-                nc,
-                nd,
-                nf,
-                theta,
-                tsample,
-                NUMERATOR,
-                DENOMINATOR,
-                NUMERATOR_H,
-                DENOMINATOR_H,
-                G,
-                H,
-                Vn_tot,
-                Yid,
+                **params,
+                numerator=numerator,
+                denominator=denominator,
+                numerator_H=numerator_H,
+                denominator_H=denominator_H,
+                G=G,
+                H=H,
+                Vn=Vn_tot,
+                Yid=Yid,
             )
 
         # SS MODELS
@@ -495,13 +417,12 @@ def system_identification(
                 from . import OLSims_methods
 
                 A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(
+                    id_method,
                     y,
                     u,
-                    SS_f,
-                    id_method,
+                    SS_order,
                     SS_threshold,
-                    SS_max_order,
-                    SS_fixed_order,
+                    SS_f,
                     SS_D_required,
                     SS_A_stability,
                 )
@@ -509,21 +430,19 @@ def system_identification(
             else:
                 from . import Parsim_methods
 
-                A_K, C, B_K, D, K, A, B, x0, Vn = getattr(
-                    Parsim_methods, id_method.replace("-", "_")
-                )(
+                A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.parsim(
+                    id_method,
                     y,
                     u,
+                    SS_order,
+                    SS_threshold,
                     SS_f,
                     SS_p,
-                    SS_threshold,
-                    SS_max_order,
-                    SS_fixed_order,
                     SS_D_required,
                     SS_PK_B_reval,
                 )
                 Q, R, S = None, None, None
-            model = SS_Model(A, B, C, D, K, tsample, Vn, x0, Q, R, S)
+            model = SS_Model(A, B, C, D, K, ts, Vn, x0, Q, R, S)
 
         # NO method selected
         if model is None:
@@ -601,10 +520,12 @@ def system_identification(
                     flag = config.get("flag", "opt")
                 else:
                     raise RuntimeError(
-                        f"Method {id_mode} not available for {id_method}"
+                        f"Method {id_mode} not available for {id_method}. Available: {method_config.keys()}"
                     )
             else:
-                raise RuntimeError(f"Method {id_method} not available")
+                raise RuntimeError(
+                    f"Method {id_method} not available. Available: {io_models.keys()}"
+                )
 
             orders = na_ord, nb_ord, nc_ord, nd_ord, nf_ord, delays
 
@@ -614,10 +535,10 @@ def system_identification(
                     id_method,
                     y[0],
                     u[0],
-                    tsample,
+                    ts,
                     *orders,
                     IC,
-                    max_iterations,
+                    max_iter,
                     stab_marg,
                     stab_cons,
                 )
@@ -634,16 +555,26 @@ def system_identification(
                         nb_ord,
                         nc_ord,
                         delays,
-                        tsample,
+                        ts,
                         IC,
-                        max_iterations,
+                        max_iter,
                     )
                     #
                     model.find_best_estimate(y[0], u[0])
                     model.Yid = data_recentering(model.Yid, y_rif, ylength)
 
         # SS-MODELS
-        ss_models = {
+        ss_models: dict[
+            Literal[
+                "N4SID",
+                "MOESP",
+                "CVA",
+                "PARSIM-K",
+                "PARSIM-S",
+                "PARSIM-P",
+            ],
+            str,
+        ] = {
             "N4SID": "OLSims_methods",
             "MOESP": "OLSims_methods",
             "CVA": "OLSims_methods",
@@ -665,23 +596,23 @@ def system_identification(
                     SS_D_required,
                     SS_A_stability,
                 )
-                x0 = None
+                A_K, B_K, x0 = None, None, None
             else:
                 from . import Parsim_methods
 
-                A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order(
-                    id_method.split("-")[-1],
+                A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.parsim(
+                    id_method,
                     y,
                     u,
-                    SS_f,
-                    SS_p,
-                    IC,
                     SS_orders,
-                    SS_D_required,
-                    SS_PK_B_reval,
+                    f=SS_f,
+                    p=SS_p,
+                    D_required=SS_D_required,
+                    B_recalc=SS_PK_B_reval,
+                    ic_method=IC,
                 )
                 Q, R, S = None, None, None
-            model = SS_Model(A, B, C, D, K, tsample, Vn, x0, Q, R, S)
+            model = SS_Model(A, B, C, D, K, ts, Vn, x0, Q, R, S, A_K, B_K)
 
         # NO method selected
         if model is None:

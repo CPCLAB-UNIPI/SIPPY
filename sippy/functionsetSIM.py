@@ -11,13 +11,13 @@ import numpy as np
 
 
 def ordinate_sequence(y, f, p):
-    [l, L] = y.shape
+    l_, L = y.shape
     N = L - p - f + 1
-    Yp = np.zeros((l * f, N))
-    Yf = np.zeros((l * f, N))
+    Yp = np.zeros((l_ * f, N))
+    Yf = np.zeros((l_ * f, N))
     for i in range(1, f + 1):
-        Yf[l * (i - 1) : l * i] = y[:, p + i - 1 : L - f + i]
-        Yp[l * (i - 1) : l * i] = y[:, i - 1 : L - f - p + i]
+        Yf[l_ * (i - 1) : l_ * i] = y[:, p + i - 1 : L - f + i]
+        Yp[l_ * (i - 1) : l_ * i] = y[:, i - 1 : L - f - p + i]
     return Yf, Yp
 
 
@@ -111,8 +111,8 @@ def check_inputs(threshold, max_order, fixed_order, f):
 
 def SS_lsim_process_form(A, B, C, D, u, x0=None):
     _, L = u.shape
-    l, n = C.shape
-    y = np.zeros((l, L))
+    l_, n = C.shape
+    y = np.zeros((l_, L))
     x = np.zeros((n, L))
     if x0 is not None:
         x[:, 0] = x0[:, 0]
@@ -125,8 +125,8 @@ def SS_lsim_process_form(A, B, C, D, u, x0=None):
 
 def SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0=None):
     _, L = u.shape
-    l, n = C.shape
-    y_hat = np.zeros((l, L))
+    l_, n = C.shape
+    y_hat = np.zeros((l_, L))
     x = np.zeros((n, L + 1))
     if x0 is not None:
         x[:, 0] = x0[:, 0]
@@ -139,9 +139,9 @@ def SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0=None):
 
 
 def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0=None):
-    m, L = u.shape
-    l, n = C.shape
-    y_hat = np.zeros((l, L))
+    _, L = u.shape
+    l_, n = C.shape
+    y_hat = np.zeros((l_, L))
     x = np.zeros((n, L + 1))
     if x0 is not None:
         x[:, 0] = x0[:, 0]
@@ -155,14 +155,16 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0=None):
     return x, y_hat
 
 
-def K_calc(A, C, Q, R, S):
+def K_calc(
+    A: np.ndarray, C: np.ndarray, Q: np.ndarray, R: np.ndarray, S: np.ndarray
+) -> (np.ndarray, bool):
     n_A = A[0, :].size
     try:
         P, _, _ = cnt.dare(A.T, C.T, Q, R, S, np.identity(n_A))
         K = np.dot(np.dot(A, P), C.T) + S
         K = np.dot(K, np.linalg.inv(np.dot(np.dot(C, P), C.T) + R))
         Calculated = True
-    except:
+    except ValueError:
         K = []
         print("Kalman filter cannot be calculated")
         Calculated = False

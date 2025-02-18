@@ -12,7 +12,15 @@ import numpy as np
 from .functionset import rescale
 
 
-def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
+def ARMAX_MISO_id(
+    y: np.ndarray,
+    u: np.ndarray,
+    na: int,
+    nb: np.ndarray,
+    nc: int,
+    theta: np.ndarray,
+    max_iter: int,
+):
     nb = np.array(nb)
     theta = np.array(theta)
     u = 1.0 * np.atleast_2d(u)
@@ -57,7 +65,7 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
         ID_THETA = np.identity(THETA.size)
         lambdak = 0.5
         iterations = 0
-        while (Vn_old > Vn or iterations == 0) and iterations < max_iterations:
+        while (Vn_old > Vn or iterations == 0) and iterations < max_iter:
             THETA_old = THETA
             Vn_old = Vn
             iterations = iterations + 1
@@ -89,7 +97,7 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
             # adding non-identified outputs
             y_id = np.hstack((y[:val], np.dot(PHI, THETA))) * ystd
 
-        if iterations >= max_iterations:
+        if iterations >= max_iter:
             print("Warning! Reached maximum iterations")
             Reached_max = True
         DEN = np.zeros((udim, val + 1))
@@ -112,7 +120,17 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
 
 
 # MIMO function
-def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
+def ARMAX_MIMO_id(
+    y: np.ndarray,
+    u: np.ndarray,
+    na: np.ndarray,
+    nb: np.ndarray,
+    nc: np.ndarray,
+    theta: np.ndarray,
+    ts: float = 1.0,
+    max_iter: int = 100,
+    **_,
+):
     na = np.array(na)
     nb = np.array(nb)
     nc = np.array(nc)
@@ -157,34 +175,34 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
     else:
         # preallocation
         Vn_tot = 0.0
-        NUMERATOR = []
-        DENOMINATOR = []
-        DENOMINATOR_H = []
-        NUMERATOR_H = []
+        numerator = []
+        denominator = []
+        denominator_H = []
+        numerator_H = []
         Y_id = np.zeros((ydim, ylength))
         # identification in MISO approach
         for i in range(ydim):
             DEN, NUM, NUMH, Vn, y_id, Reached_max = ARMAX_MISO_id(
-                y[i, :], u, na[i], nb[i, :], nc[i], theta[i, :], max_iterations
+                y[i, :], u, na[i], nb[i, :], nc[i], theta[i, :], max_iter
             )
             if Reached_max:
                 print("at ", (i + 1), "° output")
                 print("-------------------------------------")
             # append values to vectors
-            DENOMINATOR.append(DEN.tolist())
-            NUMERATOR.append(NUM.tolist())
-            NUMERATOR_H.append(NUMH.tolist())
-            DENOMINATOR_H.append([DEN.tolist()[0]])
+            denominator.append(DEN.tolist())
+            numerator.append(NUM.tolist())
+            numerator_H.append(NUMH.tolist())
+            denominator_H.append([DEN.tolist()[0]])
             Vn_tot = Vn + Vn_tot
             Y_id[i, :] = y_id
         # FdT
-        G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
-        H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
+        G = cnt.tf(numerator, denominator, ts)
+        H = cnt.tf(numerator_H, denominator_H, ts)
         return (
-            DENOMINATOR,
-            NUMERATOR,
-            DENOMINATOR_H,
-            NUMERATOR_H,
+            denominator,
+            numerator,
+            denominator_H,
+            numerator_H,
             G,
             H,
             Vn_tot,

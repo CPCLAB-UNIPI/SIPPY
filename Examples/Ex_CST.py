@@ -17,9 +17,9 @@ A Continuous Stirred Tank to be identified from input-output data
 import numpy as np
 from utils import create_output_dir, plot_comparison
 
+from sippy import SS_Model, system_identification
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
-from sippy import system_identification
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
@@ -171,24 +171,24 @@ identification_params = {
     "ARMAX": {
         "ARMAX_orders": [na_ords, nb_ords, nc_ords, theta],
         "centering": "MeanVal",
-        "max_iterations": n_iter,
+        "max_iter": n_iter,
         "ARMAX_mod": "OPT",
     },
     "OE": {
         "OE_orders": [nb_ords, nf_ords, theta],
         "centering": "MeanVal",
-        "max_iterations": n_iter,
+        "max_iter": n_iter,
     },
     "BJ": {
         "BJ_orders": [nb_ords, nc_ords, nd_ords, nf_ords, theta],
         "centering": "MeanVal",
-        "max_iterations": n_iter,
+        "max_iter": n_iter,
         "stab_cons": True,
     },
     "GEN": {
         "GEN_orders": [na_ords, nb_ords, nc_ords, nd_ords, nf_ords, theta],
         "centering": "MeanVal",
-        "max_iterations": n_iter,
+        "max_iter": n_iter,
         "stab_cons": True,
         "stab_marg": 0.98,
     },
@@ -203,12 +203,13 @@ for method, params in identification_params.items():
 # choose method
 method = "PARSIM-K"
 SS_ord = 2
-Id_SS = system_identification(Y, U, method, SS_fixed_order=SS_ord)
-
+sys_id = system_identification(Y, U, method, SS_order=SS_ord)
+if not isinstance(sys_id, SS_Model):
+    raise ValueError("SS model not returned")
 # GETTING RESULTS (Y_id)
 # SS
 x_ss, Y_ss = fsetSIM.SS_lsim_process_form(
-    Id_SS.A, Id_SS.B, Id_SS.C, Id_SS.D, U, Id_SS.x0
+    sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0
 )
 
 Ys = [Y] + [getattr(sys, "Yid") for sys in syss] + [Y_ss]
@@ -310,7 +311,7 @@ Yv_arx, Yv_armax, Yv_oe, Yv_bj, Yv_gen = (
 )
 # SS
 x_ss, Yv_ss = fsetSIM.SS_lsim_process_form(
-    Id_SS.A, Id_SS.B, Id_SS.C, Id_SS.D, U_val, Id_SS.x0
+    sys_id.A, sys_id.B, sys_id.C, sys_id.D, U_val, sys_id.x0
 )
 
 Ys_val = [Y_val] + [Yv_arx, Yv_armax, Yv_oe, Yv_bj, Yv_gen, Yv_ss]

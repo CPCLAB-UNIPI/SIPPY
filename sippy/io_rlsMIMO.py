@@ -5,6 +5,7 @@ Created on 2021
 """
 
 import sys
+from typing import Literal
 
 import control.matlab as cnt
 import numpy as np
@@ -13,7 +14,16 @@ from .functionset import rescale
 
 
 def GEN_RLS_MISO_id(
-    id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations
+    id_method: Literal["ARX", "ARMAX", "OE", "FIR"],
+    y: np.ndarray,
+    u: np.ndarray,
+    na: int,
+    nb: np.ndarray,
+    nc: int,
+    nd: int,
+    nf: int,
+    theta: np.ndarray,
+    max_iter: int,
 ):
     nb = np.array(nb)
     theta = np.array(theta)
@@ -138,7 +148,7 @@ def GEN_RLS_MISO_id(
         # Parameters
         THETA = teta[:, -1]
 
-        # if iterations >= max_iterations:
+        # if iterations >= max_iter:
         #   print("Warning! Reached maximum iterations")
         #  Reached_max = True
 
@@ -219,7 +229,18 @@ def GEN_RLS_MISO_id(
 
 # MIMO function
 def GEN_MIMO_id(
-    id_method, y, u, na, nb, nc, nd, nf, theta, tsample=1.0, max_iterations=100
+    id_method: Literal["ARX", "ARMAX", "OE", "FIR"],
+    y: np.ndarray,
+    u: np.ndarray,
+    na: np.ndarray,
+    nb: np.ndarray,
+    nc: np.ndarray,
+    nd: np.ndarray,
+    nf: np.ndarray,
+    theta: np.ndarray,
+    ts: float = 1.0,
+    max_iter: int = 100,
+    **_,
 ):
     na = np.array(na)
     nb = np.array(nb)
@@ -265,10 +286,10 @@ def GEN_MIMO_id(
     else:
         # preallocation
         Vn_tot = 0.0
-        NUMERATOR = []
-        DENOMINATOR = []
-        DENOMINATOR_H = []
-        NUMERATOR_H = []
+        numerator = []
+        denominator = []
+        denominator_H = []
+        numerator_H = []
         Y_id = np.zeros((ydim, ylength))
         # identification in MISO approach
         for i in range(ydim):
@@ -282,26 +303,26 @@ def GEN_MIMO_id(
                 nd[i],
                 nf[i],
                 theta[i, :],
-                max_iterations,
+                max_iter,
             )
             if Reached_max:
                 print("at ", (i + 1), "° output")
                 print("-------------------------------------")
             # append values to vectors
-            DENOMINATOR.append(DEN.tolist())
-            NUMERATOR.append(NUM.tolist())
-            NUMERATOR_H.append(NUMH.tolist())
-            DENOMINATOR_H.append([DENH.tolist()[0]])
+            denominator.append(DEN.tolist())
+            numerator.append(NUM.tolist())
+            numerator_H.append(NUMH.tolist())
+            denominator_H.append([DENH.tolist()[0]])
             Vn_tot = Vn + Vn_tot
             Y_id[i, :] = y_id
         # FdT
-        G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
-        H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
+        G = cnt.tf(numerator, denominator, ts)
+        H = cnt.tf(numerator_H, denominator_H, ts)
         return (
-            DENOMINATOR,
-            NUMERATOR,
-            DENOMINATOR_H,
-            NUMERATOR_H,
+            denominator,
+            numerator,
+            denominator_H,
+            numerator_H,
             G,
             H,
             Vn_tot,

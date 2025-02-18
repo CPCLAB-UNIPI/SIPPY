@@ -23,7 +23,7 @@ def opt_id(
     U,
     Y,
     FLAG,
-    max_iterations,
+    max_iter,
     stab_marg,
     stability_cons,
 ):
@@ -265,9 +265,9 @@ def opt_id(
     nlp = {"x": w_opt, "f": f_obj, "g": g}
 
     # Solver options
-    # sol_opts = {'ipopt.max_iter':max_iterations}#, 'ipopt.tol':1e-10}#,'ipopt.print_level':0,'ipopt.sb':"yes",'print_time':0}
+    # sol_opts = {'ipopt.max_iter':max_iter}#, 'ipopt.tol':1e-10}#,'ipopt.print_level':0,'ipopt.sb':"yes",'print_time':0}
     sol_opts = {
-        "ipopt.max_iter": max_iterations,
+        "ipopt.max_iter": max_iter,
         "ipopt.print_level": 0,
         "ipopt.sb": "yes",
         "print_time": 0,

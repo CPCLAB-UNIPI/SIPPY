@@ -88,7 +88,7 @@ g_sample = cnt.tf(NUM, DEN, sampling_time)
 h_sample = cnt.tf(NUM_H, DEN, sampling_time)
 
 # ## Time responses
-Y1, Time, Xsim = cnt.lsim(g_sample, Usim, Time)
+Y1, Time, Xsim = cnt.lsim(g_sample, Usim, Time)  # type: ignore
 Y2, Time, Xsim = cnt.lsim(h_sample, e_t, Time)
 Ytot = Y1 + Y2
 Utot = Usim + e_t
@@ -164,7 +164,7 @@ elif mode == "FIXED":
 syss = []
 for method, params in identification_params.items():
     sys_id = system_identification(
-        Ytot, Usim, "ARMAX", max_iterations=300, **params
+        Ytot, Usim, id_method="ARMAX", max_iter=300, **params
     )
     syss.append(sys_id)
 
@@ -195,7 +195,7 @@ e_valid = fset.white_noise_var(U_valid.size, white_noise_variance)[0]
 #
 # Compute time responses for true system with new inputs
 
-Yvalid1, Time, Xsim = cnt.lsim(g_sample, U_valid, Time)
+Yvalid1, Time, Xsim = cnt.lsim(g_sample, U_valid, Time)  # type: ignore
 Yvalid2, Time, Xsim = cnt.lsim(h_sample, e_valid, Time)
 Ytotvalid = Yvalid1 + Yvalid2
 

@@ -21,7 +21,7 @@ class Armax:
         delay_bounds,
         dt,
         method="AIC",
-        max_iterations=100,
+        max_iter=100,
     ):
         """Armax model class.
 
@@ -56,20 +56,20 @@ class Armax:
         :type dt: float
         :param method: Method used of to attribute a performance to the model
         :type method: string
-        :param max_iterations: maximum numbers of iterations to find the best fit
-        :type max_iterations: int
+        :param max_iter: maximum numbers of iterations to find the best fit
+        :type max_iter: int
         """
         if not (
-            isinstance(na_bounds, (int, np.ndarray, list, tuple))
-            and isinstance(nb_bounds, (int, np.ndarray, list, tuple))
-            and isinstance(nc_bounds, (int, np.ndarray, list, tuple))
-            and isinstance(delay_bounds, (int, np.ndarray, list, tuple))
-            and isinstance(dt, (int, float))
+            isinstance(na_bounds, int | np.ndarray | list | tuple)
+            and isinstance(nb_bounds, int | np.ndarray | list | tuple)
+            and isinstance(nc_bounds, int | np.ndarray | list | tuple)
+            and isinstance(delay_bounds, int | np.ndarray | list | tuple)
+            and isinstance(dt, int | float)
         ):
             raise ValueError("wrong arguments passed to define an armax model")
 
         for param in (na_bounds, nb_bounds, nc_bounds, delay_bounds):
-            if isinstance(param, (list, tuple)):
+            if isinstance(param, list | tuple):
                 if not all(isinstance(x, int) for x in param):
                     raise ValueError(
                         "wrong arguments passed to define an armax model"
@@ -97,7 +97,7 @@ class Armax:
         self.dt = float(dt)
 
         self.method = method
-        self.max_iterations = max_iterations
+        self.max_iter = max_iter
 
         self.na = None
         self.nb = None
@@ -115,62 +115,33 @@ class Armax:
         nb_bounds = [min(self.nb_range), max(self.nb_range)]
         nc_bounds = [min(self.nc_range), max(self.nc_range)]
         delay_bounds = [min(self.delay_range), max(self.delay_range)]
-        return "Armax({}, {}, {}, {}, {}, {}, {})".format(
-            na_bounds,
-            nb_bounds,
-            nc_bounds,
-            delay_bounds,
-            self.dt,
-            self.method,
-            self.max_iterations,
-        )
+        return f"Armax({na_bounds}, {nb_bounds}, {nc_bounds}, {delay_bounds}, {self.dt}, {self.method}, {self.max_iter})"
 
     def __str__(self):
         return (
             "Armax model:\n"
             "- Params:\n"
-            "  na: {} ({}, {})\n"
-            "  nb: {} ({}, {})\n"
-            "  nc: {} ({}, {})\n"
-            "  delay: {} ({}, {})\n"
-            "  dt: {} \n"
-            "  method: {} \n"
-            "  max iterations: {} \n"
+            f"  na: {self.na} ({min(self.na_range)}, {max(self.na_range)})\n"
+            f"  nb: {self.nb} ({min(self.nb_range)}, {max(self.nb_range)})\n"
+            f"  nc: {self.nc} ({min(self.nc_range)}, {max(self.nc_range)})\n"
+            f"  delay: {self.delay} ({min(self.delay_range)}, {max(self.delay_range)})\n"
+            f"  dt: {self.dt} \n"
+            f"  method: {self.method} \n"
+            f"  max iterations: {self.max_iter} \n"
             "- Output:\n"
-            "  G: {} \n"
-            "  H: {} \n"
-            "  Vn: {} \n"
-            "  Model Output: {} \n"
-            "  Max reached: {}".format(
-                self.na,
-                min(self.na_range),
-                max(self.na_range),
-                self.nb,
-                min(self.nb_range),
-                max(self.nb_range),
-                self.nc,
-                min(self.nc_range),
-                max(self.nc_range),
-                self.delay,
-                min(self.delay_range),
-                max(self.delay_range),
-                self.dt,
-                self.method,
-                self.max_iterations,
-                self.G,
-                self.H,
-                self.Vn,
-                self.Yid,
-                self.max_reached,
-            )
+            f"  G: {self.G} \n"
+            f"  H: {self.H} \n"
+            f"  Vn: {self.Vn} \n"
+            f"  Model Output: {self.Yid} \n"
+            f"  Max reached: {self.max_reached}"
         )
 
     @staticmethod
-    def _identify(y, u, na, nb, nc, delay, max_iterations):
+    def _identify(y, u, na, nb, nc, delay, max_iter):
         """Identify
 
         Given model order as parameter, the recursive algorithm looks for the best fit in less
-        than max_iterations steps.
+        than max_iter steps.
 
         At each step, the algorithm performs a least-square regression. If the
 
@@ -186,8 +157,8 @@ class Armax:
         :type nc: int
         :param delay: discrete delay expressed as a number of shifted indices between u and y
         :type delay: int
-        :param max_iterations: maximum numbers of iterations to find the best fit
-        :type max_iterations: int
+        :param max_iter: maximum numbers of iterations to find the best fit
+        :type max_iter: int
         :return G_num: Numerator of G
         :rtype G_num: float array
         :return G_den: Denominator of G
@@ -225,7 +196,7 @@ class Armax:
 
         # Stay in this loop while variance has not converged or max iterations has not been
         # reached yet.
-        while (Vn_old > Vn or iterations == 0) and iterations < max_iterations:
+        while (Vn_old > Vn or iterations == 0) and iterations < max_iter:
             beta_hat_old = beta_hat
             Vn_old = Vn
             iterations = iterations + 1
@@ -258,7 +229,7 @@ class Armax:
             # adding non-identified outputs
             y_id = np.hstack((y[:max_order], np.dot(X, beta_hat)))
 
-        if iterations >= max_iterations:
+        if iterations >= max_iter:
             warnings.warn("[ARMAX_id] Reached maximum iterations.")
             max_reached = True
 
@@ -300,10 +271,10 @@ class Armax:
 
         IC_old = np.inf
         G_num_opt, G_den_opt, H_num_opt, H_den_opt = (
-            np.nan,
-            np.nan,
-            np.nan,
-            np.nan,
+            np.array(np.nan),
+            np.array(np.nan),
+            np.array(np.nan),
+            np.array(np.nan),
         )
         for na in self.na_range:
             for nb in self.nb_range:
@@ -311,13 +282,13 @@ class Armax:
                     for delay in self.delay_range:
                         G_num, G_den, H_num, H_den, Vn, y_id, max_reached = (
                             Armax._identify(
-                                y, u, na, nb, nc, delay, self.max_iterations
+                                y, u, na, nb, nc, delay, self.max_iter
                             )
                         )
                         if max_reached is True:
                             warnings.warn(
-                                "[ARMAX ID] Max reached for:na: {} | nb: {} | nc: {} | "
-                                "delay: {}".format(na, nb, nc, delay)
+                                f"[ARMAX ID] Max reached for:na: {na} | nb: {nb} | nc: {nc} | "
+                                f"delay: {delay}"
                             )
                         IC = information_criterion(
                             na + nb + delay,

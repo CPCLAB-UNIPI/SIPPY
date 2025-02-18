@@ -10,7 +10,7 @@ import numpy as np
 from .functionset_OPT import opt_id
 
 
-def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c):
+def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iter, st_m, st_c):
     ylength = y.size
 
     # max predictable order
@@ -38,7 +38,7 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
         np.atleast_2d(u),
         y,
         id_method,
-        max_iterations,
+        max_iter,
         st_m,
         st_c,
     )

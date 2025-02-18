@@ -4,8 +4,6 @@ Created on Sat Aug 12 2017
 @author: Giuseppe Armenise
 """
 
-import sys
-
 import control.matlab as cnt
 import numpy as np
 
@@ -74,28 +72,32 @@ def ARX_MISO_id(y, u, na, nb, theta):
 
 
 # MIMO function
-def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
+def ARX_MIMO_id(
+    y: np.ndarray,
+    u: np.ndarray,
+    na: np.ndarray,
+    nb: np.ndarray,
+    theta: np.ndarray,
+    ts: float = 1.0,
+    **_,  # For unused orders passed to function
+):
     na = np.array(na)
     nb = np.array(nb)
     theta = np.array(theta)
     [ydim, ylength] = y.shape
-    [udim, ulength] = u.shape
-    [th1, th2] = theta.shape
+    [th1, _] = theta.shape
     # check dimensions
     sum_ords = np.sum(nb) + np.sum(na) + np.sum(theta)
     if na.size != ydim:
-        sys.exit(
-            "Error! na must be a vector, whose length must be equal to y dimension"
+        raise ValueError(
+            "na must be a vector, whose length must be equal to y dimension"
         )
-    #        return 0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
         raise RuntimeError(
             "nb must be a matrix, whose dimensions must be equal to yxu"
         )
-    #        return 0.,0.,0.,0.,np.inf
     elif th1 != ydim:
         raise RuntimeError("theta matrix must have yxu dimensions")
-    #        return 0.,0.,0.,0.,np.inf
     elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
@@ -108,14 +110,13 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
         raise RuntimeError(
             "na, nb, theta must contain only positive integer elements"
         )
-    #        return 0.,0.,0.,0.,np.inf
     else:
         # preallocation
         Vn_tot = 0.0
-        NUMERATOR = []
-        DENOMINATOR = []
-        DENOMINATOR_H = []
-        NUMERATOR_H = []
+        numerator = []
+        denominator = []
+        denominator_H = []
+        numerator_H = []
         Y_id = np.zeros((ydim, ylength))
         # identification in MISO approach
         for i in range(ydim):
@@ -123,13 +124,13 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
                 y[i, :], u, na[i], nb[i, :], theta[i, :]
             )
             # append values to vectors
-            DENOMINATOR.append(DEN.tolist())
-            NUMERATOR.append(NUM.tolist())
-            NUMERATOR_H.append(NUMH.tolist())
-            DENOMINATOR_H.append([DEN.tolist()[0]])
+            denominator.append(DEN.tolist())
+            numerator.append(NUM.tolist())
+            numerator_H.append(NUMH.tolist())
+            denominator_H.append([DEN.tolist()[0]])
             Vn_tot = Vn_tot + Vn
             Y_id[i, :] = y_id
         # FdT
-        G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
-        H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
-        return DENOMINATOR, NUMERATOR, G, H, Vn_tot, Y_id
+        G = cnt.tf(numerator, denominator, ts)
+        H = cnt.tf(numerator_H, denominator_H, ts)
+        return denominator, numerator, G, H, Vn_tot, Y_id

@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from utils import create_output_dir
 
+from sippy import SS_Model, system_identification
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
-from sippy import system_identification
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
@@ -66,15 +66,19 @@ plt.title("Ytot")
 
 # System identification
 METHOD = ["N4SID", "CVA", "MOESP", "PARSIM-S", "PARSIM-P", "PARSIM-K"]
-lege = ["System"]
+legend = ["System"]
 for i in range(len(METHOD)):
     method = METHOD[i]
-    sys_id = system_identification(y_tot, U, method, SS_fixed_order=2)
+    sys_id = system_identification(
+        y_tot, U, method, SS_order=2, SS_threshold=0.1
+    )
+    if not isinstance(sys_id, SS_Model):
+        raise ValueError("SS model not returned")
     xid, yid = fsetSIM.SS_lsim_process_form(
         sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0
     )
     #
     plt.plot(Time, yid[0])
     plt.savefig(output_dir + "/result.png")
-    lege.append(method)
-plt.legend(lege)
+    legend.append(method)
+plt.legend(legend)

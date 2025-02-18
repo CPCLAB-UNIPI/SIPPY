@@ -121,19 +121,19 @@ theta_list = th
 identification_params = {
     "ARMAX-I": {
         "ARMAX_orders": [ordersna, ordersnb, ordersnc, theta_list],
-        "max_iterations": 20,
+        "max_iter": 20,
         "centering": "MeanVal",
     },
     "ARMAX-O": {
         "ARMAX_orders": [ordersna, ordersnb, ordersnc, theta_list],
         "ARMAX_mod": "OPT",
-        "max_iterations": 20,
+        "max_iter": 20,
         "centering": None,
     },
     "ARMAX-R": {
         "ARMAX_orders": [ordersna, ordersnb, ordersnc, theta_list],
         "ARMAX_mod": "RLLS",
-        "max_iterations": 20,
+        "max_iter": 20,
         "centering": "InitVal",
     },
 }

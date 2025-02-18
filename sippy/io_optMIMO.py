@@ -5,6 +5,7 @@ Created on 2021
 """
 
 import sys
+from typing import Literal
 
 import control.matlab as cnt
 import numpy as np
@@ -14,7 +15,18 @@ from .functionset_OPT import opt_id
 
 
 def GEN_MISO_id(
-    id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c
+    id_method: Literal["BJ", "GEN", "ARARX", "ARARMAX"],
+    y: np.ndarray,
+    u: np.ndarray,
+    na: int,
+    nb: np.ndarray,
+    nc: int,
+    nd: int,
+    nf: int,
+    theta: np.ndarray,
+    max_iter: int,
+    st_m,
+    st_c: bool,
 ):
     # nb = np.array(nb)
     # theta = np.array(theta)
@@ -64,7 +76,7 @@ def GEN_MISO_id(
             np.atleast_2d(u),
             y,
             id_method,
-            max_iterations,
+            max_iter,
             st_m,
             st_c,
         )
@@ -91,7 +103,7 @@ def GEN_MISO_id(
         THETA = np.array(x_opt[:n_coeff])[:, 0]
 
         # Check iteration numbers
-        if iterations >= max_iterations:
+        if iterations >= max_iter:
             print("Warning! Reached maximum iterations")
             Reached_max = True
 
@@ -178,18 +190,19 @@ def GEN_MISO_id(
 # MIMO function
 def GEN_MIMO_id(
     id_method,
-    y,
-    u,
-    na,
-    nb,
-    nc,
-    nd,
-    nf,
-    theta,
-    tsample,
-    max_iterations,
+    y: np.ndarray,
+    u: np.ndarray,
+    na: np.ndarray,
+    nb: np.ndarray,
+    nc: np.ndarray,
+    nd: np.ndarray,
+    nf: np.ndarray,
+    theta: np.ndarray,
+    ts: float,
+    max_iter: int,
     st_m,
-    st_c,
+    st_c: bool,
+    **_,
 ):
     na = np.array(na)
     nb = np.array(nb)
@@ -256,10 +269,10 @@ def GEN_MIMO_id(
     else:
         # preallocation
         Vn_tot = 0.0
-        NUMERATOR = []
-        DENOMINATOR = []
-        DENOMINATOR_H = []
-        NUMERATOR_H = []
+        numerator = []
+        denominator = []
+        denominator_H = []
+        numerator_H = []
         Y_id = np.zeros((ydim, ylength))
         # identification in MISO approach
         for i in range(ydim):
@@ -273,7 +286,7 @@ def GEN_MIMO_id(
                 nd[i],
                 nf[i],
                 theta[i, :],
-                max_iterations,
+                max_iter,
                 st_m,
                 st_c,
             )
@@ -283,16 +296,16 @@ def GEN_MIMO_id(
                 print("-------------------------------------")
 
             # append values to vectors
-            DENOMINATOR.append(DEN.tolist())
-            NUMERATOR.append(NUM.tolist())
-            NUMERATOR_H.append(NUMH.tolist())
-            DENOMINATOR_H.append(DENH.tolist())
-            # DENOMINATOR_H.append([DEN.tolist()[0]])
+            denominator.append(DEN.tolist())
+            numerator.append(NUM.tolist())
+            numerator_H.append(NUMH.tolist())
+            denominator_H.append(DENH.tolist())
+            # denominator_H.append([DEN.tolist()[0]])
             Vn_tot = Vn + Vn_tot
             Y_id[i, :] = y_id
         # FdT
-        G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
-        H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
+        G = cnt.tf(numerator, denominator, ts)
+        H = cnt.tf(numerator_H, denominator_H, ts)
 
         check_st_H = np.zeros(1) if id_method == "OE" else np.abs(cnt.poles(H))
         if max(np.abs(cnt.poles(G))) > 1.0 or max(check_st_H) > 1.0:
@@ -302,10 +315,10 @@ def GEN_MIMO_id(
                       ... against the imposed stability margin {st_m}")
 
         return (
-            DENOMINATOR,
-            NUMERATOR,
-            DENOMINATOR_H,
-            NUMERATOR_H,
+            denominator,
+            numerator,
+            denominator_H,
+            numerator_H,
             G,
             H,
             Vn_tot,

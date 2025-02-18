@@ -65,7 +65,7 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
 # N: sequence length (total number of samples);
 # sigma: standard deviation (mobility) of randow walk
 # rw0: initial value
-def RW_seq(N, rw0, sigma=1):
+def RW_seq(N, rw0, sigma: float = 1.0):
     rw = rw0 * np.ones(N)
     for i in range(N - 1):
         # return random sample from a normal (Gaussian) distribution with:
@@ -208,6 +208,8 @@ def validation(SYS, u, y, Time, k=1, centering=None):
             # impulse response of disturbance model H
             T, hout = cnt.impulse_response(SYS.H[i, 0], T=Time)
             # extract first k-1 coefficients
+            if hout is None:
+                raise RuntimeError("H is not a valid transfer function")
             h_k_num = hout[0:k]
             # set denumerator
             h_k_den = np.hstack((np.ones((1, 1)), np.zeros((1, k - 1))))

@@ -41,8 +41,9 @@ class SS_Model:
         Q=None,
         R=None,
         S=None,
+        A_K=None,
+        B_K=None,
     ):
-        pass
         self.A = A
         self.B = B
         self.C = C
@@ -61,14 +62,12 @@ class SS_Model:
             self.x0 = np.zeros((A[:, 0].size, 1))
 
         try:
-            A_K = A - np.dot(K, C)
-            B_K = B - np.dot(K, D)
+            self.A_K = A - np.dot(K, C) if A_K is None else A_K
+            self.B_K = B - np.dot(K, D) if B_K is None else B_K
         # TODO: find out why error is not raised
         except ValueError:
-            A_K = []
-            B_K = []
-        self.A_K = A_K
-        self.B_K = B_K
+            self.A_K = []
+            self.B_K = []
 
     @classmethod
     def _from_order(
@@ -101,6 +100,7 @@ class IO_SISO_Model:
         H: cnt.TransferFunction,
         Vn,
         Yid,
+        **kwargs,
     ):
         self.na = na
         self.nb = nb
@@ -115,17 +115,27 @@ class IO_SISO_Model:
         self.H = H
         self.Vn = Vn
         self.Yid = Yid
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     @classmethod
     def _from_order(
         cls,
         flag: Literal["arx", "rls", "opt"],
         id_method: Literal[
-            "BJ", "GEN", "ARARX", "ARARMAX", "ARMA", "ARMAX", "ARX", "OE", "FIR"
+            "BJ",
+            "GEN",
+            "ARARX",
+            "ARARMAX",
+            "ARMA",
+            "ARMAX",
+            "ARX",
+            "OE",
+            "FIR",
         ],
         y,
         u,
-        tsample: int = 1,
+        ts: int = 1,
         na_ord: int | tuple[int, int] = (0, 5),
         nb_ord: int | tuple[int, int] = (1, 5),
         nc_ord: int | tuple[int, int] = (0, 5),
@@ -133,7 +143,7 @@ class IO_SISO_Model:
         nf_ord: int | tuple[int, int] = (0, 5),
         delays: int | tuple[int, int] = (0, 5),
         ic_method: Literal["AIC", "AICc", "BIC"] = "AIC",
-        max_iterations: int = 200,
+        max_iter: int = 200,
         st_m: float = 1.0,
         st_c: bool = False,
     ):
@@ -179,7 +189,7 @@ class IO_SISO_Model:
                     i_d,
                     i_f,
                     i_t,
-                    max_iterations,
+                    max_iter,
                     st_m,
                     st_c,
                 )
@@ -226,7 +236,7 @@ class IO_SISO_Model:
                 nd,
                 nf,
                 theta,
-                max_iterations,
+                max_iter,
                 st_m,
                 st_c,
             )
@@ -252,8 +262,8 @@ class IO_SISO_Model:
             NUM[theta : nb + theta] = NUM[theta : nb + theta] * ystd / Ustd
 
         # FdT
-        G = cnt.tf(NUM, DEN, tsample)
-        H = cnt.tf(NUMH, DENH, tsample)
+        G = cnt.tf(NUM, DEN, ts)
+        H = cnt.tf(NUMH, DENH, ts)
 
         if G is None or H is None:
             raise RuntimeError("tf could not be created")
@@ -270,7 +280,7 @@ class IO_SISO_Model:
                     f"Consider activating the stability constraint. The maximum pole is {max(poles_H, poles_G)}  "
                 )
 
-        return cls(na, nb, nc, nd, nf, theta, tsample, NUM, DEN, G, H, Vn, Yid)
+        return cls(na, nb, nc, nd, nf, theta, ts, NUM, DEN, G, H, Vn, Yid)
 
 
 class IO_MIMO_Model(IO_SISO_Model):
@@ -283,14 +293,15 @@ class IO_MIMO_Model(IO_SISO_Model):
         nf,
         theta,
         ts,
-        NUMERATOR,
-        DENOMINATOR,
-        NUMERATOR_H,
-        DENOMINATOR_H,
+        numerator,
+        denominator,
+        numerator_H,
+        denominator_H,
         G,
         H,
         Vn,
         Yid,
+        **kwargs,
     ):
         super().__init__(
             na,
@@ -300,12 +311,13 @@ class IO_MIMO_Model(IO_SISO_Model):
             nf,
             theta,
             ts,
-            NUMERATOR,
-            DENOMINATOR,
+            numerator,
+            denominator,
             G,
             H,
             Vn,
             Yid,
+            **kwargs,
         )
-        self.NUMERATOR_H = NUMERATOR_H
-        self.DENOMINATOR_H = DENOMINATOR_H
+        self.numerator_H = numerator_H
+        self.denominator_H = denominator_H

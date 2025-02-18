@@ -38,3 +38,25 @@ jupyter = "^1.0.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--doctest-modules",
+    "--doctest-glob=README.md",
+    "--verbose",
+    "-ra",
+    "-m not datasets and not slow",
+    "--color=yes",
+]
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "NUMBER",
+    "ELLIPSIS",
+    "IGNORE_EXCEPTION_DETAIL",
+]
+norecursedirs = [".*"]
+
+[tool.ruff]
+lint.ignore = ["E501"]
+lint.select = ["E", "F", "I", "UP"] # https://beta.ruff.rs/docs/rules/
+line-length = 79
