@@ -4,15 +4,11 @@ Created on 2021
 @author: RBdC & MV
 """
 
-import sys
-
 import control.matlab as cnt
 import numpy as np
 
-from .functionset import information_criterion, rescale
 
-
-def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
+def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta):
     ylength = y.size
 
     # max number of non predictable data
@@ -115,8 +111,9 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
 
     # G
     # numG (B)
+    # TODO: find out if depreciated or not needed
     if id_method == "ARMA":
-        NUM = 1.0
+        NUM = np.array(1)
     else:
         NUM = np.zeros(valG)
         ng = nf if id_method == "OE" else na
@@ -159,191 +156,3 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
     DENH[0 : na + nd + 1] = denH
 
     return NUM, DEN, NUMH, DENH, Vn, y_id
-
-
-def select_order_GEN(
-    id_method,
-    y,
-    u,
-    tsample=1.0,
-    na_ord=[0, 5],
-    nb_ord=[1, 5],
-    nc_ord=[0, 5],
-    nd_ord=[0, 5],
-    nf_ord=[0, 5],
-    delays=[0, 5],
-    method="AIC",
-    max_iterations=200,
-):
-    # order ranges
-    na_Min = min(na_ord)
-    na_MAX = max(na_ord) + 1
-    nb_Min = min(nb_ord)
-    nb_MAX = max(nb_ord) + 1
-    nc_Min = min(nc_ord)
-    nc_MAX = max(nc_ord) + 1
-    nd_Min = min(nd_ord)
-    nd_MAX = max(nd_ord) + 1
-    nf_Min = min(nf_ord)
-    nf_MAX = max(nf_ord) + 1
-    theta_Min = min(delays)
-    theta_Max = max(delays) + 1
-    # check orders
-    sum_ords = np.sum(
-        na_Min
-        + na_MAX
-        + nb_Min
-        + nb_MAX
-        + nc_Min
-        + nc_MAX
-        + nd_Min
-        + nd_MAX
-        + nf_Min
-        + nf_MAX
-        + theta_Min
-        + theta_Max
-    )
-    if (
-        (
-            np.issubdtype(sum_ords, np.signedinteger)
-            or np.issubdtype(sum_ords, np.unsignedinteger)
-        )
-        and na_Min >= 0
-        and nb_Min > 0
-        and nc_Min >= 0
-        and nd_Min >= 0
-        and nf_Min >= 0
-        and theta_Min >= 0
-    ) is False:
-        sys.exit(
-            "Error! na, nc, nd, nf, theta must be positive integers, nb must be strictly positive integer"
-        )
-    #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
-    elif y.size != u.size:
-        raise RuntimeError("y and u must have tha same length")
-    #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
-    else:
-        ystd, y = rescale(y)
-        Ustd, u = rescale(u)
-        IC_old = np.inf
-        for i_a in range(na_Min, na_MAX):
-            for i_b in range(nb_Min, nb_MAX):
-                for i_c in range(nc_Min, nc_MAX):
-                    for i_d in range(nd_Min, nd_MAX):
-                        for i_f in range(nf_Min, nf_MAX):
-                            for i_t in range(theta_Min, theta_Max):
-                                _, _, _, _, Vn, y_id = GEN_RLS_id(
-                                    id_method,
-                                    y,
-                                    u,
-                                    i_a,
-                                    i_b,
-                                    i_c,
-                                    i_d,
-                                    i_f,
-                                    i_t,
-                                    max_iterations,
-                                )
-                                IC = information_criterion(
-                                    i_a + i_b + i_c + i_d + i_f,
-                                    y.size
-                                    - max(i_a, i_b + i_t, i_c, i_d, i_f),
-                                    Vn * 2,
-                                    method,
-                                )
-                                # --> nota: non mi torna cosa scritto su ARMAX
-                                if IC < IC_old:
-                                    (
-                                        na_min,
-                                        nb_min,
-                                        nc_min,
-                                        nd_min,
-                                        nf_min,
-                                        theta_min,
-                                    ) = i_a, i_b, i_c, i_d, i_f, i_t
-                                    IC_old = IC
-        print(
-            "suggested orders are: Na=",
-            na_min,
-            "; Nb=",
-            nb_min,
-            "; Nc=",
-            nc_min,
-            "; Nd=",
-            nd_min,
-            "; Nf=",
-            nf_min,
-            "; Delay: ",
-            theta_min,
-        )
-
-        # rerun identification
-        NUM, DEN, NUMH, DENH, Vn, y_id = GEN_RLS_id(
-            id_method,
-            y,
-            u,
-            na_min,
-            nb_min,
-            nc_min,
-            nd_min,
-            nf_min,
-            theta_min,
-            max_iterations,
-        )
-        Y_id = np.atleast_2d(y_id) * ystd
-
-        # rescale NUM coeff
-        NUM[theta_min : nb_min + theta_min] = (
-            NUM[theta_min : nb_min + theta_min] * ystd / Ustd
-        )
-
-        # FdT
-        g_identif = cnt.tf(NUM, DEN, tsample)
-        h_identif = cnt.tf(NUMH, DENH, tsample)
-        return (
-            na_min,
-            nb_min,
-            nc_min,
-            nd_min,
-            nf_min,
-            theta_min,
-            g_identif,
-            h_identif,
-            NUM,
-            DEN,
-            Vn,
-            Y_id,
-        )
-
-
-# creating object GEN model
-class GEN_model:
-    def __init__(
-        self,
-        na,
-        nb,
-        nc,
-        nd,
-        nf,
-        theta,
-        ts,
-        NUMERATOR,
-        DENOMINATOR,
-        G,
-        H,
-        Vn,
-        Yid,
-    ):
-        self.na = na
-        self.nb = nb
-        self.nc = nc
-        self.nc = nd
-        self.nc = nf
-        self.theta = theta
-        self.ts = ts
-        self.NUMERATOR = NUMERATOR
-        self.DENOMINATOR = DENOMINATOR
-        self.G = G
-        self.H = H
-        self.Vn = Vn
-        self.Yid = Yid

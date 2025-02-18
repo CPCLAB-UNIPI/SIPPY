@@ -4,9 +4,9 @@ Created on Sat Nov 04 2017
 @author: Giuseppe Armenise
 """
 
-import sys
+from typing import Literal
+from warnings import warn
 
-import control as cnt
 import numpy as np
 import scipy as sc
 
@@ -90,9 +90,9 @@ def simulations_sequence(A_K, C, L, y, u, l, m, n, D_required):
             K = vect[n * m + l * m : n * m + l * m + n * l, :].reshape((n, l))
             x0 = vect[n * m + l * m + n * l : :, :].reshape((n, 1))
             y_sim.append(
-                (
-                    SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)[1]
-                ).reshape((1, L * l))
+                (SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)[1]).reshape(
+                    (1, L * l)
+                )
             )
             vect[i, 0] = 0.0
     else:
@@ -105,9 +105,9 @@ def simulations_sequence(A_K, C, L, y, u, l, m, n, D_required):
             K = vect[n * m : n * m + n * l, :].reshape((n, l))
             x0 = vect[n * m + n * l : :, :].reshape((n, 1))
             y_sim.append(
-                (
-                    SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)[1]
-                ).reshape((1, L * l))
+                (SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)[1]).reshape(
+                    (1, L * l)
+                )
             )
             vect[i, 0] = 0.0
     y_matrix = 1.0 * y_sim[0]
@@ -128,9 +128,9 @@ def simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required):
             D = vect[n * m : n * m + l * m, :].reshape((l, m))
             x0 = vect[n * m + l * m : :, :].reshape((n, 1))
             y_sim.append(
-                (
-                    SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)[1]
-                ).reshape((1, L * l))
+                (SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)[1]).reshape(
+                    (1, L * l)
+                )
             )
             vect[i, 0] = 0.0
     else:
@@ -142,9 +142,9 @@ def simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required):
             B_K = vect[0 : n * m, :].reshape((n, m))
             x0 = vect[n * m : :, :].reshape((n, 1))
             y_sim.append(
-                (
-                    SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)[1]
-                ).reshape((1, L * l))
+                (SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)[1]).reshape(
+                    (1, L * l)
+                )
             )
             vect[i, 0] = 0.0
     y_matrix = 1.0 * y_sim[0]
@@ -202,9 +202,7 @@ def PARSIM_K(
             np.inf,
         )
     else:
-        threshold, max_order = check_inputs(
-            threshold, max_order, fixed_order, f
-        )
+        threshold, max_order = check_inputs(threshold, max_order, fixed_order, f)
         N = L - f - p + 1
         Ustd = np.zeros(m)
         Ystd = np.zeros(l)
@@ -216,9 +214,7 @@ def PARSIM_K(
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
         M = np.dot(Yf[0:l, :], np.linalg.pinv(impile(Zp, Uf[0:m, :])))
-        Matrix_pinv = np.linalg.pinv(
-            impile(Zp, impile(Uf[0:m, :], Yf[0:l, :]))
-        )
+        Matrix_pinv = np.linalg.pinv(impile(Zp, impile(Uf[0:m, :], Yf[0:l, :])))
         Gamma_L = M[:, 0 : (m + l) * f]
         H_K = M[:, (m + l) * f : :]
         G_K = np.zeros((l, l))
@@ -268,7 +264,8 @@ def PARSIM_K(
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
-def select_order_PARSIM_K(
+def select_order(
+    mode: Literal["K", "S", "P"],
     y,
     u,
     f=20,
@@ -297,108 +294,134 @@ def select_order_PARSIM_K(
         )
     else:
         if min_ord < 1:
-            sys.stdout.write("\033[0;35m")
-            print("Warning: The minimum model order will be setted to 1")
-            sys.stdout.write(" ")
+            warn("The minimum model order will be set to 1")
             min_ord = 1
         max_ord = max(orders) + 1
         if f < min_ord:
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning! The horizon must be larger than the model order, min_order setted as f"
+            warn(
+                f"The horizon must be larger than the model order, min_order set to {f}"
             )
-            sys.stdout.write(" ")
             min_ord = f
         if f < max_ord - 1:
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning! The horizon must be larger than the model order, max_order setted as f"
+            warn(
+                f"The horizon must be larger than the model order, max_order set to {f}"
             )
-            sys.stdout.write(" ")
             max_ord = f + 1
-        IC_old = np.inf
-        N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l):
-            Ystd[j], y[j] = rescale(y[j])
-        Yf, Yp = ordinate_sequence(y, f, p)
-        Uf, Up = ordinate_sequence(u, f, p)
-        Zp = impile(Up, Yp)
-        M = np.dot(Yf[0:l, :], np.linalg.pinv(impile(Zp, Uf[0:m, :])))
-        Matrix_pinv = np.linalg.pinv(
-            impile(Zp, impile(Uf[0:m, :], Yf[0:l, :]))
-        )
-        Gamma_L = M[:, 0 : (m + l) * f]
-        H_K = M[:, (m + l) * f : :]
-        G_K = np.zeros((l, l))
-        for i in range(1, f):
-            y_tilde = estimating_y(H_K, Uf, G_K, Yf, i, m, l)
+    IC_old = np.inf
+    N = L - f - p + 1
+    Ustd = np.zeros(m)
+    Ystd = np.zeros(l)
+    for j in range(m):
+        Ustd[j], u[j] = rescale(u[j])
+    for j in range(l):
+        Ystd[j], y[j] = rescale(y[j])
+    Yf, Yp = ordinate_sequence(y, f, p)
+    Uf, Up = ordinate_sequence(u, f, p)
+    Zp = impile(Up, Yp)
+
+    Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:m, :]))
+    M = np.dot(Yf[0:l, :], Matrix_pinv)
+
+    Gamma_L = M[:, 0 : (m + l) * f]
+
+    H = M[:, (m + l) * f : :]
+    G = np.zeros((l, l))
+    for i in range(1, f):
+        if mode == "K":
+            y_tilde = estimating_y(H, Uf, G, Yf, i, m, l)
             M = np.dot((Yf[l * i : l * (i + 1)] - y_tilde), Matrix_pinv)
-            H_K = impile(H_K, M[:, (m + l) * f : (m + l) * f + m])
-            G_K = impile(G_K, M[:, (m + l) * f + m : :])
-            Gamma_L = impile(Gamma_L, (M[:, 0 : (m + l) * f]))
-        U_n0, S_n0, V_n0 = SVD_weighted_K(Uf, Zp, Gamma_L)
-        for i in range(min_ord, max_ord):
-            U_n, S_n, V_n = reducingOrder(U_n0, S_n0, V_n0, 0.0, i)
-            n = S_n.size
-            S_n = np.diag(S_n)
-            Ob_K = np.dot(U_n, sc.linalg.sqrtm(S_n))
-            A_K = np.dot(
-                np.linalg.pinv(Ob_K[0 : l * (f - 1), :]), Ob_K[l::, :]
-            )
-            C = Ob_K[0:l, :]
-            y_sim = simulations_sequence(A_K, C, L, y, u, l, m, n, D_required)
-            vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Y_estimate = np.dot(y_sim, vect)
-            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
-            K_par = 2 * n * l + m * n
-            if D_required:
-                K_par = K_par + l * m
-            IC = information_criterion(K_par, L, Vn, method)
-            if IC < IC_old:
-                n_min = i
-                IC_old = IC
-        print("The suggested order is: n=", n_min)
-        U_n, S_n, V_n = reducingOrder(U_n0, S_n0, V_n0, 0.0, n_min)
-        n = S_n.size
-        S_n = np.diag(S_n)
-        Ob_K = np.dot(U_n, sc.linalg.sqrtm(S_n))
-        A_K = np.dot(np.linalg.pinv(Ob_K[0 : l * (f - 1), :]), Ob_K[l::, :])
-        C = Ob_K[0:l, :]
-        y_sim = simulations_sequence(A_K, C, L, y, u, l, m, n, D_required)
+            H = impile(H, M[:, (m + l) * f : (m + l) * f + m])
+            G = impile(G, M[:, (m + l) * f + m : :])
+        elif mode == "S":
+            y_tilde = estimating_y_S(H, Uf, Yf, i, m, l)
+            M = np.dot((Yf[l * i : l * (i + 1)] - y_tilde), Matrix_pinv)
+            H = impile(H, M[:, (m + l) * f : :])
+        elif mode == "P":
+            Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0 : m * (i + 1), :]))
+            M = np.dot((Yf[l * i : l * (i + 1)]), Matrix_pinv)
+    Gamma_L = impile(Gamma_L, (M[:, 0 : (m + l) * f]))
+
+    U_n0, S_n0, V_n0 = SVD_weighted_K(Uf, Zp, Gamma_L)
+
+    for i in range(min_ord, max_ord):
+        U_n, S_n, V_n = reducingOrder(U_n0, S_n0, V_n0, 0.0, i)
+        if mode == "K":
+            y_sim, S_n = sim_observed_seq(y, u, f, D_required, l, L, m, U_n, S_n)
+
+        else:
+            A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
+            y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
         Y_estimate = np.dot(y_sim, vect)
         Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
-        B_K = vect[0 : n * m, :].reshape((n, m))
+
+        K_par = 2 * n * l + m * n
         if D_required:
-            D = vect[n * m : n * m + l * m, :].reshape((l, m))
+            K_par = K_par + l * m
+        IC = information_criterion(K_par, L, Vn, method)
+        if IC < IC_old:
+            n_min = i
+            IC_old = IC
+
+    print("The suggested order is: n=", n_min)
+
+    U_n, S_n, V_n = reducingOrder(U_n0, S_n0, V_n0, 0.0, n_min)
+
+    if mode == "K":
+        y_sim, S_n = sim_observed_seq(y, u, f, D_required, l, L, m, U_n, S_n)
+
+    else:
+        A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
+        y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
+
+    vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
+    Y_estimate = np.dot(y_sim, vect)
+    Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+    B_K = vect[0 : n * m, :].reshape((n, m))
+
+    if D_required:
+        D = vect[n * m : n * m + l * m, :].reshape((l, m))
+        if mode == "K":
             K = vect[n * m + l * m : n * m + l * m + n * l, :].reshape((n, l))
             x0 = vect[n * m + l * m + n * l : :, :].reshape((n, 1))
         else:
-            D = np.zeros((l, m))
+            x0 = vect[n * m + l * m : :, :].reshape((n, 1))
+    else:
+        D = np.zeros((l, m))
+        if mode == "K":
             K = vect[n * m : n * m + n * l, :].reshape((n, l))
             x0 = vect[n * m + n * l : :, :].reshape((n, 1))
-        A = A_K + np.dot(K, C)
-        if B_recalc:
-            y_sim = recalc_K(A, C, D, u)
-            vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Y_estimate = np.dot(y_sim, vect)
-            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
-            B = vect[0 : n * m, :].reshape((n, m))
+        else:
             x0 = vect[n * m : :, :].reshape((n, 1))
-            B_K = B - np.dot(K, D)
-        for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
-        for j in range(l):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
-        B = B_K + np.dot(K, D)
-        return A_K, C, B_K, D, K, A, B, x0, Vn
+
+    if mode == "K" and B_recalc:
+        A = A_K + np.dot(K, C)
+        y_sim = recalc_K(A, C, D, u)
+        vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
+        Y_estimate = np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
+        B = vect[0 : n * m, :].reshape((n, m))
+        x0 = vect[n * m : :, :].reshape((n, 1))
+        B_K = B - np.dot(K, D)
+    for j in range(m):
+        B_K[:, j] = B_K[:, j] / Ustd[j]
+        D[:, j] = D[:, j] / Ustd[j]
+    for j in range(l):
+        K[:, j] = K[:, j] / Ystd[j]
+        C[j, :] = C[j, :] * Ystd[j]
+        D[j, :] = D[j, :] * Ystd[j]
+    B = B_K + np.dot(K, D)
+    return A_K, C, B_K, D, K, A, B, x0, Vn
+
+
+def sim_observed_seq(y, u, f, D_required, l, L, m, U_n, S_n):
+    n = S_n.size
+    S_n = np.diag(S_n)
+    Ob_K = np.dot(U_n, sc.linalg.sqrtm(S_n))
+    A_K = np.dot(np.linalg.pinv(Ob_K[0 : l * (f - 1), :]), Ob_K[l::, :])
+    C = Ob_K[0:l, :]
+    y_sim = simulations_sequence(A_K, C, L, y, u, l, m, n, D_required)
+    return y_sim, S_n
 
 
 def PARSIM_S(
@@ -429,9 +452,7 @@ def PARSIM_S(
             np.inf,
         )
     else:
-        threshold, max_order = check_inputs(
-            threshold, max_order, fixed_order, f
-        )
+        threshold, max_order = check_inputs(threshold, max_order, fixed_order, f)
         N = L - f - p + 1
         Ustd = np.zeros(m)
         Ystd = np.zeros(l)
@@ -453,116 +474,7 @@ def PARSIM_S(
             H = impile(H, M[:, (m + l) * f : :])
         U_n, S_n, V_n = SVD_weighted_K(Uf, Zp, Gamma_L)
         U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold, max_order)
-        A, C, A_K, K, n = AK_C_estimating_S_P(
-            U_n, S_n, V_n, l, f, m, Zp, Uf, Yf
-        )
-        y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
-        vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-        Y_estimate = np.dot(y_sim, vect)
-        Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
-        B_K = vect[0 : n * m, :].reshape((n, m))
-        if D_required:
-            D = vect[n * m : n * m + l * m, :].reshape((l, m))
-            x0 = vect[n * m + l * m : :, :].reshape((n, 1))
-        else:
-            D = np.zeros((l, m))
-            x0 = vect[n * m : :, :].reshape((n, 1))
-        for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
-        for j in range(l):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
-        B = B_K + np.dot(K, D)
-        return A_K, C, B_K, D, K, A, B, x0, Vn
-
-
-def select_order_PARSIM_S(
-    y, u, f=20, p=20, method="AIC", orders=[1, 10], D_required=False, *_
-):
-    y = 1.0 * np.atleast_2d(y)
-    u = 1.0 * np.atleast_2d(u)
-    min_ord = min(orders)
-    l, L = y.shape
-    m, L = u.shape
-    if not check_types(0.0, np.nan, np.nan, f, p):
-        return (
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.inf,
-        )
-    else:
-        if min_ord < 1:
-            sys.stdout.write("\033[0;35m")
-            print("Warning: The minimum model order will be setted to 1")
-            sys.stdout.write(" ")
-            min_ord = 1
-        max_ord = max(orders) + 1
-        if f < min_ord:
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning! The horizon must be larger than the model order, min_order setted as f"
-            )
-            sys.stdout.write(" ")
-            min_ord = f
-        if f < max_ord - 1:
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning! The horizon must be larger than the model order, max_order setted as f"
-            )
-            sys.stdout.write(" ")
-            max_ord = f + 1
-        IC_old = np.inf
-        N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l):
-            Ystd[j], y[j] = rescale(y[j])
-        Yf, Yp = ordinate_sequence(y, f, p)
-        Uf, Up = ordinate_sequence(u, f, p)
-        Zp = impile(Up, Yp)
-        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:m, :]))
-        M = np.dot(Yf[0:l, :], Matrix_pinv)
-        Gamma_L = M[:, 0 : (m + l) * f]
-        H = M[:, (m + l) * f : :]
-        for i in range(1, f):
-            y_tilde = estimating_y_S(H, Uf, Yf, i, m, l)
-            M = np.dot((Yf[l * i : l * (i + 1)] - y_tilde), Matrix_pinv)
-            Gamma_L = impile(Gamma_L, (M[:, 0 : (m + l) * f]))
-            H = impile(H, M[:, (m + l) * f : :])
-        U_n0, S_n0, V_n0 = SVD_weighted_K(Uf, Zp, Gamma_L)
-        for i in range(min_ord, max_ord):
-            U_n, S_n, V_n = reducingOrder(U_n0, S_n0, V_n0, 0.0, i)
-            A, C, A_K, K, n = AK_C_estimating_S_P(
-                U_n, S_n, V_n, l, f, m, Zp, Uf, Yf
-            )
-            y_sim = simulations_sequence_S(
-                A_K, C, L, K, y, u, l, m, n, D_required
-            )
-            vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Y_estimate = np.dot(y_sim, vect)
-            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
-            K_par = 2 * n * l + m * n
-            if D_required:
-                K_par = K_par + l * m
-            IC = information_criterion(K_par, L, Vn, method)
-            if IC < IC_old:
-                n_min = i
-                IC_old = IC
-        print("The suggested order is: n=", n_min)
-        U_n, S_n, V_n = reducingOrder(U_n0, S_n0, V_n0, 0.0, n_min)
-        A, C, A_K, K, n = AK_C_estimating_S_P(
-            U_n, S_n, V_n, l, f, m, Zp, Uf, Yf
-        )
+        A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
         y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
         Y_estimate = np.dot(y_sim, vect)
@@ -613,9 +525,7 @@ def PARSIM_P(
             np.inf,
         )
     else:
-        threshold, max_order = check_inputs(
-            threshold, max_order, fixed_order, f
-        )
+        threshold, max_order = check_inputs(threshold, max_order, fixed_order, f)
         N = L - f - p + 1
         Ustd = np.zeros(m)
         Ystd = np.zeros(l)
@@ -635,9 +545,7 @@ def PARSIM_P(
             Gamma_L = impile(Gamma_L, (M[:, 0 : (m + l) * f]))
         U_n, S_n, V_n = SVD_weighted_K(Uf, Zp, Gamma_L)
         U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold, max_order)
-        A, C, A_K, K, n = AK_C_estimating_S_P(
-            U_n, S_n, V_n, l, f, m, Zp, Uf, Yf
-        )
+        A, C, A_K, K, n = AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf)
         y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
         vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
         Y_estimate = np.dot(y_sim, vect)
@@ -658,125 +566,3 @@ def PARSIM_P(
             D[j, :] = D[j, :] * Ystd[j]
         B = B_K + np.dot(K, D)
         return A_K, C, B_K, D, K, A, B, x0, Vn
-
-
-def select_order_PARSIM_P(
-    y, u, f=20, p=20, method="AIC", orders=[1, 10], D_required=False, *_
-):
-    y = 1.0 * np.atleast_2d(y)
-    u = 1.0 * np.atleast_2d(u)
-    min_ord = min(orders)
-    l, L = y.shape
-    m, L = u.shape
-    if not check_types(0.0, np.nan, np.nan, f, p):
-        return (
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.array([[0.0]]),
-            np.inf,
-        )
-    else:
-        if min_ord < 1:
-            sys.stdout.write("\033[0;35m")
-            print("Warning: The minimum model order will be set to 1")
-            sys.stdout.write(" ")
-            min_ord = 1
-        max_ord = max(orders) + 1
-        if f < min_ord:
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning! The horizon must be larger than the model order, min_order set as f"
-            )
-            sys.stdout.write(" ")
-            min_ord = f
-        if f < max_ord - 1:
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning! The horizon must be larger than the model order, max_order set as f"
-            )
-            sys.stdout.write(" ")
-            max_ord = f + 1
-        IC_old = np.inf
-        N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l):
-            Ystd[j], y[j] = rescale(y[j])
-        Yf, Yp = ordinate_sequence(y, f, p)
-        Uf, Up = ordinate_sequence(u, f, p)
-        Zp = impile(Up, Yp)
-        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:m, :]))
-        M = np.dot(Yf[0:l, :], Matrix_pinv)
-        Gamma_L = M[:, 0 : (m + l) * f]
-        for i in range(1, f):
-            Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0 : m * (i + 1), :]))
-            M = np.dot((Yf[l * i : l * (i + 1)]), Matrix_pinv)
-            Gamma_L = impile(Gamma_L, (M[:, 0 : (m + l) * f]))
-        U_n0, S_n0, V_n0 = SVD_weighted_K(Uf, Zp, Gamma_L)
-        for i in range(min_ord, max_ord):
-            U_n, S_n, V_n = reducingOrder(U_n0, S_n0, V_n0, 0.0, i)
-            A, C, A_K, K, n = AK_C_estimating_S_P(
-                U_n, S_n, V_n, l, f, m, Zp, Uf, Yf
-            )
-            y_sim = simulations_sequence_S(
-                A_K, C, L, K, y, u, l, m, n, D_required
-            )
-            vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-            Y_estimate = np.dot(y_sim, vect)
-            Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
-            K_par = 2 * n * l + m * n
-            if D_required:
-                K_par = K_par + l * m
-            IC = information_criterion(K_par, L, Vn, method)
-            if IC < IC_old:
-                n_min = i
-                IC_old = IC
-        print("The suggested order is: n=", n_min)
-        U_n, S_n, V_n = reducingOrder(U_n0, S_n0, V_n0, 0.0, n_min)
-        A, C, A_K, K, n = AK_C_estimating_S_P(
-            U_n, S_n, V_n, l, f, m, Zp, Uf, Yf
-        )
-        y_sim = simulations_sequence_S(A_K, C, L, K, y, u, l, m, n, D_required)
-        vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l, 1)))
-        Y_estimate = np.dot(y_sim, vect)
-        Vn = Vn_mat(y.reshape((L * l, 1)), Y_estimate)
-        B_K = vect[0 : n * m, :].reshape((n, m))
-        if D_required:
-            D = vect[n * m : n * m + l * m, :].reshape((l, m))
-            x0 = vect[n * m + l * m : :, :].reshape((n, 1))
-        else:
-            D = np.zeros((l, m))
-            x0 = vect[n * m : :, :].reshape((n, 1))
-        for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
-        for j in range(l):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
-        B = B_K + np.dot(K, D)
-        return A_K, C, B_K, D, K, A, B, x0, Vn
-
-
-# creating object SS model
-class SS_PARSIM_model:
-    def __init__(self, A, B, C, D, K, A_K, B_K, x0, ts, Vn):
-        self.n = A[:, 0].size
-        self.A = A
-        self.B = B
-        self.C = C
-        self.D = D
-        self.Vn = Vn
-        self.K = K
-        self.G = cnt.ss(A, B, C, D, ts)
-        self.ts = ts
-        self.x0 = x0
-        self.A_K = A_K
-        self.B_K = B_K

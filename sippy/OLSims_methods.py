@@ -6,7 +6,6 @@ Created on Thu Oct 12 2017
 
 import sys
 
-import control as cnt
 import numpy as np
 import scipy as sc
 from numpy.linalg import pinv
@@ -41,14 +40,10 @@ def SVD_weighted(y, u, f, l, weights="N4SID"):
         U_n, S_n, V_n = np.linalg.svd(OidotPIort_Uf, full_matrices=False)
 
     elif weights == "CVA":
-        W1 = np.linalg.inv(
-            sc.linalg.sqrtm(np.dot(YfdotPIort_Uf, YfdotPIort_Uf.T)).real
-        )
+        W1 = np.linalg.inv(sc.linalg.sqrtm(np.dot(YfdotPIort_Uf, YfdotPIort_Uf.T)).real)
         W1dotOi = np.dot(W1, O_i)
         W1_dot_Oi_dot_PIort_Uf = Z_dot_PIort(W1dotOi, Uf)
-        U_n, S_n, V_n = np.linalg.svd(
-            W1_dot_Oi_dot_PIort_Uf, full_matrices=False
-        )
+        U_n, S_n, V_n = np.linalg.svd(W1_dot_Oi_dot_PIort_Uf, full_matrices=False)
 
     elif weights == "N4SID":
         W1 = None  # is identity
@@ -88,9 +83,7 @@ def forcing_A_stability(M, n, Ob, l, X_fd, N, u, f):
     if np.max(np.abs(np.linalg.eigvals(M[0:n, 0:n]))) >= 1.0:
         Forced_A = True
         print("Forcing A stability")
-        M[0:n, 0:n] = np.dot(
-            np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n)))
-        )
+        M[0:n, 0:n] = np.dot(np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n))))
         M[0:n, n::] = np.dot(
             X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1]),
             np.linalg.pinv(u[:, f : f + N - 1]),
@@ -139,9 +132,7 @@ def OLSims(
             [],
         )
     else:
-        threshold, max_order = check_inputs(
-            threshold, max_order, fixed_order, f
-        )
+        threshold, max_order = check_inputs(threshold, max_order, fixed_order, f)
         N = L - 2 * f + 1
         Ustd = np.zeros(m)
         Ystd = np.zeros(l)
@@ -167,9 +158,7 @@ def OLSims(
             D_required,
         )
         if A_stability:
-            M, residuals[0:n, :], _ = forcing_A_stability(
-                M, n, Ob, l, X_fd, N, u, f
-            )
+            M, residuals[0:n, :], _ = forcing_A_stability(M, n, Ob, l, X_fd, N, u, f)
         A, B, C, D = extracting_matrices(M, n)
         Covariances = np.dot(residuals, residuals.T) / (N - 1)
         Q = Covariances[0:n, 0:n]
@@ -277,9 +266,7 @@ def select_order_SIM(
             y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0, n_min, D_required
         )
         if A_stability:
-            M, residuals[0:n, :], _ = forcing_A_stability(
-                M, n, Ob, l, X_fd, N, u, f
-            )
+            M, residuals[0:n, :], _ = forcing_A_stability(M, n, Ob, l, X_fd, N, u, f)
         A, B, C, D = extracting_matrices(M, n)
         Covariances = np.dot(residuals, residuals.T) / (N - 1)
         X_states, Y_estimate = SS_lsim_process_form(A, B, C, D, u)
@@ -299,29 +286,3 @@ def select_order_SIM(
             if K_calculated:
                 K[:, j] = K[:, j] / Ystd[j]
         return A, B, C, D, Vn, Q, R, S, K
-
-
-# creating object SS model
-class SS_model:
-    def __init__(self, A, B, C, D, K, Q, R, S, ts, Vn):
-        self.n = A[:, 0].size
-        self.A = A
-        self.B = B
-        self.C = C
-        self.D = D
-        self.Vn = Vn
-        self.Q = Q
-        self.R = R
-        self.S = S
-        self.K = K
-        self.G = cnt.ss(A, B, C, D, ts)
-        self.ts = ts
-        self.x0 = np.zeros((A[:, 0].size, 1))
-        try:
-            A_K = A - np.dot(K, C)
-            B_K = B - np.dot(K, D)
-        except:
-            A_K = []
-            B_K = []
-        self.A_K = A_K
-        self.B_K = B_K
