@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
@@ -30,18 +30,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gfortran libopenblas-dev cmake
 
       - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
 
       - name: Install dependencies
-        run: poetry install
+        run: poetry install --no-interaction --no-ansi --no-root
 
       - name: Run tests
         run: |
-          cd Examples
-          poetry run python ARMAX_MIMO.py
-          poetry run python ARMAX.py
-          poetry run python ARX_MIMO.py
-          poetry run python SS.py
-          poetry run python example_CST.py
+          poetry run pytest -m "not datasets" --durations=10 -n logical
