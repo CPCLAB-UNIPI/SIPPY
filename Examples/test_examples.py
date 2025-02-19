@@ -52,3 +52,12 @@ def test_ex_ss():
         ["python", "Ex_SS.py"], capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_armax_ic():
+    result = subprocess.run(
+        "jupyter nbconvert --execute --to notebook --inplace test_armax.ipynb".split(),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

@@ -41,4 +41,4 @@ jobs:
 
       - name: Run tests
         run: |
-          poetry run pytest -m "not datasets" --durations=10 -n logical
+          poetry run pytest -m "not datasets" --durations=10
