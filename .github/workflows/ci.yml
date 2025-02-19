@@ -10,12 +10,12 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout repository
@@ -26,8 +26,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install system dependencies
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y gfortran libopenblas-dev cmake
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install gfortran openblas cmake
+
+      - name: Install system dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install gfortran openblas cmake
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
