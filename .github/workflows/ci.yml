@@ -47,16 +47,13 @@ jobs:
           C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
-      - name: Cache installed dependencies
-        uses: actions/cache@v3
+      - name: Save system dependencies
+        uses: actions/upload-artifact@v3
         with:
+          name: system-dependencies-${{ runner.os }}
           path: |
-            ~/.cache/pip
             ~/.local
             C:\msys64\mingw64
-          key: ${{ runner.os }}-dependencies-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-dependencies-
 
   build:
     needs: setup-environment # Runs only after dependencies are installed
@@ -71,16 +68,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@main
 
-      - name: Restore cached dependencies
-        uses: actions/cache@v3
+      - name: Restore system dependencies
+        uses: actions/download-artifact@v3
         with:
-          path: |
-            ~/.cache/pip
-            ~/.local
-            C:\msys64\mingw64
-          key: ${{ runner.os }}-dependencies-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-dependencies-
+          name: system-dependencies-${{ runner.os }}
+          path: ~/.local
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@main
@@ -88,7 +80,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install Poetry
-        uses: snok/install-poetry@v1
+        uses: snok/install-poetry@main
         with:
           virtualenvs-in-project: true
           installer-parallel: true
