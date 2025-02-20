@@ -12,7 +12,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
 
     runs-on: ${{ matrix.os }}
@@ -36,6 +36,14 @@ jobs:
         if: runner.os == 'macOS'
         uses: maxim-lobanov/setup-xcode@v1
 
+      - name: Install system dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install -y cmake ninja
+          refreshenv
+          C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
+          echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@main
         with:
@@ -57,7 +65,7 @@ jobs:
             poetry-${{ matrix.os }}-${{ matrix.python-version }}-
 
       - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi --no-root
+        run: poetry install --no-interaction --no-ansi
 
       - name: Run tests
         run: poetry run pytest -m "not datasets" --durations=10
