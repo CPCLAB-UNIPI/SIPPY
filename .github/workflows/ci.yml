@@ -12,7 +12,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
 
     runs-on: ${{ matrix.os }}
@@ -28,15 +28,19 @@ jobs:
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y gfortran libopenblas-dev cmake
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev coinor-libipopt-dev build-essential cmake ninja-build
 
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install gfortran openblas cmake
+        run: brew install ninja gfortran openblas
 
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
-        run: choco install gfortran openblas cmake
+        run: |
+          choco install -y cmake ninja msys2
+          refreshenv
+          C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
+          echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
