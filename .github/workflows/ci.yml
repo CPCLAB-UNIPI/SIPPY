@@ -14,7 +14,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
-
+    defaults:
+      run:
+        shell: bash
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -52,6 +54,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@main
         with:
+          virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
 
@@ -59,8 +62,8 @@ jobs:
         id: cache-poetry
         uses: actions/cache@main
         with:
-          path: .venv
-          key: poetry-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}
+          path: ~/.cache
+          key: poetry-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
           restore-keys: |
             poetry-${{ matrix.os }}-${{ matrix.python-version }}-
 
