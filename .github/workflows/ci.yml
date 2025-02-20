@@ -42,7 +42,6 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install -y cmake ninja
-          refreshenv
           C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
