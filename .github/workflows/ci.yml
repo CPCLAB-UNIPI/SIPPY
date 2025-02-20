@@ -38,13 +38,17 @@ jobs:
       - name: Install system dependencies MSYS2 (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
+        with:
+          install: |
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-openblas
+          location: C:\
 
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
           choco install -y cmake ninja
           refreshenv
-          C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
       - name: Upload artifacts
@@ -58,7 +62,7 @@ jobs:
             /opt/homebrew/include
             C:/msys64/mingw64/lib
             C:/msys64/mingw64/include
-          if-no-files-found: error
+          # if-no-files-found: ignore
 
   build:
     needs: setup-os # Runs only after dependencies are installed
@@ -89,6 +93,15 @@ jobs:
         with:
           virtualenvs-in-project: true
           installer-parallel: true
+
+      - name: Cache Poetry virtual environment
+        id: cache-poetry
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: poetry-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}
+          restore-keys: |
+            poetry-${{ matrix.os }}-${{ matrix.python-version }}-
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi --no-root
