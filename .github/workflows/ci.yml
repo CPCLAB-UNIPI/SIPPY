@@ -12,7 +12,7 @@ jobs:
   setup-os:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
 
@@ -22,18 +22,19 @@ jobs:
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev coinor-libipopt-dev build-essential cmake ninja-build
+        run: sudo apt-get update -qq && sudo apt-get install -y libopenblas-dev coinor-libipopt-dev build-essential cmake ninja-build
 
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew update
+          brew update -q
           brew install ninja gfortran openblas
           echo "FC=$(brew --prefix gfortran)/bin/gfortran" >> $GITHUB_ENV
 
       - name: Set up Xcode
         if: runner.os == 'macOS'
         uses: maxim-lobanov/setup-xcode@v1
+
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -51,15 +52,13 @@ jobs:
             /usr/local/include
             /opt/homebrew/lib
             /opt/homebrew/include
-            C:/msys64/mingw64/lib
-            C:/msys64/mingw64/include
 
   build:
     needs: setup-os # Runs only after dependencies are installed
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
 
