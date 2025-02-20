@@ -42,7 +42,7 @@ jobs:
           install: |
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-openblas
-          location: C:\
+          release: false
 
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
