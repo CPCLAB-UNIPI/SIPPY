@@ -48,7 +48,7 @@ jobs:
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@main
         with:
           name: deps-${{ matrix.os }}
           path: |
@@ -74,7 +74,7 @@ jobs:
         uses: actions/checkout@main
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@main
         with:
           name: deps-${{ matrix.os }}
           path: deps
