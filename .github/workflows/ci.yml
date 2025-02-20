@@ -48,7 +48,7 @@ jobs:
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
       - name: Save system dependencies
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@main
         with:
           name: system-dependencies-${{ runner.os }}
           path: |
@@ -69,7 +69,7 @@ jobs:
         uses: actions/checkout@main
 
       - name: Restore system dependencies
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@main
         with:
           name: system-dependencies-${{ runner.os }}
           path: ~/.local
