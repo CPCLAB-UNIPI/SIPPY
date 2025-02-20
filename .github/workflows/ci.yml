@@ -12,8 +12,8 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest] # , windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        os: [windows-latest]
+        python-version: ["3.12"]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -38,15 +38,35 @@ jobs:
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install -y cmake ninja
+          choco install -y gcc cmake ninja make
           refreshenv
+
+          # Install additional required packages (via MSYS2)
           C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
+
+          # Ninja
+          echo "CMAKE_MAKE_PROGRAM=$(which ninja)" >> $GITHUB_ENV
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
+          echo "C:\Program Files\CMake\bin" >> $GITHUB_PATH
+          echo "C:\ProgramData\chocolatey\bin" >> $GITHUB_PATH
+
+          # Ensure MSYS2 environment is loaded and variables are set
+          # echo "C:/Program Files/CMake/bin" >> $GITHUB_PATH
+          # echo "CMAKE_MAKE_PROGRAM=C:/msys64/usr/bin/make.exe" >> $GITHUB_ENV
+          # echo "CMAKE_GENERATOR=Unix Makefiles" >> $GITHUB_ENV
+
+          # Display paths for debugging
+          # echo "CMAKE_MAKE_PROGRAM set to: C:/msys64/usr/bin/make.exe"
+          # echo "CMAKE_GENERATOR set to: Unix Makefiles"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@main
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Install slycot manually
+        run: |
+          CMAKE_MAKE_PROGRAM=C:/msys64/usr/bin/make.exe pip install slycot==0.6.0 --no-cache-dir --use-pep517
 
       - name: Install Poetry
         uses: snok/install-poetry@main
