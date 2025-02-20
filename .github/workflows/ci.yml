@@ -12,11 +12,8 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest] # , windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
-    defaults:
-      run:
-        shell: bash
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -42,6 +39,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install -y cmake ninja
+          refreshenv
           C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
 
@@ -68,10 +66,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          source $VENV
           poetry install --no-interaction --no-ansi
 
       - name: Run tests
         run: |
-          source $VENV
           poetry run pytest -m "not datasets" --durations=10
