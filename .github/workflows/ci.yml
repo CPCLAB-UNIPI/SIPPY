@@ -9,10 +9,11 @@ on:
       - main
 
 jobs:
-  setup-os:
+  build:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
 
     runs-on: ${{ matrix.os }}
 
@@ -35,43 +36,6 @@ jobs:
         if: runner.os == 'macOS'
         uses: maxim-lobanov/setup-xcode@v1
 
-      - name: Install system dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install -y cmake ninja
-          refreshenv
-          C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
-          echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@main
-        with:
-          name: deps-${{ matrix.os }}
-          path: |
-            /usr/local/lib
-            /usr/local/include
-            /opt/homebrew/lib
-            /opt/homebrew/include
-
-  build:
-    needs: setup-os # Runs only after dependencies are installed
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-        os: [ubuntu-latest, macos-latest]
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@main
-
-      - name: Download artifacts
-        uses: actions/download-artifact@main
-        with:
-          name: deps-${{ matrix.os }}
-          path: deps
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@main
         with:
@@ -85,7 +49,7 @@ jobs:
 
       - name: Cache Poetry virtual environment
         id: cache-poetry
-        uses: actions/cache@v3
+        uses: actions/cache@main
         with:
           path: .venv
           key: poetry-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}
