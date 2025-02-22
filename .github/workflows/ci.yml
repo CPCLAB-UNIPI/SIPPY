@@ -35,29 +35,17 @@ jobs:
         if: runner.os == 'macOS'
         uses: maxim-lobanov/setup-xcode@v1
 
+      - name: Install system dependencies MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install -y gcc cmake ninja make
+          choco install -y cmake ninja
           refreshenv
-
-          # Install additional required packages (via MSYS2)
           C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
-
-          # Ninja
-          echo "CMAKE_MAKE_PROGRAM=$(which ninja)" >> $GITHUB_ENV
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
-          echo "C:\Program Files\CMake\bin" >> $GITHUB_PATH
-          echo "C:\ProgramData\chocolatey\bin" >> $GITHUB_PATH
-
-          # Ensure MSYS2 environment is loaded and variables are set
-          # echo "C:/Program Files/CMake/bin" >> $GITHUB_PATH
-          # echo "CMAKE_MAKE_PROGRAM=C:/msys64/usr/bin/make.exe" >> $GITHUB_ENV
-          # echo "CMAKE_GENERATOR=Unix Makefiles" >> $GITHUB_ENV
-
-          # Display paths for debugging
-          # echo "CMAKE_MAKE_PROGRAM set to: C:/msys64/usr/bin/make.exe"
-          # echo "CMAKE_GENERATOR set to: Unix Makefiles"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@main
