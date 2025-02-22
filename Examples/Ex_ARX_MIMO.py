@@ -9,6 +9,7 @@ case 3 outputs x 4 inputs
 
 # Checking path to access other files
 import control.matlab as cnt
+import matplotlib.pyplot as plt
 import numpy as np
 from utils import create_output_dir, plot_comparison
 
@@ -147,3 +148,5 @@ fig = plot_comparison(
     title="Output (validation data)",
 )
 fig.savefig(output_dir + "/output_validation.png")
+
+plt.close("all")

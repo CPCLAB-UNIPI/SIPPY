@@ -6,6 +6,7 @@ ARMAX Example
 
 # Checking path to access other files
 import control.matlab as cnt
+import matplotlib.pyplot as plt
 import numpy as np
 from utils import (
     W_V,
@@ -256,3 +257,5 @@ for tf in ["G", "H"]:
         titles=["Step Response G(z)", None],
     )
     fig.savefig(output_dir + f"/step_{tf}.png")
+
+plt.close("all")
