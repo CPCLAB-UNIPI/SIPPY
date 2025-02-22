@@ -134,7 +134,7 @@ def information_criterion(K, N, Variance, method="AIC"):
             IC = N * np.log(Variance) + 2 * K + 2 * K * (K + 1) / (N - K - 1)
         else:
             IC = np.inf
-            sys.exit(
+            raise RuntimeError(
                 "Number of data is less than the number of parameters, AICc cannot be applied"
             )
     elif method == "BIC":

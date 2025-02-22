@@ -229,9 +229,9 @@ def GEN_RLS_MISO_id(
 
 # MIMO function
 def GEN_MIMO_id(
-    id_method: Literal["ARX", "ARMAX", "OE", "FIR"],
     y: np.ndarray,
     u: np.ndarray,
+    id_method: Literal["ARX", "ARMAX", "OE", "FIR"],
     na: np.ndarray,
     nb: np.ndarray,
     nc: np.ndarray,
@@ -252,23 +252,19 @@ def GEN_MIMO_id(
     # check dimension
     sum_ords = np.sum(nb) + np.sum(na) + np.sum(nc) + np.sum(theta)
     if na.size != ydim:
-        sys.exit(
-            "Error! na must be a vector, whose length must be equal to y dimension"
+        raise RuntimeError(
+            "na must be a vector, whose length must be equal to y dimension"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nc.size != ydim:
-        sys.exit(
-            "Error! nc must be a vector, whose length must be equal to y dimension"
+        raise RuntimeError(
+            "nc must be a vector, whose length must be equal to y dimension"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
         raise RuntimeError(
             " nb must be a matrix, whose dimensions must be equal to yxu"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif th1 != ydim:
         raise RuntimeError("theta matrix must have yxu dimensions")
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
@@ -282,7 +278,6 @@ def GEN_MIMO_id(
         raise RuntimeError(
             " na, nb, nc, theta must contain only positive integer elements"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:
         # preallocation
         Vn_tot = 0.0

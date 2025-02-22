@@ -15,9 +15,9 @@ from .functionset_OPT import opt_id
 
 
 def GEN_MISO_id(
-    id_method: Literal["BJ", "GEN", "ARARX", "ARARMAX"],
     y: np.ndarray,
     u: np.ndarray,
+    id_method: Literal["BJ", "GEN", "ARARX", "ARARMAX"],
     na: int,
     nb: np.ndarray,
     nc: int,
@@ -189,9 +189,9 @@ def GEN_MISO_id(
 
 # MIMO function
 def GEN_MIMO_id(
-    id_method,
     y: np.ndarray,
     u: np.ndarray,
+    id_method: Literal["BJ", "GEN", "ARARX", "ARARMAX"],
     na: np.ndarray,
     nb: np.ndarray,
     nc: np.ndarray,
@@ -223,33 +223,27 @@ def GEN_MIMO_id(
         + np.sum(theta)
     )
     if na.size != ydim:
-        sys.exit(
-            "Error! na must be a vector, whose length must be equal to y dimension"
+        raise RuntimeError(
+            "na must be a vector, whose length must be equal to y dimension"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nb[:, 0].size != ydim:
         raise RuntimeError(
             " nb must be a matrix, whose dimensions must be equal to yxu"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nc.size != ydim:
-        sys.exit(
-            "Error! nc must be a vector, whose length must be equal to y dimension"
+        raise RuntimeError(
+            "nc must be a vector, whose length must be equal to y dimension"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nd.size != ydim:
-        sys.exit(
-            "Error! nd must be a vector, whose length must be equal to y dimension"
+        raise RuntimeError(
+            "nd must be a vector, whose length must be equal to y dimension"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif nf.size != ydim:
-        sys.exit(
-            "Error! nf must be a vector, whose length must be equal to y dimension"
+        raise RuntimeError(
+            "nf must be a vector, whose length must be equal to y dimension"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif th1 != ydim:
         raise RuntimeError("theta matrix must have yxu dimensions")
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
@@ -262,10 +256,9 @@ def GEN_MIMO_id(
         and np.min(nf) >= 0
         and np.min(theta) >= 0
     ):
-        sys.exit(
-            "Error! nf, nb, nc, nd, theta must contain only positive integer elements"
+        raise RuntimeError(
+            "nf, nb, nc, nd, theta must contain only positive integer elements"
         )
-    #        return 0.,0.,0.,0.,0.,0.,np.inf
     else:
         # preallocation
         Vn_tot = 0.0
@@ -277,9 +270,9 @@ def GEN_MIMO_id(
         # identification in MISO approach
         for i in range(ydim):
             DEN, NUM, NUMH, DENH, Vn, y_id, Reached_max = GEN_MISO_id(
-                id_method,
                 y[i, :],
                 u,
+                id_method,
                 na[i],
                 nb[i, :],
                 nc[i],

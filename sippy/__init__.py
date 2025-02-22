@@ -236,7 +236,7 @@ def system_identification(
             orders = dict(orders_defaults)
             orders.update(orders_)
             orders = check_fix_orders(orders, orders_defaults)
-            params = {**orders, "ts": ts, "max_iter": max_iter}
+            params = {**orders, "id_method": id_method, "ts": ts, "max_iter": max_iter}
 
             # FIR or ARX
             if id_method in ["FIR", "ARX"]:
@@ -263,7 +263,7 @@ def system_identification(
                         H,
                         Vn_tot,
                         Yid,
-                    ) = io_rlsMIMO.GEN_MIMO_id(id_method, y, u, **params)
+                    ) = io_rlsMIMO.GEN_MIMO_id(y, u, **params)
 
             # ARMAX
             elif id_method == "ARMAX":
@@ -297,7 +297,7 @@ def system_identification(
                         H,
                         Vn_tot,
                         Yid,
-                    ) = io_rlsMIMO.GEN_MIMO_id(id_method, y, u, **params)
+                    ) = io_rlsMIMO.GEN_MIMO_id(y, u, **params)
 
                 # OPTMIZATION-BASED
                 elif ARMAX_mod == "OPT":
@@ -313,7 +313,6 @@ def system_identification(
                         Vn_tot,
                         Yid,
                     ) = io_optMIMO.GEN_MIMO_id(
-                        id_method,
                         y,
                         u,
                         **params,
@@ -338,7 +337,7 @@ def system_identification(
                         H,
                         Vn_tot,
                         Yid,
-                    ) = io_rlsMIMO.GEN_MIMO_id(id_method, y, u, **params)
+                    ) = io_rlsMIMO.GEN_MIMO_id(y, u, **params)
 
                 # OPTMIZATION-BASED
                 elif OE_mod == "OPT":
@@ -354,7 +353,6 @@ def system_identification(
                         Vn_tot,
                         Yid,
                     ) = io_optMIMO.GEN_MIMO_id(
-                        id_method,
                         y,
                         u,
                         **params,
@@ -382,7 +380,6 @@ def system_identification(
                     Vn_tot,
                     Yid,
                 ) = io_optMIMO.GEN_MIMO_id(
-                    id_method,
                     y,
                     u,
                     **params,
