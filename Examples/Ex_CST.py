@@ -21,6 +21,7 @@ from utils import create_output_dir, plot_comparison
 from sippy import SS_Model, system_identification
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
+from sippy.typing import IOMethods
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
@@ -164,47 +165,61 @@ n_iter = 300
 
 # IN-OUT Models: ARX - ARMAX - OE - BJ - GEN
 
-identification_params = {
-    "ARX": {
-        "ARX_orders": [na_ords, nb_ords, theta],
-        "centering": "MeanVal",
-    },
-    "ARMAX": {
-        "ARMAX_orders": [na_ords, nb_ords, nc_ords, theta],
-        "centering": "MeanVal",
-        "max_iter": n_iter,
-        "ARMAX_mod": "OPT",
-    },
-    "OE": {
-        "OE_orders": [nb_ords, nf_ords, theta],
-        "centering": "MeanVal",
-        "max_iter": n_iter,
-    },
-    "BJ": {
-        "BJ_orders": [nb_ords, nc_ords, nd_ords, nf_ords, theta],
-        "centering": "MeanVal",
-        "max_iter": n_iter,
-        "stab_cons": True,
-    },
-    "GEN": {
-        "GEN_orders": [na_ords, nb_ords, nc_ords, nd_ords, nf_ords, theta],
-        "centering": "MeanVal",
-        "max_iter": n_iter,
-        "stab_cons": True,
-        "stab_marg": 0.98,
-    },
+identification_params: dict[
+    IOMethods, tuple[tuple[list[int] | list[list[int]], ...], dict]
+] = {
+    "ARX": (
+        (na_ords, nb_ords, theta),
+        {
+            "id_mode": "RLLS",
+            "centering": "MeanVal",
+        },
+    ),
+    "ARMAX": (
+        (na_ords, nb_ords, nc_ords, theta),
+        {
+            "centering": "MeanVal",
+            "max_iter": n_iter,
+            "id_mode": "OPT",
+        },
+    ),
+    "OE": (
+        (nb_ords, nf_ords, theta),
+        {
+            "centering": "MeanVal",
+            "max_iter": n_iter,
+        },
+    ),
+    "BJ": (
+        (nb_ords, nc_ords, nd_ords, nf_ords, theta),
+        {
+            "centering": "MeanVal",
+            "max_iter": n_iter,
+            "stab_cons": True,
+        },
+    ),
+    "GEN": (
+        (na_ords, nb_ords, nc_ords, nd_ords, nf_ords, theta),
+        {
+            "centering": "MeanVal",
+            "max_iter": n_iter,
+            "stab_cons": True,
+            "stab_marg": 0.98,
+        },
+    ),
 }
 
 syss = []
-for method, params in identification_params.items():
-    sys_id = system_identification(Y, U, method, **params)
+for method, orders_params in identification_params.items():
+    orders, params = orders_params
+    sys_id = system_identification(Y, U, method, *orders, **params)
     syss.append(sys_id)
 
 # SS - mimo
 # choose method
-method = "PARSIM-K"
-SS_ord = 2
-sys_id = system_identification(Y, U, method, SS_order=SS_ord)
+method = "PARSIM_K"
+order = 2
+sys_id = system_identification(Y, U, method, order)
 if not isinstance(sys_id, SS_Model):
     raise ValueError("SS model not returned")
 # GETTING RESULTS (Y_id)
@@ -306,6 +321,16 @@ Y_val = X_val + noise_val
 # MODEL VALIDATION
 
 # IN-OUT Models: ARX - ARMAX - OE - BJ
+YS = []
+for i, sys in enumerate(syss):
+    try:
+        YS.append(
+            fset.validation(sys, U_val, Y_val, Time, centering="MeanVal")
+        )
+    except Exception as e:
+        raise ValueError(
+            f"Error in validation of model {[*identification_params.keys()][i]}:\n{e}"
+        )
 Yv_arx, Yv_armax, Yv_oe, Yv_bj, Yv_gen = (
     fset.validation(sys, U_val, Y_val, Time, centering="MeanVal")
     for sys in syss

@@ -4,7 +4,7 @@ Created on Sun Sep 10 2017
 @author: Giuseppe Armenise
 """
 
-import sys
+from warnings import warn
 
 import control as cnt
 import numpy as np
@@ -44,14 +44,14 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
                     gbn[i + 1] = -gbn[i + 1]
                     Nsw = Nsw + 1
         # check actual switch probability
-        p_sw = Nmin * (Nsw + 1) / N  # print("p_sw", p_sw);
+        p_sw = Nmin * (Nsw + 1) / N
         # set best iteration
         if np.abs(p_sw - p_swd) < np.abs(p_sw_b - p_swd):
             p_sw_b = p_sw
             Nswb = Nsw
             gbn_b = gbn.copy()
         # increase iteration number
-        nit = nit + 1  # print("nit", nit)
+        nit = nit + 1
     # rescale GBN
     for i in range(N):
         if gbn_b[i] > 0.0:
@@ -72,7 +72,7 @@ def RW_seq(N, rw0, sigma: float = 1.0):
         # mean = 0.0, standard deviation = sigma, and length = 1
         delta = np.random.normal(0.0, sigma, 1)
         # refresh input
-        rw[i + 1] = rw[i] + delta
+        rw[i + 1] = (rw[i] + delta).item()
     return rw
 
 
@@ -88,11 +88,8 @@ def white_noise(y, A_rel):
     scale = np.abs(A_rel * Ystd)
     if scale < np.finfo(np.float32).eps:
         scale = np.finfo(np.float32).eps
-        sys.stdout.write("\033[0;35m")
-        print(
-            "Warning: A_rel may be too small, its value set to the lowest default one"
-        )
-        sys.stdout.write(" ")
+        warn("A_rel may be too small, its value set to the lowest default one")
+
     errors = np.random.normal(0.0, scale, num)
     y_err = y + errors
     return errors, y_err
@@ -107,13 +104,9 @@ def white_noise_var(L, Var):
     for i in range(n):
         if Var[i] < np.finfo(np.float32).eps:
             Var[i] = np.finfo(np.float32).eps
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning: Var[",
-                i,
-                "] may be too small, its value set to the lowest default one",
+            warn(
+                f"Var[{i}] may be too small, its value set to the lowest default one",
             )
-            sys.stdout.write(" ")
         noise[i, :] = np.random.normal(0.0, Var[i] ** 0.5, L)
     return noise
 
@@ -121,9 +114,9 @@ def white_noise_var(L, Var):
 # rescaling an array to its standard deviation. It gives the array rescaled: y=y/(standard deviation of y)
 # and thestandard deviation: ex [Ystd,Y]=rescale(Y)
 def rescale(y):
-    ystd = np.std(y)
-    y_scaled = y / ystd
-    return ystd, y_scaled
+    y_std = float(np.std(y))
+    y_scaled = y / y_std
+    return y_std, y_scaled
 
 
 def information_criterion(K, N, Variance, method="AIC"):
@@ -155,7 +148,7 @@ def mean_square_error(predictions, targets):
 def validation(SYS, u, y, Time, k=1, centering=None):
     # check dimensions
     y = 1.0 * np.atleast_2d(y)
-    u = 1.0 * np.atleast_2d(u)
+    u = np.atleast_2d(u)
     [n1, n2] = y.shape
     ydim = min(n1, n2)
     ylength = max(n1, n2)
@@ -183,11 +176,9 @@ def validation(SYS, u, y, Time, k=1, centering=None):
         u_rif = np.zeros(udim)
     else:
         # elif centering != 'None':
-        sys.stdout.write("\033[0;35m")
-        print(
-            "Warning! 'Centering' argument is not valid, its value has been reset to 'None'"
+        warn(
+            "'Centering' argument is not valid, its value has been reset to 'None'"
         )
-        sys.stdout.write(" ")
 
     # MISO approach
     # centering inputs and outputs

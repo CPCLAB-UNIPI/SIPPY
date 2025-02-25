@@ -18,6 +18,7 @@ from utils import (
 
 from sippy import functionset as fset
 from sippy import system_identification
+from sippy.typing import IOMethods
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
@@ -112,59 +113,40 @@ mode = "FIXED"
 
 if mode == "IC":
     # use Information criterion
-
-    identification_params = {
-        "ARMAX": {
-            "IC": "AIC",
-            "na_ord": [4, 4],
-            "nb_ord": [3, 3],
-            "nc_ord": [2, 2],
-            "delays": [11, 11],
-            "ARMAX_mod": "RLLS",
-        },
-        "ARX": {
-            "IC": "AICc",
-            "na_ord": [4, 4],
-            "nb_ord": [3, 3],
-            "delays": [11, 11],
-            "ARX_mod": "RLLS",
-        },
-        "OE": {
-            "IC": "BIC",
-            "nb_ord": [3, 3],
-            "nf_ord": [4, 4],
-            "delays": [11, 11],
-            "OE_mod": "RLLS",
-        },
-    }
+    na_ord = (2, 2)
+    nb_ord = (3, 3)
+    nc_ord = (2, 2)
+    nd_ord = (3, 3)
+    nf_ord = (4, 4)
+    theta = (11, 11)
 
 elif mode == "FIXED":
     # use fixed model orders
-
     na_ord = [4]
     nb_ord = [[3]]
     nc_ord = [2]
     nf_ord = [4]
     theta = [[11]]
 
-    identification_params = {
-        "ARMAX": {
-            "ARMAX_orders": [na_ord, nb_ord, nc_ord, theta],
-            "ARMAX_mod": "RLLS",
-        },
-        "ARX": {
-            "ARX_orders": [na_ord, nb_ord, theta],
-            "ARX_mod": "RLLS",
-        },
-        "OE": {
-            "OE_orders": [nb_ord, nf_ord, theta],
-            "OE_mod": "RLLS",
-        },
-    }
+
+identification_params: dict[
+    IOMethods,
+    tuple[tuple[list[int] | list[list[int]] | tuple[int, int], ...], dict],
+] = {
+    "ARMAX": (
+        (na_ord, nb_ord, nc_ord, theta),
+        {"IC": "BIC", "id_mode": "RLLS"},
+    ),
+    "ARX": ((na_ord, nb_ord, theta), {"IC": "BIC", "id_mode": "RLLS"}),
+    "OE": ((nb_ord, nf_ord, theta), {"IC": "BIC", "id_mode": "RLLS"}),
+}
 
 syss = []
-for method, params in identification_params.items():
-    sys_id = system_identification(Ytot, Usim, method, max_iter=300, **params)
+for method, orders_params in identification_params.items():
+    orders, params = orders_params
+    sys_id = system_identification(
+        Ytot, Usim, method, *orders, max_iter=300, **params
+    )
     syss.append(sys_id)
 
 ys = [Ytot] + [getattr(sys, "Yid").T for sys in syss]

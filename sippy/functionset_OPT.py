@@ -5,31 +5,32 @@ Created on 2021
 """
 
 import numpy as np
-from casadi import DM, SX, mtimes, nlpsol, norm_inf, vertcat
+from casadi import DM, SX, Function, mtimes, nlpsol, norm_inf, vertcat
+
+from .typing import OptMethods
 
 
 # Defining the optimization problem
 def opt_id(
-    m,
-    p,
-    na,
-    nb,
-    nc,
-    nd,
-    nf,
+    Y: np.ndarray,
+    U: np.ndarray,
+    FLAG: OptMethods,
+    na: int,
+    nb: np.ndarray,
+    nc: int,
+    nd: int,
+    nf: int,
+    theta: np.ndarray,
+    max_iter: int,
+    stab_marg: float,
+    stab_cons: bool,
     n_coeff,
-    theta,
+    m,
     n_tr,
-    U,
-    Y,
-    FLAG,
-    max_iter,
-    stab_marg,
-    stability_cons,
-):
+) -> tuple[Function, DM, DM, DM, DM]:
     # orders
     Na = na
-    Nb = np.sum(nb[:])
+    Nb = np.sum(nb)
     Nc = nc
     Nd = nd
     Nf = nf
@@ -203,7 +204,7 @@ def opt_id(
 
     # Stability check
     ng_norm = 0
-    if stability_cons is True:
+    if stab_cons is True:
         if Na != 0:
             ng_norm += 1
             # companion matrix A(z) polynomial
@@ -276,4 +277,4 @@ def opt_id(
     # Defining the solver
     solver = nlpsol("solver", "ipopt", nlp, sol_opts)
 
-    return [solver, w_lb, w_ub, g_lb, g_ub]
+    return solver, w_lb, w_ub, g_lb, g_ub

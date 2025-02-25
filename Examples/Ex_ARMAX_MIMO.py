@@ -31,7 +31,8 @@ def generate_inputs(npts, ranges):
 def add_noise(npts, var_list, H_samples):
     err_inputH = fset.white_noise_var(npts, var_list)
     err_outputH = [
-        cnt.lsim(H, err_inputH[i, :], Time)[0] for i, H in enumerate(H_samples)  # type: ignore
+        cnt.lsim(H, err_inputH[i, :], Time)[0]
+        for i, H in enumerate(H_samples)  # type: ignore
     ]
     return err_outputH
 
@@ -119,21 +120,20 @@ theta_list = th
 
 # IDENTIFICATION STAGE
 # TESTING ARMAX models
+orders = [ordersna, ordersnb, ordersnc, theta_list]
 identification_params = {
     "ARMAX-I": {
-        "ARMAX_orders": [ordersna, ordersnb, ordersnc, theta_list],
+        "id_mode": "ILLS",
         "max_iter": 20,
         "centering": "MeanVal",
     },
     "ARMAX-O": {
-        "ARMAX_orders": [ordersna, ordersnb, ordersnc, theta_list],
-        "ARMAX_mod": "OPT",
+        "id_mode": "OPT",
         "max_iter": 20,
         "centering": None,
     },
     "ARMAX-R": {
-        "ARMAX_orders": [ordersna, ordersnb, ordersnc, theta_list],
-        "ARMAX_mod": "RLLS",
+        "id_mode": "RLLS",
         "max_iter": 20,
         "centering": "InitVal",
     },
@@ -141,7 +141,7 @@ identification_params = {
 
 syss = []
 for method, params in identification_params.items():
-    sys_id = system_identification(Ytot, Usim, "ARMAX", **params)
+    sys_id = system_identification(Ytot, Usim, "ARMAX", *orders, **params)
     syss.append(sys_id)
 
 Youts = [getattr(sys, "Yid") for sys in syss]

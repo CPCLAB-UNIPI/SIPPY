@@ -17,6 +17,7 @@ from utils import (
 
 from sippy import functionset as fset
 from sippy import system_identification
+from sippy.typing import FlexOrderParams
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
@@ -109,63 +110,42 @@ fig.savefig(output_dir + "/responses.png")
 # choose identification mode
 mode = "FIXED"
 
+
 if mode == "IC":
     # use Information criterion
 
-    identification_params = {
-        "ARMAX-I": {
-            "IC": "AIC",
-            "na_ord": [4, 4],
-            "nb_ord": [3, 3],
-            "nc_ord": [2, 2],
-            "delays": [11, 11],
-            "ARMAX_mod": "ILLS",
-        },
-        "ARMAX-O": {
-            "IC": "AICc",
-            "na_ord": [4, 4],
-            "nb_ord": [3, 3],
-            "nc_ord": [2, 2],
-            "delays": [11, 11],
-            "ARMAX_mod": "OPT",
-        },
-        "ARMAX-R": {
-            "IC": "BIC",
-            "na_ord": [4, 4],
-            "nb_ord": [3, 3],
-            "nc_ord": [2, 2],
-            "delays": [11, 11],
-            "ARMAX_mod": "RLLS",
-        },
-    }
+    na_ord = [4, 4]
+    nb_ord = [3, 3]
+    nc_ord = [2, 2]
+    nd_ord = [3, 3]
+    nf_ord = [4, 4]
+    theta = [11, 11]
 
-elif mode == "FIXED":
+
+else:
     # use fixed model orders
 
     na_ord = [4]
     nb_ord = [[3]]
     nc_ord = [2]
+    nd_ord = [3]
+    nf_ord = [4]
     theta = [[11]]
 
-    identification_params = {
-        "ARMAX-I": {
-            "ARMAX_orders": [na_ord, nb_ord, nc_ord, theta],
-            "ARMAX_mod": "ILLS",
-        },
-        "ARMAX-O": {
-            "ARMAX_orders": [na_ord, nb_ord, nc_ord, theta],
-            "ARMAX_mod": "OPT",
-        },
-        "ARMAX-R": {
-            "ARMAX_orders": [na_ord, nb_ord, nc_ord, theta],
-            "ARMAX_mod": "RLLS",
-        },
-    }
+# In case of fixed, IC will be ignored
+identification_params: list[
+    tuple[tuple[list[int] | list[list[int]], ...], FlexOrderParams]
+] = [
+    ((na_ord, nb_ord, nc_ord, theta), {"IC": "BIC", "id_mode": "ILLS"}),
+    ((na_ord, nb_ord, nc_ord, theta), {"IC": "BIC", "id_mode": "OPT"}),
+    ((na_ord, nb_ord, nc_ord, theta), {"IC": "BIC", "id_mode": "RLLS"}),
+]
 
 syss = []
-for method, params in identification_params.items():
+for orders_params in identification_params:
+    orders, params = orders_params
     sys_id = system_identification(
-        Ytot, Usim, id_method="ARMAX", max_iter=300, **params
+        Ytot, Usim, "ARMAX", *orders, ts=sampling_time, max_iter=300, **params
     )
     syss.append(sys_id)
 

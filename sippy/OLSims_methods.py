@@ -4,8 +4,7 @@ Created on Thu Oct 12 2017
 @author: Giuseppe Armenise
 """
 
-import sys
-from typing import Literal
+from warnings import warn
 
 import numpy as np
 import scipy as sc
@@ -22,9 +21,10 @@ from .functionsetSIM import (
     ordinate_sequence,
     reducingOrder,
 )
+from .typing import ICMethods, OLSimMethods
 
 
-def SVD_weighted(y, u, f, l_, weights="N4SID"):
+def SVD_weighted(y, u, f, l_, weights: OLSimMethods = "N4SID"):
     Yf, Yp = ordinate_sequence(y, f, f)
     Uf, Up = ordinate_sequence(u, f, f)
     Zp = impile(Up, Yp)
@@ -124,9 +124,9 @@ def extracting_matrices(M, n):
 
 
 def OLSims(
-    weights: Literal["CVA", "MOESP", "N4SID"],
     y: np.ndarray,
     u: np.ndarray,
+    weights: OLSimMethods,
     order: int = 0,
     threshold: float = 0.0,
     f: int = 20,
@@ -134,15 +134,15 @@ def OLSims(
     A_stability: bool = False,
 ):
     y = 1.0 * np.atleast_2d(y)
-    u = 1.0 * np.atleast_2d(u)
+    u = np.atleast_2d(u)
     l_, _ = y.shape
     m_, L = u.shape
 
     N = L - 2 * f + 1
-    Ustd = np.zeros(m_)
+    U_std = np.zeros(m_)
     Ystd = np.zeros(l_)
     for j in range(m_):
-        Ustd[j], u[j] = rescale(u[j])
+        U_std[j], u[j] = rescale(u[j])
     for j in range(l_):
         Ystd[j], y[j] = rescale(y[j])
     U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l_, weights)
@@ -177,8 +177,8 @@ def OLSims(
 
     K, K_calculated = K_calc(A, C, Q, R, S)
     for j in range(m_):
-        B[:, j] = B[:, j] / Ustd[j]
-        D[:, j] = D[:, j] / Ustd[j]
+        B[:, j] = B[:, j] / U_std[j]
+        D[:, j] = D[:, j] / U_std[j]
     for j in range(l_):
         C[j, :] = C[j, :] * Ystd[j]
         D[j, :] = D[j, :] * Ystd[j]
@@ -188,17 +188,17 @@ def OLSims(
 
 
 def select_order_SIM(
-    y,
-    u,
-    f=20,
-    weights="N4SID",
-    ic_method="AIC",
-    orders=[1, 10],
-    D_required=False,
-    A_stability=False,
+    y: np.ndarray,
+    u: np.ndarray,
+    weights: OLSimMethods,
+    orders: tuple[int, int] = (1, 10),
+    ic_method: ICMethods = "AIC",
+    f: int = 20,
+    D_required: bool = False,
+    A_stability: bool = False,
 ):
     y = 1.0 * np.atleast_2d(y)
-    u = 1.0 * np.atleast_2d(u)
+    u = np.atleast_2d(u)
     min_ord = min(orders)
     l_, L = y.shape
     m_, L = u.shape
@@ -216,31 +216,25 @@ def select_order_SIM(
         )
     else:
         if min_ord < 1:
-            sys.stdout.write("\033[0;35m")
-            print("Warning: The minimum model order will be set to 1")
-            sys.stdout.write(" ")
+            warn("The minimum model order will be set to 1")
             min_ord = 1
         max_ord = max(orders) + 1
         if f < min_ord:
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning! The horizon must be larger than the model order, min_order set as f"
+            warn(
+                "The horizon must be larger than the model order, min_order set as f"
             )
-            sys.stdout.write(" ")
             min_ord = f
         if f < max_ord - 1:
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning! The horizon must be larger than the model order, max_order set as f"
+            warn(
+                "The horizon must be larger than the model order, max_order set as f"
             )
-            sys.stdout.write(" ")
             max_ord = f + 1
         IC_old = np.inf
         N = L - 2 * f + 1
-        Ustd = np.zeros(m_)
+        U_std = np.zeros(m_)
         Ystd = np.zeros(l_)
         for j in range(m_):
-            Ustd[j], u[j] = rescale(u[j])
+            U_std[j], u[j] = rescale(u[j])
         for j in range(l_):
             Ystd[j], y[j] = rescale(y[j])
         U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l_, weights)
@@ -287,8 +281,8 @@ def select_order_SIM(
         S = Covariances[0:n, n::]
         K, K_calculated = K_calc(A, C, Q, R, S)
         for j in range(m_):
-            B[:, j] = B[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B[:, j] = B[:, j] / U_std[j]
+            D[:, j] = D[:, j] / U_std[j]
         for j in range(l_):
             C[j, :] = C[j, :] * Ystd[j]
             D[j, :] = D[j, :] * Ystd[j]

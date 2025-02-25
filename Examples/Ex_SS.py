@@ -18,6 +18,7 @@ from utils import create_output_dir
 from sippy import SS_Model, system_identification
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
+from sippy.typing import SSMethods
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
@@ -65,14 +66,19 @@ axs[1].set_title("Ytot")
 fig.savefig(output_dir + "/ytot.png")
 
 # System identification
-METHOD = ["N4SID", "CVA", "MOESP", "PARSIM-S", "PARSIM-P", "PARSIM-K"]
+METHOD: list[SSMethods] = [
+    "CVA",
+    "MOESP",
+    "N4SID",
+    "PARSIM_K",
+    "PARSIM_P",
+    "PARSIM_S",
+]
 legend = ["System"]
 
 axs[2].plot(Time, y_tot[0], label="System")
 for method in METHOD:
-    sys_id = system_identification(
-        y_tot, U, method, SS_order=2, SS_threshold=0.1
-    )
+    sys_id = system_identification(y_tot, U, method, 2, SS_threshold=0.1)
     if not isinstance(sys_id, SS_Model):
         raise ValueError("SS model not returned")
     xid, yid = fsetSIM.SS_lsim_process_form(

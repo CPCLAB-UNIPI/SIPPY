@@ -16,7 +16,7 @@ plant data.
 The linear model to be identified can be chosen between:
 
 * input-output structures: FIR, ARX, ARMAX, ARMA, ARARX, ARARMAX, OE, BJ, GEN;
-* state-space structures: N4SID, MOESP, CVA, PARSIM-P, PARSIM-S or PARSIM-K.
+* state-space structures: N4SID, MOESP, CVA, PARSIM_P, PARSIM_S or PARSIM_K.
 All the proposed structures are available both in the SISO case, for which the information criteria
 are available, and in the MIMO case.
 

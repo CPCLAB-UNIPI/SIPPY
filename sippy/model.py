@@ -6,25 +6,32 @@ Created on Wed Jul 26 2017
 """
 
 from itertools import product
-from typing import Literal
-from warnings import warn
+from typing import cast
 
 import control.matlab as cnt
 import numpy as np
 
-from .arx import ARX_id
-from .functionset import information_criterion, rescale
-from .io_opt import GEN_id
-from .io_rls import GEN_RLS_id
+from .armax import Armax, ARMAX_MISO_id
+from .arx import ARX_id, ARX_MISO_id
+from .functionset import (
+    information_criterion,
+    rescale,
+)
+from .io_opt import GEN_id, GEN_MISO_id
+from .io_rls import GEN_RLS_id, GEN_RLS_MISO_id
+from .typing import Flags, ICMethods, IOMethods, OptMethods, RLSMethods
+from .utils import (
+    check_feasibility,
+    check_valid_orders,
+    get_val_range,
+)
 
-
-def get_val_range(order_range: int | tuple[int, int]):
-    if isinstance(order_range, int):
-        order_range = (order_range, order_range + 1)
-    min_val, max_val = order_range
-    if min_val < 0:
-        raise ValueError("Minimum value must be non-negative")
-    return range(min_val, max_val + 1)
+n_orders = {
+    "opt": ["na", "nb", "nc", "nd", "nf", "theta"],
+    "rls": ["na", "nb", "nc", "nd", "nf", "theta"],
+    "arx": ["na", "nb", "theta"],
+    "armax": ["na", "nb", "nc", "theta"],
+}
 
 
 class SS_Model:
@@ -87,237 +94,368 @@ class SS_Model:
 class IO_SISO_Model:
     def __init__(
         self,
-        na: None | int,
-        nb: None | int,
-        nc: None | int,
-        nd: None | int,
-        nf: None | int,
-        theta: None | int,
-        ts: float,
-        NUM: np.ndarray,
-        DEN: np.ndarray,
         G: cnt.TransferFunction,
-        H: cnt.TransferFunction,
+        numerator: np.ndarray,
+        denominator: np.ndarray,
+        *orders,
         Vn,
         Yid,
         **kwargs,
     ):
-        self.na = na
-        self.nb = nb
-        self.nc = nc
-        self.nd = nd
-        self.nf = nf
-        self.theta = theta
-        self.ts = ts
-        self.NUM = NUM
-        self.DEN = DEN
         self.G = G
-        self.H = H
+        self.numerator = numerator
+        self.denominator = denominator
+
+        self.orders = orders
+
         self.Vn = Vn
         self.Yid = Yid
+
         for key, value in kwargs.items():
             setattr(self, key, value)
 
     @classmethod
     def _from_order(
         cls,
-        flag: Literal["arx", "rls", "opt"],
-        id_method: Literal[
-            "BJ",
-            "GEN",
-            "ARARX",
-            "ARARMAX",
-            "ARMA",
-            "ARMAX",
-            "ARX",
-            "OE",
-            "FIR",
-        ],
-        y,
-        u,
-        ts: float = 1.,
-        na_ord: int | tuple[int, int] = (0, 5),
-        nb_ord: int | tuple[int, int] = (1, 5),
-        nc_ord: int | tuple[int, int] = (0, 5),
-        nd_ord: int | tuple[int, int] = (0, 5),
-        nf_ord: int | tuple[int, int] = (0, 5),
-        delays: int | tuple[int, int] = (0, 5),
-        ic_method: Literal["AIC", "AICc", "BIC"] = "AIC",
+        y: np.ndarray,
+        u: np.ndarray,
+        *ord_ranges: tuple[int, int],
+        flag: Flags,
+        id_method: IOMethods,
+        ic_method: ICMethods = "AIC",
+        ts: float = 1.0,
         max_iter: int = 200,
-        st_m: float = 1.0,
-        st_c: bool = False,
+        stab_marg: float = 1.0,
+        stab_cons: bool = False,
     ):
         if y.size != u.size:
             raise RuntimeError("y and u must have the same length")
 
         # order ranges
-        na_range = get_val_range(na_ord)
-        nb_range = get_val_range(nb_ord)
-        nc_range = get_val_range(nc_ord)
-        nd_range = get_val_range(nd_ord)
-        nf_range = get_val_range(nf_ord)
-        theta_range = get_val_range(delays)
+        ord_ranges_ = tuple(get_val_range(ord_r) for ord_r in ord_ranges)
 
-        if nb_range[0] <= 0:
+        if ord_ranges_[1][0] <= 0:
             raise ValueError(
-                f"Lower bound of nb must be strictly positive integer. Got {nb_range[0]}"
+                f"Lower bound of nb must be strictly positive integer. Got {ord_ranges_[1][0]}"
             )
 
-        ystd, y = rescale(y)
-        Ustd, u = rescale(u)
+        y_std, y = rescale(y)
+        U_std, u = rescale(u)
         IC_old = np.inf
 
-        na, nb, nc, nd, nf, theta = (
-            na_range[1],
-            nb_range[1],
-            nc_range[1],
-            nd_range[1],
-            nf_range[1],
-            theta_range[1],
-        )
-        for i_a, i_b, i_c, i_d, i_f, i_t in product(
-            na_range, nb_range, nc_range, nd_range, nf_range, theta_range
-        ):
+        ord_range_best = tuple(ord_r[1] for ord_r in ord_ranges)
+
+        for ord_range_prod in product(*ord_ranges):
             if flag == "opt":
-                _, _, _, _, Vn, y_id = GEN_id(
-                    id_method,
+                id_method = cast(OptMethods, id_method)
+                _, _, _, _, Vn, Yid = GEN_id(
                     y,
                     u,
-                    i_a,
-                    i_b,
-                    i_c,
-                    i_d,
-                    i_f,
-                    i_t,
-                    max_iter,
-                    st_m,
-                    st_c,
+                    id_method,
+                    *ord_range_prod,
+                    max_iter=max_iter,
+                    stab_marg=stab_marg,
+                    stab_cons=stab_cons,
                 )
             elif flag == "rls":
-                _, _, _, _, Vn, y_id = GEN_RLS_id(
-                    id_method,
-                    y,
-                    u,
-                    i_a,
-                    i_b,
-                    i_c,
-                    i_d,
-                    i_f,
-                    i_t,
+                id_method = cast(RLSMethods, id_method)
+                _, _, _, _, Vn, Yid = GEN_RLS_id(
+                    y, u, id_method, *ord_range_prod
                 )
             elif flag == "arx":
-                _, _, _, _, Vn, y_id = ARX_id(y, u, i_a, i_b, i_t)
+                _, _, _, _, Vn, Yid = ARX_id(y, u, *ord_range_prod, y_std=1)
+            elif flag == "armax":
+                _, _, _, _, Vn, Yid = Armax._identify(
+                    y,
+                    u,
+                    *ord_range_prod,
+                    max_iter=max_iter,
+                )
+
             IC = information_criterion(
-                i_a + i_b + i_c + i_d + i_f,
-                y.size - max(i_a, i_b + i_t, i_c, i_d, i_f),
+                sum(ord_range_prod),
+                y.size - max(ord_range_prod),
                 Vn * 2,
                 ic_method,
             )
             if IC < IC_old:
                 IC_old = IC
-                (
-                    na,
-                    nb,
-                    nc,
-                    nd,
-                    nf,
-                    theta,
-                ) = i_a, i_b, i_c, i_d, i_f, i_t
+                ord_range_best = ord_range_prod
 
         # rerun identification
         if flag == "opt":
-            NUM, DEN, NUMH, DENH, Vn, y_id = GEN_id(
-                id_method,
-                y,
-                u,
-                na,
-                nb,
-                nc,
-                nd,
-                nf,
-                theta,
-                max_iter,
-                st_m,
-                st_c,
+            id_method = cast(OptMethods, id_method)
+            numerator, denominator, numerator_H, denominator_H, Vn, Yid = (
+                GEN_id(
+                    y,
+                    u,
+                    id_method,
+                    *ord_range_best,
+                    max_iter=max_iter,
+                    stab_marg=stab_marg,
+                    stab_cons=stab_cons,
+                )
             )
         elif flag == "rls":
-            NUM, DEN, NUMH, DENH, Vn, y_id = GEN_RLS_id(
-                id_method,
-                y,
-                u,
-                na,
-                nb,
-                nc,
-                nd,
-                nf,
-                theta,
+            id_method = cast(RLSMethods, id_method)
+            numerator, denominator, numerator_H, denominator_H, Vn, Yid = (
+                GEN_RLS_id(y, u, id_method, *ord_range_best)
             )
         elif flag == "arx":
-            NUM, DEN, NUMH, DENH, Vn, y_id = ARX_id(y, u, na, nb, theta)
+            numerator, denominator, numerator_H, denominator_H, Vn, Yid = (
+                ARX_id(y, u, *ord_range_best, y_std=1.0)
+            )
+        elif flag == "armax":
+            numerator, denominator, numerator_H, denominator_H, Vn, Yid = (
+                Armax._identify(y, u, *ord_range_best, max_iter=max_iter)
+            )
 
-        Yid = np.atleast_2d(y_id) * ystd
+        Yid = np.atleast_2d(Yid) * y_std
 
-        # rescale NUM coeff
-        if id_method != "ARMA" and nb and theta:
-            NUM[theta : nb + theta] = NUM[theta : nb + theta] * ystd / Ustd
+        # rescale numerator coeff
+        if id_method != "ARMA":
+            nb = ord_range_best[1]
+            theta = ord_range_best[-1]
+            numerator[theta : nb + theta] = (
+                numerator[theta : nb + theta] * y_std / U_std
+            )
 
         # FdT
-        G = cnt.tf(NUM, DEN, ts)
-        H = cnt.tf(NUMH, DENH, ts)
+        G = cnt.tf(numerator, denominator, ts)
+        H = cnt.tf(numerator_H, denominator_H, ts)
 
         if G is None or H is None:
             raise RuntimeError("tf could not be created")
-        poles_G = max(np.abs(cnt.poles(G)))
-        poles_H = max(np.abs(cnt.poles(H)))
-        check_st_H = np.zeros(1) if id_method == "OE" else poles_H
-        if poles_G > 1.0 or check_st_H > 1.0:
-            warn("One of the identified system is not stable")
-            if st_c is True:
-                raise RuntimeError(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(poles_H, poles_G)} \
-                        ... against the imposed stability margin {st_m}")
-            else:
-                warn(
-                    f"Consider activating the stability constraint. The maximum pole is {max(poles_H, poles_G)}  "
-                )
+        check_feasibility(G, H, id_method, stab_marg, stab_cons)
 
-        return cls(na, nb, nc, nd, nf, theta, ts, NUM, DEN, G, H, Vn, Yid)
+        return cls(
+            G,
+            numerator,
+            denominator,
+            *ord_range_best,
+            Vn=Vn,
+            Yid=Yid,
+        )
 
 
-class IO_MIMO_Model(IO_SISO_Model):
+class IO_MISO_Model(IO_SISO_Model):
     def __init__(
         self,
-        na,
-        nb,
-        nc,
-        nd,
-        nf,
-        theta,
-        ts,
-        numerator,
-        denominator,
-        numerator_H,
-        denominator_H,
-        G,
-        H,
+        G: cnt.TransferFunction,
+        H: cnt.TransferFunction,
+        numerator: np.ndarray,
+        denominator: np.ndarray,
+        numerator_H: np.ndarray,
+        denominator_H: np.ndarray,
+        *orders,
         Vn,
         Yid,
         **kwargs,
     ):
         super().__init__(
-            na,
-            nb,
-            nc,
-            nd,
-            nf,
-            theta,
-            ts,
+            G,
             numerator,
             denominator,
-            G,
-            H,
-            Vn,
-            Yid,
+            *orders,
+            Vn=Vn,
+            Yid=Yid,
             **kwargs,
         )
+
+        self.H = H
+
         self.numerator_H = numerator_H
         self.denominator_H = denominator_H
+
+    @classmethod
+    def _identify(
+        cls,
+        y: np.ndarray,
+        u: np.ndarray,
+        flag: Flags,
+        id_method: IOMethods,
+        *orders: np.ndarray,
+        ts: float,
+        max_iter: int,
+        stab_marg: float,
+        stab_cons: bool,
+        verbous: int = 0,
+    ):
+        udim = u.shape[0]
+        na, nb, nc, nd, nf, theta = tuple(np.array(arg) for arg in orders)
+        check_valid_orders(udim, *orders)
+
+        # rerun identification
+        if flag == "opt":
+            id_method = cast(OptMethods, id_method)
+            numerator, denominator, numerator_H, denominator_H, Vn, Yid = (
+                GEN_MISO_id(
+                    y,
+                    u,
+                    id_method,
+                    int(na),
+                    nb,
+                    int(nc),
+                    int(nd),
+                    int(nf),
+                    theta,
+                    max_iter,
+                    stab_marg,
+                    stab_cons,
+                )
+            )
+        elif flag == "rls":
+            id_method = cast(RLSMethods, id_method)
+            numerator, denominator, numerator_H, denominator_H, Vn, Yid = (
+                GEN_RLS_MISO_id(
+                    y,
+                    u,
+                    id_method,
+                    int(na),
+                    nb,
+                    int(nc),
+                    int(nd),
+                    int(nf),
+                    theta,
+                )
+            )
+        elif flag == "arx":
+            numerator, denominator, numerator_H, denominator_H, Vn, Yid = (
+                ARX_MISO_id(y, u, int(na), nb, theta)
+            )
+        elif flag == "armax":
+            numerator, denominator, numerator_H, denominator_H, Vn, Yid, _ = (
+                ARMAX_MISO_id(
+                    y,
+                    u,
+                    int(na),
+                    nb,
+                    int(nc),
+                    theta,
+                    max_iter,
+                )
+            )
+
+        # FdT
+        G = cnt.tf(numerator, denominator, ts)
+        H = cnt.tf(numerator_H, denominator_H, ts)
+        if G is None or H is None:
+            raise RuntimeError("tf could not be created")
+
+        check_feasibility(G, H, id_method, stab_marg, stab_cons)
+
+        return cls(
+            G,
+            H,
+            numerator,
+            denominator,
+            numerator_H,
+            denominator_H,
+            Vn=Vn,
+            Yid=Yid,
+        )
+
+
+class IO_MIMO_Model(IO_MISO_Model):
+    def __init__(
+        self,
+        G: cnt.TransferFunction,
+        H: cnt.TransferFunction,
+        numerator: np.ndarray,
+        denominator: np.ndarray,
+        numerator_H: np.ndarray,
+        denominator_H: np.ndarray,
+        *orders,
+        Vn,
+        Yid,
+        **kwargs,
+    ):
+        super().__init__(
+            G,
+            H,
+            numerator,
+            denominator,
+            numerator_H,
+            denominator_H,
+            *orders,
+            Vn=Vn,
+            Yid=Yid,
+            **kwargs,
+        )
+
+    @classmethod
+    def _identify(
+        cls,
+        y: np.ndarray,
+        u: np.ndarray,
+        flag: Flags,
+        id_method: IOMethods,
+        *orders: int | list[int] | np.ndarray,
+        ts: float,
+        max_iter: int,
+        stab_marg: float,
+        stab_cons: bool,
+        verbous: int = 0,
+    ):
+        ydim, ylength = y.shape
+        orders = tuple(np.array(arg) for arg in orders)
+        check_valid_orders(ydim, *orders)
+        # preallocation
+        Vn_tot = 0.0
+        numerator = []  # np.empty((ydim, u.shape[0], ydim))
+        denominator = []  # np.empty((ydim, u.shape[0], ydim))
+        numerator_H = []  # np.empty((ydim, u.shape[0], ydim))
+        denominator_H = []  # np.empty((ydim, u.shape[0], ydim))
+        Yid = np.zeros((ydim, ylength))
+        # identification in MISO approach
+        for i in range(ydim):
+            miso_model = IO_MISO_Model._identify(
+                y[i, :],
+                u,
+                flag,
+                id_method,
+                *(arg[i] for arg in orders),
+                ts=ts,
+                max_iter=max_iter,
+                stab_marg=stab_marg,
+                stab_cons=stab_cons,
+            )
+            # append values to vectors
+            numerator.append(miso_model.numerator)
+            denominator.append(miso_model.denominator)
+            numerator_H.append(miso_model.numerator_H)
+            denominator_H.append(miso_model.denominator_H)
+            Vn_tot = miso_model.Vn + Vn_tot
+            Yid[i, :] = miso_model.Yid
+
+        if verbous == 1:
+            print(f"Reached maximum iterations at output {i + 1}")
+            print("-------------------------------------")
+
+        # FdT
+        G = cnt.tf(
+            numerator,
+            denominator,
+            ts,
+        )
+        H = cnt.tf(
+            numerator_H,
+            denominator_H,
+            ts,
+        )
+        if G is None or H is None:
+            raise RuntimeError("tf could not be created")
+
+        check_feasibility(G, H, id_method, stab_marg, stab_cons)
+
+        return cls(
+            G,
+            H,
+            numerator,
+            denominator,
+            numerator_H,
+            denominator_H,
+            *orders,
+            Vn=Vn_tot,
+            Yid=Yid,
+        )
