@@ -31,8 +31,8 @@ def generate_inputs(npts, ranges):
 def add_noise(npts, var_list, H_samples):
     err_inputH = fset.white_noise_var(npts, var_list)
     err_outputH = [
-        cnt.lsim(H, err_inputH[i, :], Time)[0]
-        for i, H in enumerate(H_samples)  # type: ignore
+        cnt.lsim(H, err_inputH[i, :], Time)[0]  # type: ignore
+        for i, H in enumerate(H_samples)
     ]
     return err_outputH
 

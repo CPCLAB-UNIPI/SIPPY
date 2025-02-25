@@ -21,6 +21,7 @@ from .io_opt import GEN_id, GEN_MISO_id
 from .io_rls import GEN_RLS_id, GEN_RLS_MISO_id
 from .typing import Flags, ICMethods, IOMethods, OptMethods, RLSMethods
 from .utils import (
+    atleast_3d,
     check_feasibility,
     check_valid_orders,
     get_val_range,
@@ -337,8 +338,8 @@ class IO_MISO_Model(IO_SISO_Model):
             )
 
         # FdT
-        G = cnt.tf(numerator, denominator, ts)
-        H = cnt.tf(numerator_H, denominator_H, ts)
+        G = cnt.tf(atleast_3d(numerator), atleast_3d(denominator), ts)
+        H = cnt.tf(atleast_3d(numerator_H), atleast_3d(denominator_H), ts)
         if G is None or H is None:
             raise RuntimeError("tf could not be created")
 
@@ -347,10 +348,10 @@ class IO_MISO_Model(IO_SISO_Model):
         return cls(
             G,
             H,
-            numerator,
-            denominator,
-            numerator_H,
-            denominator_H,
+            np.atleast_2d(numerator).tolist(),
+            np.atleast_2d(denominator).tolist(),
+            np.atleast_2d(numerator_H).tolist(),
+            np.atleast_2d(denominator_H).tolist(),
             Vn=Vn,
             Yid=Yid,
         )
@@ -402,10 +403,10 @@ class IO_MIMO_Model(IO_MISO_Model):
         check_valid_orders(ydim, *orders)
         # preallocation
         Vn_tot = 0.0
-        numerator = []  # np.empty((ydim, u.shape[0], ydim))
-        denominator = []  # np.empty((ydim, u.shape[0], ydim))
-        numerator_H = []  # np.empty((ydim, u.shape[0], ydim))
-        denominator_H = []  # np.empty((ydim, u.shape[0], ydim))
+        numerator = []  # np.empty((ydim, u.shape[0], nbth?))
+        denominator = []  # np.empty((ydim, u.shape[0], nbth?))
+        numerator_H = []  # np.empty((ydim, u.shape[0], nbth?))
+        denominator_H = []  # np.empty((ydim, u.shape[0], nbth?))
         Yid = np.zeros((ydim, ylength))
         # identification in MISO approach
         for i in range(ydim):

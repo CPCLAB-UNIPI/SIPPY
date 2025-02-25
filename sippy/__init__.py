@@ -210,11 +210,12 @@ def system_identification(
         id_method: AvailableMethods, *orders: int | list | np.ndarray | tuple
     ):
         method_orders = METHOD_ORDERS[id_method]
-
-        if id_method == "FIR" and (orders[0] != 0 or orders[0] != (0, 0)):
-            raise ValueError(
-                f"Order 'na' for FIR must be 0. Got {orders[0]} instead."
-            )
+        # TODO: allow user to not define `na` for FIR.
+        if id_method == "FIR":
+            if orders[0] != [0] * ydim and orders[0] != (0, 0):
+                raise ValueError(
+                    f"Order 'na' for FIR must be {[0] * ydim if IC is None or IC not in get_args(ICMethods) else (0, 0)}. Got {orders[0]} instead."
+                )
 
         if len(orders) != len(method_orders):
             raise ValueError(

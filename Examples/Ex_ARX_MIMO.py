@@ -127,7 +127,7 @@ Id_ARX = system_identification(
 
 # FIR
 Id_FIR = system_identification(
-    Ytot, Usim, "FIR", *(0, ordersnb, theta_list), id_mode="LLS"
+    Ytot, Usim, "FIR", *([0, 0, 0], ordersnb, theta_list), id_mode="LLS"
 )
 
 # output of the identified model
