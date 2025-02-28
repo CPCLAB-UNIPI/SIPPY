@@ -25,7 +25,7 @@ from .typing import (
     SSMethods,
 )
 
-io_models: dict[
+IO_MODELS: dict[
     IOMethods, dict[AvailableModes, dict[Literal["flag"], Flags]]
 ] = {
     "FIR": {
@@ -263,7 +263,7 @@ def system_identification(
         # IO Models
         if id_method in get_args(IOMethods):
             id_method = cast(IOMethods, id_method)
-            method_config = io_models[id_method]
+            method_config = IO_MODELS[id_method]
             if isinstance(method_config, dict):
                 if id_mode in method_config:
                     config = method_config[id_mode]
@@ -274,7 +274,7 @@ def system_identification(
                     )
             else:
                 raise RuntimeError(
-                    f"Method {id_method} not available. Available: {io_models.keys()}"
+                    f"Method {id_method} not available. Available: {IO_MODELS.keys()}"
                 )
 
             orders_: dict = orders_dict
@@ -352,8 +352,8 @@ def system_identification(
                 " for MIMO cases"
             )
 
-        if id_method in io_models:
-            method_config = io_models[id_method]
+        if id_method in IO_MODELS:
+            method_config = IO_MODELS[id_method]
             if isinstance(method_config, dict):
                 if id_mode in method_config:
                     flag = cast(Flags, method_config[id_mode]["flag"])
@@ -363,7 +363,7 @@ def system_identification(
                     )
             else:
                 raise RuntimeError(
-                    f"Method {id_method} not available. Available: {io_models.keys()}"
+                    f"Method {id_method} not available. Available: {IO_MODELS.keys()}"
                 )
 
             if not areinstances(*orders, class_or_tuple=tuple):

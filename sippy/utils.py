@@ -168,7 +168,7 @@ def build_tf_G(
 
         DEN[k, : na + nf + 1] = denG
 
-    return NUM.squeeze(), DEN.squeeze()
+    return NUM, DEN
 
 
 def build_tf_H(
@@ -210,7 +210,7 @@ def build_tf_H(
     DENH = np.zeros((1, valH + 1))
     DENH[0, : na + nd + 1] = denH
 
-    return NUMH.squeeze(), DENH.squeeze()
+    return NUMH, DENH
 
 
 def build_tfs(

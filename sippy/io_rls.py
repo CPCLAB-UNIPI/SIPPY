@@ -173,7 +173,7 @@ def GEN_RLS_MISO_id(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, np.ndarray]:
     # Input handling and scaling
     u, nb, theta, udim = validate_and_prepare_inputs(u, nb, theta)
-    y_std, _ = rescale(y)
+    y_std, y = rescale(y)
     U_std = np.zeros(udim)
     for j in range(udim):
         U_std[j], u[j] = rescale(u[j])

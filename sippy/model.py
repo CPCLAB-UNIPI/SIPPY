@@ -434,16 +434,8 @@ class IO_MIMO_Model(IO_MISO_Model):
             print("-------------------------------------")
 
         # FdT
-        G = cnt.tf(
-            numerator,
-            denominator,
-            ts,
-        )
-        H = cnt.tf(
-            numerator_H,
-            denominator_H,
-            ts,
-        )
+        G = cnt.tf(numerator, denominator, ts)
+        H = cnt.tf(numerator_H, denominator_H, ts)
         if G is None or H is None:
             raise RuntimeError("tf could not be created")
 
