@@ -25,7 +25,7 @@ ENV PYTHONUNBUFFERED=1 \
     # paths
     # this is where our requirements + virtual environment will live
     PYSETUP_PATH="/opt/pysetup" \
-    VENV_PATH="/opt/pysetup/.venv" 
+    VENV_PATH="/opt/pysetup/.venv"
 
 # Prepend poetry and venv to path
 ENV POETRY_VIRTUALENVS_PATH=$VENV_PATH \
