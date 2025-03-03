@@ -15,9 +15,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from utils import create_output_dir
 
-from sippy import SS_Model, system_identification
+from sippy import SS_Model
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
+from sippy import system_identification
 from sippy.typing import SSMethods
 
 output_dir = create_output_dir(__file__)

@@ -50,9 +50,11 @@ RLSMethods = Literal["ARX", "ARMA", "ARMAX", "ARARX", "ARARMAX", "FIR", "OE"]
 
 ICMethods = Literal["AIC", "AICc", "BIC"]
 
-AvailableModes = Literal["LLS", "ILLS", "EOE", "RLLS", "OPT"]
+AvailableModes = Literal["LLS", "ILLS", "RLLS", "OPT"]
 
 Flags = Literal["arx", "armax", "rls", "opt"]
+
+CenteringMethods = Literal["InitVal", "MeanVal", None]
 
 
 class OrderRanges(TypedDict, total=False):
@@ -66,5 +68,5 @@ class OrderRanges(TypedDict, total=False):
 
 class FlexOrderParams(TypedDict, total=False):
     IC: ICMethods
-    id_mode: Literal["ILLS", "OPT", "RLLS"]
-    centering: Literal["InitVal", "MeanVal", None]
+    id_mode: AvailableModes
+    centering: CenteringMethods

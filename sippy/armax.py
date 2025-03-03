@@ -316,7 +316,7 @@ class Armax:
 
         if iterations >= max_iter:
             warn("[ARMAX_id] Reached maximum iterations.")
-            max_reached = True
+            # max_reached = True
 
         numerator = np.zeros(max_order)
         numerator[theta : nb + theta] = beta_hat[na : na + nb]

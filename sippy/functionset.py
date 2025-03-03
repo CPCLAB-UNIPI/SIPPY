@@ -216,10 +216,3 @@ def validation(SYS, u, y, Time, k=1, centering=None):
             Yval[i, :] = np.atleast_2d(Y_u + Y_y + y_rif[i])
 
     return Yval
-
-
-# Data recentering
-def data_recentering(y, y_rif, ylength):
-    for i in range(ylength):
-        y[:, i] = y[:, i] + y_rif
-    return y
