@@ -118,11 +118,12 @@ def ARMAX_MISO_id(
                 na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])
             ]
             denominator[k, 1 : na + 1] = THETA[0:na]
+        denominator_H = denominator[0]
         return (
             numerator,
             denominator,
-            numerator,
-            denominator,
+            numerator_H,
+            denominator_H,
             Vn,
             y_id,
             Reached_max,
@@ -217,7 +218,6 @@ class Armax:
         nc: int,
         theta: int | np.ndarray,
         max_iter: int,
-        **_,
     ):
         """Identify
 
