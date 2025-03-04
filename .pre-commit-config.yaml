@@ -53,6 +53,7 @@ repos:
             "--explicit-package-bases",
             "--implicit-optional",
             "--check-untyped-defs",
+            "--warn-redundant-casts"
           ]
         stages:
           - "pre-push"
