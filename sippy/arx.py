@@ -136,7 +136,7 @@ def compute_num_den(
     >>> val = 3
     >>> udim = 1
     >>> compute_num_den(THETA, na, nb, theta, val, udim)
-    (array([ 1. ,  0.5, -0.2,  0. ]), array([0. , 0.3, 0.1]), array([1., 0., 0., 0.]))
+    (array([0. , 0.3, 0.1]), array([ 1. ,  0.5, -0.2,  0. ]))
 
     >>> THETA = np.array([0.5, -0.2, 0.3, 0.1, 0.4, 0.2])
     >>> na = 2
@@ -145,9 +145,9 @@ def compute_num_den(
     >>> val = 3
     >>> udim = 2
     >>> compute_num_den(THETA, na, nb, theta, val, udim, y_std=1, U_std=[1.0, 1.0])
-    (array([[ 1. ,  0.5, -0.2,  0. ],
-            [ 1. ,  0.5, -0.2,  0. ]]), array([[0. , 0.3, 0.1],
-            [0. , 0.4, 0.2]]), array([1., 0., 0., 0.]))
+    (array([[0. , 0.3, 0.1],
+           [0. , 0.4, 0.2]]), array([[ 1. ,  0.5, -0.2,  0. ],
+           [ 1. ,  0.5, -0.2,  0. ]]))
     """
     NUM = np.zeros((udim, val))
     DEN = np.zeros((udim, val + 1))

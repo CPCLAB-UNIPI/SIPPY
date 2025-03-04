@@ -29,7 +29,7 @@ def opt_id(
     n_tr,
 ) -> tuple[Function, DM, DM, DM, DM]:
     # orders
-    nb = np.sum(nb)
+    nb_ = np.sum(nb)
 
     # Augment the optmization variables with Y vector to build a multiple shooting problem
     N = Y.size
@@ -51,14 +51,14 @@ def opt_id(
     a = w_opt[0:na]
 
     # Get subset b
-    b = w_opt[na : na + nb]
+    b = w_opt[na : na + nb_]
 
     # Get subsets c and d
-    c = w_opt[na + nb : na + nb + nc]
-    d = w_opt[na + nb + nc : na + nb + nc + nd]
+    c = w_opt[na + nb_ : na + nb_ + nc]
+    d = w_opt[na + nb_ + nc : na + nb_ + nc + nd]
 
     # Get subset f
-    f = w_opt[na + nb + nd + nc : na + nb + nc + nd + nf]
+    f = w_opt[na + nb_ + nd + nc : na + nb_ + nc + nd + nf]
 
     # Optimization variables
     Yidw = w_opt[-N:]
@@ -116,7 +116,7 @@ def opt_id(
         # n_tr: number of not identifiable outputs
         if k >= n_tr:
             # building regressor
-            if nb != 0:
+            if nb_ != 0:
                 # inputs
                 vecU = []
                 for nb_i in range(m):
