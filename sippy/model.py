@@ -93,16 +93,23 @@ class IO_SISO_Model:
     def __init__(
         self,
         G: cnt.TransferFunction,
+        H: cnt.TransferFunction,
         numerator: np.ndarray,
         denominator: np.ndarray,
+        numerator_H: np.ndarray,
+        denominator_H: np.ndarray,
         *orders,
         Vn,
         Yid,
         **kwargs,
     ):
         self.G = G
+        self.H = H
+
         self.numerator = numerator
         self.denominator = denominator
+        self.numerator_H = numerator_H
+        self.denominator_H = denominator_H
 
         self.orders = orders
 
@@ -228,8 +235,11 @@ class IO_SISO_Model:
 
         return cls(
             G,
+            H,
             numerator,
             denominator,
+            numerator_H,
+            denominator_H,
             *ord_range_best,
             Vn=Vn,
             Yid=Yid,
@@ -252,8 +262,11 @@ class IO_MISO_Model(IO_SISO_Model):
     ):
         super().__init__(
             G,
+            H,
             numerator,
             denominator,
+            numerator_H,
+            denominator_H,
             *orders,
             Vn=Vn,
             Yid=Yid,

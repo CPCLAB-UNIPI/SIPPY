@@ -182,8 +182,10 @@ def ARX_id(
     NUM, DEN = compute_num_den(
         THETA, na, nb, theta, val, u.shape[0], y_std, U_std
     )
+    NUMH = np.zeros_like(DEN)
+    NUMH[0] = 1.0
 
-    return NUM, DEN, NUM, DEN, Vn, y_id
+    return NUM, DEN, NUMH, DEN, Vn, y_id
 
 
 def ARX_MISO_id(
