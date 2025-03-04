@@ -9,6 +9,8 @@ from warnings import warn
 import control as cnt
 import numpy as np
 
+from .typing import CenteringMethods
+
 
 # function which generates a sequence of inputs GBN
 # N: sequence length (total number of samples)
@@ -145,9 +147,9 @@ def mean_square_error(predictions, targets):
 # y: output data
 # Time: time sequence
 # k: k-step ahead
-def validation(SYS, u, y, Time, k=1, centering=None):
+def validation(SYS, u, y, Time, k=1, centering: CenteringMethods = None):
     # check dimensions
-    y = 1.0 * np.atleast_2d(y)
+    y = np.atleast_2d(y)
     u = np.atleast_2d(u)
     [n1, n2] = y.shape
     ydim = min(n1, n2)

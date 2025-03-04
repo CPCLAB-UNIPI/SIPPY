@@ -133,7 +133,7 @@ def OLSims(
     D_required: bool = False,
     A_stability: bool = False,
 ):
-    y = 1.0 * np.atleast_2d(y)
+    y = np.atleast_2d(y)
     u = np.atleast_2d(u)
     l_, _ = y.shape
     m_, L = u.shape
@@ -197,7 +197,7 @@ def select_order_SIM(
     D_required: bool = False,
     A_stability: bool = False,
 ):
-    y = 1.0 * np.atleast_2d(y)
+    y = np.atleast_2d(y)
     u = np.atleast_2d(u)
     min_ord = min(orders)
     l_, L = y.shape

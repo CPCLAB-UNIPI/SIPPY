@@ -277,7 +277,7 @@ class Armax:
         beta_hat = np.zeros(sum_order)
         I_beta = np.identity(beta_hat.size)
         iterations = 0
-        max_reached = False
+        # max_reached = False
 
         # Stay in this loop while variance has not converged or max iterations has not been
         # reached yet.

@@ -148,7 +148,7 @@ def _areinstances(args: tuple, class_or_tuple):
         True
     """
 
-    return all(map(lambda x: isinstance(x, class_or_tuple), args))
+    return all(isinstance(x, class_or_tuple) for x in args)
 
 
 def _verify_orders_types(
@@ -359,10 +359,10 @@ def system_identification(
     SS_D_required: bool = False,
     SS_A_stability: bool = False,
     SS_PK_B_reval: bool = False,
-):
+) -> IO_SISO_Model | IO_MIMO_Model | SS_Model:
     # Verify y and u
-    y = 1.0 * np.atleast_2d(y)
-    u = 1.0 * np.atleast_2d(u)
+    y = np.atleast_2d(y)
+    u = np.atleast_2d(u)
     [n1, n2] = y.shape
     ydim = min(n1, n2)
     ylength = max(n1, n2)
