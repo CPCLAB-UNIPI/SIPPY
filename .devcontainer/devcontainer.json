@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-dockerfile
 {
-	"name": "SIPPY Dev Container",
+	"name": "sippy",
 	"image": "sippy:latest",
 	// if production stage is latest, build only up to development stage
 	// "build": {
@@ -11,6 +11,15 @@
 	// },
 	"workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
 	"workspaceFolder": "/app",
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/python:1": {},
+		"ghcr.io/jsburckhardt/devcontainer-features/ruff:1": {},
+		"ghcr.io/devcontainers-extra/features/flake8:2": {},
+		"ghcr.io/devcontainers-extra/features/mypy:2": {},
+		"ghcr.io/devcontainers/features/git:1": {}
+	},
+	// Set *default* container specific settings.json values on container create.
 	"customizations": {
 		"vscode": {
 			"settings": {
@@ -19,15 +28,7 @@
 			}
 		}
 	},
-	// "postCreateCommand": "poetry install"
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	"features": {
-		"ghcr.io/devcontainers/features/python:1": {},
-		"ghcr.io/jsburckhardt/devcontainer-features/ruff:1": {},
-		"ghcr.io/devcontainers-extra/features/flake8:2": {},
-		"ghcr.io/devcontainers-extra/features/mypy:2": {},
-		"ghcr.io/devcontainers/features/git:1": {}
-	}
+	"postCreateCommand": "source /opt/pysetup/.venv/bin/activate"
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Uncomment the next line to run commands after the container is created.

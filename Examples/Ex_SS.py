@@ -19,6 +19,7 @@ from sippy import SS_Model
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
 from sippy import system_identification
+from sippy.typing import SSMethods
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
@@ -50,36 +51,42 @@ noise = fset.white_noise_var(npts, [0.15])
 # Output with noise
 y_tot = yout + noise
 
-#
-plt.close("all")
-plt.figure(0)
-plt.plot(Time, U[0])
-plt.ylabel("input")
-plt.grid()
-plt.xlabel("Time")
-#
-plt.figure(1)
-plt.plot(Time, y_tot[0])
-plt.ylabel("y_tot")
-plt.grid()
-plt.xlabel("Time")
-plt.title("Ytot")
+# Plotting
+fig, axs = plt.subplots(3, 1, sharex=True)
+axs[0].plot(Time, U[0])
+axs[0].set_ylabel("input")
+axs[0].grid()
+axs[0].set_xlabel("Time")
+fig.savefig(output_dir + "/input.png")
+
+axs[1].plot(Time, y_tot[0])
+axs[1].set_ylabel("y_tot")
+axs[1].grid()
+axs[1].set_xlabel("Time")
+axs[1].set_title("Ytot")
+fig.savefig(output_dir + "/ytot.png")
 
 # System identification
-METHOD = ["N4SID", "CVA", "MOESP", "PARSIM-S", "PARSIM-P", "PARSIM-K"]
+METHOD: list[SSMethods] = [
+    "CVA",
+    "MOESP",
+    "N4SID",
+    "PARSIM_K",
+    "PARSIM_P",
+    "PARSIM_S",
+]
 legend = ["System"]
-for i in range(len(METHOD)):
-    method = METHOD[i]
-    sys_id = system_identification(
-        y_tot, U, method, SS_order=2, SS_threshold=0.1
-    )
+
+axs[2].plot(Time, y_tot[0], label="System")
+for method in METHOD:
+    sys_id = system_identification(y_tot, U, method, 2, SS_threshold=0.1)
     if not isinstance(sys_id, SS_Model):
         raise ValueError("SS model not returned")
     xid, yid = fsetSIM.SS_lsim_process_form(
         sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0
     )
-    #
-    plt.plot(Time, yid[0])
-    plt.savefig(output_dir + "/result.png")
-    legend.append(method)
-plt.legend(legend)
+    axs[2].plot(Time, yid[0], label=method)
+axs[2].legend()
+fig.savefig(output_dir + "/result.png")
+
+plt.close("all")

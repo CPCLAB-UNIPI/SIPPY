@@ -1,6 +1,6 @@
 [project]
 name = "sippy"
-version = "0.3.0"
+version = "1.0.0"
 description = "Systems Identification Package for Python"
 authors = [{ name = "Giuseppe Armenise" }]
 readme = "README.md"
@@ -66,3 +66,10 @@ norecursedirs = [".*"]
 lint.ignore = ["E501"]
 lint.select = ["E", "F", "I", "UP"] # https://beta.ruff.rs/docs/rules/
 line-length = 79
+
+[tool.mypy]
+ignore_missing_imports = true
+explicit_package_bases = true
+implicit_optional = true
+check_untyped_defs = true
+warn_redundant_casts = true

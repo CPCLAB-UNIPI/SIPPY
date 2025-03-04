@@ -3,17 +3,17 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - "**"
   pull_request:
     branches:
       - main
 
 jobs:
-  setup-environment:
+  build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -22,12 +22,12 @@ jobs:
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev coinor-libipopt-dev build-essential cmake ninja-build
+        run: sudo apt-get update -qq && sudo apt-get install -y libopenblas-dev coinor-libipopt-dev build-essential cmake ninja-build
 
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew update
+          brew update -q
           brew install ninja gfortran openblas
           echo "FC=$(brew --prefix gfortran)/bin/gfortran" >> $GITHUB_ENV
 
@@ -35,59 +35,47 @@ jobs:
         if: runner.os == 'macOS'
         uses: maxim-lobanov/setup-xcode@v1
 
+      - name: Install system dependencies MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+
       - name: Install system dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install -y cmake ninja msys2
+          choco install -y cmake ninja
           refreshenv
           C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
           echo "CMAKE_GENERATOR=Ninja" >> $GITHUB_ENV
-
-      - name: Cache installed dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.local  # Linux & macOS dependencies
-            C:\msys64  # Windows dependencies
-          key: ${{ runner.os }}-dependencies-${{ github.run_id }}
-
-  build:
-    needs: setup-environment # Runs only after dependencies are installed
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@main
-
-      - name: Restore cached dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.local
-            C:\msys64
-          key: ${{ runner.os }}-dependencies-${{ github.run_id }}
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@main
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install slycot manually
+        run: |
+          CMAKE_MAKE_PROGRAM=C:/msys64/usr/bin/make.exe pip install slycot==0.6.0 --no-cache-dir --use-pep517
+
       - name: Install Poetry
-        uses: snok/install-poetry@v1
+        uses: snok/install-poetry@main
         with:
           virtualenvs-create: true
           virtualenvs-in-project: true
           installer-parallel: true
 
+      - name: Cache Poetry virtual environment
+        id: cache-poetry
+        uses: actions/cache@main
+        with:
+          path: ~/.cache
+          key: poetry-${{ matrix.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ matrix.os }}-${{ matrix.python-version }}-
+
       - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi --no-root
+        run: |
+          poetry install --no-interaction --no-ansi
 
       - name: Run tests
-        run: poetry run pytest -m "not datasets" --durations=10
+        run: |
+          poetry run pytest -m "not datasets" --durations=10

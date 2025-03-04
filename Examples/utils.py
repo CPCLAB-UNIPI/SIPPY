@@ -8,11 +8,13 @@ plt.rcParams["axes.grid"] = True
 W_V = np.logspace(-3, 4, num=701)
 
 
-def create_output_dir(script):
+def create_output_dir(script, subdirs: list = []):
     script_path = os.path.abspath(os.path.dirname(script))
     script_name = os.path.splitext(os.path.basename(script))[0]
     output_dir = os.path.join(script_path, "results", script_name)
     os.makedirs(output_dir, exist_ok=True)
+    for subdir in subdirs:
+        os.makedirs(os.path.join(output_dir, subdir), exist_ok=True)
     return output_dir
 
 

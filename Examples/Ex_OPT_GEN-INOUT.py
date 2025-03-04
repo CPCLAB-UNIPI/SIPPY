@@ -5,6 +5,7 @@ ARMAX Example
 """
 
 import control.matlab as cnt
+import matplotlib.pyplot as plt
 import numpy as np
 from utils import (
     W_V,
@@ -16,6 +17,7 @@ from utils import (
 
 from sippy import functionset as fset
 from sippy import system_identification
+from sippy.typing import IOMethods
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
@@ -106,54 +108,9 @@ if mode == "IC":
     nf_ord = [4, 4]
     theta = [11, 11]
     # ARMA - ARARX - ARARMAX
-    identification_params = {
-        "ARMA": {
-            "IC": "BIC",
-            "na_ord": na_ord,
-            "nc_ord": nc_ord,
-            "delays": theta,
-        },
-        "ARARX": {
-            "IC": "BIC",
-            "na_ord": na_ord,
-            "nb_ord": nb_ord,
-            "nd_ord": nd_ord,
-            "delays": theta,
-        },
-        "ARARMAX": {
-            "IC": "BIC",
-            "na_ord": [4, 4],
-            "nb_ord": nb_ord,
-            "nc_ord": nc_ord,
-            "nd_ord": nd_ord,
-            "delays": theta,
-        },
-        "OE": {
-            "IC": "BIC",
-            "nb_ord": nb_ord,
-            "nf_ord": [4, 4],
-            "delays": theta,
-        },
-        "BJ": {
-            "IC": "BIC",
-            "nb_ord": nb_ord,
-            "nc_ord": nc_ord,
-            "nd_ord": nd_ord,
-            "nf_ord": nf_ord,
-            "delays": theta,
-        },
-        "GEN": {
-            "IC": "BIC",
-            "na_ord": na_ord,
-            "nb_ord": nb_ord,
-            "nc_ord": nc_ord,
-            "nd_ord": nd_ord,
-            "nf_ord": nf_ord,
-            "delays": theta,
-        },
-    }
 
-elif mode == "FIXED":
+
+else:
     # use fixed model orders
 
     na_ord = [2]
@@ -163,30 +120,27 @@ elif mode == "FIXED":
     nf_ord = [4]
     theta = [[11]]
 
-    identification_params = {
-        "ARMA": {
-            "ARMA_orders": [na_ord, nc_ord, theta],
-        },
-        "ARARX": {
-            "ARARX_orders": [na_ord, nb_ord, nd_ord, theta],
-        },
-        "ARARMAX": {
-            "ARARMAX_orders": [na_ord, nb_ord, nc_ord, nd_ord, theta],
-        },
-        "OE": {
-            "OE_orders": [nb_ord, nf_ord, theta],
-        },
-        "BJ": {
-            "BJ_orders": [nb_ord, nc_ord, nd_ord, nf_ord, theta],
-        },
-        "GEN": {
-            "GEN_orders": [na_ord, nb_ord, nc_ord, nd_ord, nf_ord, theta],
-        },
-    }
+# In case of fixed, IC will be ignored
+identification_params: dict[
+    IOMethods, tuple[tuple[list[int] | list[list[int]], ...], dict]
+] = {
+    "ARMA": ((na_ord, nc_ord, theta), {"IC": "BIC"}),
+    "ARARX": ((na_ord, nb_ord, nd_ord, theta), {"IC": "BIC"}),
+    "ARARMAX": ((na_ord, nb_ord, nc_ord, nd_ord, theta), {"IC": "BIC"}),
+    "OE": ((nb_ord, nf_ord, theta), {"IC": "BIC"}),
+    "BJ": ((nb_ord, nc_ord, nd_ord, nf_ord, theta), {"IC": "BIC"}),
+    "GEN": (
+        (na_ord, nb_ord, nc_ord, nd_ord, nf_ord, theta),
+        {"IC": "BIC"},
+    ),
+}
 
 syss = []
-for method, params in identification_params.items():
-    sys_id = system_identification(Ytot, Usim, method, max_iter=300, **params)
+for method, orders_params in identification_params.items():
+    orders, params = orders_params
+    sys_id = system_identification(
+        Ytot, Usim, method, *orders, max_iter=300, id_mode="OPT"
+    )
     syss.append(sys_id)
 
 ys = [getattr(sys, "Yid").T for sys in syss]
@@ -278,3 +232,5 @@ for tf in ["G", "H"]:
         titles=["Step Response G(z)", None],
     )
     fig.savefig(output_dir + f"/step_{tf}.png")
+
+plt.close("all")

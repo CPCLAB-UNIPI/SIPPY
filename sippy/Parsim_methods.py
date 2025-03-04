@@ -4,7 +4,6 @@ Created on Sat Nov 04 2017
 @author: Giuseppe Armenise
 """
 
-from typing import Literal
 from warnings import warn
 
 import numpy as np
@@ -20,6 +19,7 @@ from .functionsetSIM import (
     ordinate_sequence,
     reducingOrder,
 )
+from .typing import ICMethods, PARSIMMethods
 
 
 def recalc_K(A, C, D, u):
@@ -35,7 +35,10 @@ def recalc_K(A, C, D, u):
         x0 = vect[n_ord * m_input : :, :].reshape((n_ord, 1))
         y_sim.append(
             (SS_lsim_process_form(A, B, C, D, u, x0=x0)[1]).reshape(
-                (1, L * l_)
+                (
+                    1,
+                    L * l_,
+                )
             )
         )
         vect[i, 0] = 0.0
@@ -88,7 +91,10 @@ def simulations_sequence(A_K, C, L, y, u, l_, m_, n, D_required):
             B_K = vect[0 : n * m_, :].reshape((n, m_))
             D = vect[n * m_ : n * m_ + l_ * m_, :].reshape((l_, m_))
             K = vect[n * m_ + l_ * m_ : n * m_ + l_ * m_ + n * l_, :].reshape(
-                (n, l_)
+                (
+                    n,
+                    l_,
+                )
             )
             x0 = vect[n * m_ + l_ * m_ + n * l_ : :, :].reshape((n, 1))
             y_sim.append(
@@ -186,16 +192,16 @@ def sim_observed_seq(y, u, f, D_required, l_, L, m, U_n, S_n):
 
 
 def parsim(
-    mode: Literal["PARSIM-K", "PARSIM-S", "PARSIM-P"],
     y: np.ndarray,
     u: np.ndarray,
+    mode: PARSIMMethods,
     order: int | tuple[int, int] = 0,
     threshold: float = 0.0,
     f: int = 20,
     p: int = 20,
     D_required: bool = False,
     B_recalc: bool = False,
-    ic_method: Literal["AIC", "AICc", "BIC"] = "AIC",
+    ic_method: ICMethods = "AIC",
 ):
     if isinstance(order, tuple):
         min_ord, max_ord = order[0], order[-1] + 1
@@ -213,15 +219,15 @@ def parsim(
             )
             max_ord = f + 1
 
-    y = 1.0 * np.atleast_2d(y)
-    u = 1.0 * np.atleast_2d(u)
+    y = np.atleast_2d(y)
+    u = np.atleast_2d(u)
 
     l_, L = y.shape
     m_ = u[:, 0].size
-    Ustd = np.zeros(m_)
+    U_std = np.zeros(m_)
     Ystd = np.zeros(l_)
     for j in range(m_):
-        Ustd[j], u[j] = rescale(u[j])
+        U_std[j], u[j] = rescale(u[j])
     for j in range(l_):
         Ystd[j], y[j] = rescale(y[j])
     Yf, Yp = ordinate_sequence(y, f, p)
@@ -237,7 +243,7 @@ def parsim(
         IC_old = np.inf
         for i in range(min_ord, max_ord):
             U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold, i)
-            if mode == "PARSIM-K":
+            if mode == "PARSIM_K":
                 y_sim, A_K, C = sim_observed_seq(
                     y, u, f, D_required, l_, L, m_, U_n, S_n
                 )
@@ -266,7 +272,7 @@ def parsim(
 
     U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold, order)
     n = S_n.size
-    if mode == "PARSIM-K":
+    if mode == "PARSIM_K":
         y_sim, A_K, C = sim_observed_seq(
             y, u, f, D_required, l_, L, m_, U_n, S_n
         )
@@ -286,22 +292,25 @@ def parsim(
 
     if D_required:
         D = vect[n * m_ : n * m_ + l_ * m_, :].reshape((l_, m_))
-        if mode == "PARSIM-K":
+        if mode == "PARSIM_K":
             K = vect[n * m_ + l_ * m_ : n * m_ + l_ * m_ + n * l_, :].reshape(
-                (n, l_)
+                (
+                    n,
+                    l_,
+                )
             )
             x0 = vect[n * m_ + l_ * m_ + n * l_ : :, :].reshape((n, 1))
         else:
             x0 = vect[n * m_ + l_ * m_ : :, :].reshape((n, 1))
     else:
         D = np.zeros((l_, m_))
-        if mode == "PARSIM-K":
+        if mode == "PARSIM_K":
             K = vect[n * m_ : n * m_ + n * l_, :].reshape((n, l_))
             x0 = vect[n * m_ + n * l_ : :, :].reshape((n, 1))
         else:
             x0 = vect[n * m_ : :, :].reshape((n, 1))
 
-    if mode == "PARSIM-K":
+    if mode == "PARSIM_K":
         A = A_K + np.dot(K, C)
         if B_recalc:
             y_sim = recalc_K(A, C, D, u)
@@ -313,8 +322,8 @@ def parsim(
             B_K = B - np.dot(K, D)
 
     for j in range(m_):
-        B_K[:, j] = B_K[:, j] / Ustd[j]
-        D[:, j] = D[:, j] / Ustd[j]
+        B_K[:, j] = B_K[:, j] / U_std[j]
+        D[:, j] = D[:, j] / U_std[j]
     for j in range(l_):
         K[:, j] = K[:, j] / Ystd[j]
         C[j, :] = C[j, :] * Ystd[j]
@@ -324,7 +333,7 @@ def parsim(
 
 
 def compute_gamma_matrix(mode, f, l_, m_, Yf, Uf, Zp):
-    if mode == "PARSIM-K":
+    if mode == "PARSIM_K":
         M = np.dot(Yf[0:l_, :], np.linalg.pinv(impile(Zp, Uf[0:m_, :])))
         Matrix_pinv = np.linalg.pinv(
             impile(Zp, impile(Uf[0:m_, :], Yf[0:l_, :]))
@@ -337,16 +346,16 @@ def compute_gamma_matrix(mode, f, l_, m_, Yf, Uf, Zp):
     H = M[:, (m_ + l_) * f : :]
     G = np.zeros((l_, l_))
     for i in range(1, f):
-        if mode == "PARSIM-K":
+        if mode == "PARSIM_K":
             y_tilde = estimating_y(H, Uf, G, Yf, i, m_, l_)
             M = np.dot((Yf[l_ * i : l_ * (i + 1)] - y_tilde), Matrix_pinv)
             H = impile(H, M[:, (m_ + l_) * f : (m_ + l_) * f + m_])
             G = impile(G, M[:, (m_ + l_) * f + m_ : :])
-        elif mode == "PARSIM-S":
+        elif mode == "PARSIM_S":
             y_tilde = estimating_y_S(H, Uf, Yf, i, m_, l_)
             M = np.dot((Yf[l_ * i : l_ * (i + 1)] - y_tilde), Matrix_pinv)
             H = impile(H, M[:, (m_ + l_) * f : :])
-        elif mode == "PARSIM-P":
+        elif mode == "PARSIM_P":
             Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0 : m_ * (i + 1), :]))
             M = np.dot((Yf[l_ * i : l_ * (i + 1)]), Matrix_pinv)
         Gamma_L = impile(Gamma_L, (M[:, 0 : (m_ + l_) * f]))

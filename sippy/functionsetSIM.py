@@ -5,6 +5,7 @@ Created on Sun Oct 08 2017
 """
 
 import math
+from warnings import warn
 
 import control.matlab as cnt
 import numpy as np
@@ -77,22 +78,17 @@ def reducingOrder(U_n, S_n, V_n, threshold=0.1, max_order=10):
 
 def check_types(threshold, max_order, fixed_order, f, p=20):
     if threshold < 0.0 or threshold >= 1.0:
-        print("Error! The threshold value must be >=0. and <1.")
-        return False
+        raise ValueError("The threshold value must be >=0. and <1.")
     if not np.isnan(max_order):
         if not isinstance(max_order, int):
-            print("Error! The max_order value must be integer")
-            return False
+            raise ValueError("The max_order value must be integer")
     if not np.isnan(fixed_order):
         if not isinstance(fixed_order, int):
-            print("Error! The fixed_order value must be integer")
-            return False
+            raise ValueError("The fixed_order value must be integer")
     if not isinstance(f, int):
-        print("Error! The future horizon (f) must be integer")
-        return False
+        raise ValueError("The future horizon (f) must be integer")
     if not isinstance(p, int):
-        print("Error! The past horizon (p) must be integer")
-        return False
+        raise ValueError("The past horizon (p) must be integer")
     return True
 
 
@@ -101,8 +97,8 @@ def check_inputs(threshold, max_order, fixed_order, f):
         threshold = 0.0
         max_order = fixed_order
     if f < max_order:
-        print(
-            "Warning! The horizon must be larger than the model order, max_order setted as f"
+        warn(
+            "The horizon must be larger than the model order, max_order setted as f"
         )
     if not max_order < f:
         max_order = f
@@ -157,7 +153,7 @@ def SS_lsim_innovation_form(A, B, C, D, K, y, u, x0=None):
 
 def K_calc(
     A: np.ndarray, C: np.ndarray, Q: np.ndarray, R: np.ndarray, S: np.ndarray
-) -> (np.ndarray, bool):
+) -> tuple[np.ndarray, bool]:
     n_A = A[0, :].size
     try:
         P, _, _ = cnt.dare(A.T, C.T, Q, R, S, np.identity(n_A))
@@ -165,7 +161,7 @@ def K_calc(
         K = np.dot(K, np.linalg.inv(np.dot(np.dot(C, P), C.T) + R))
         Calculated = True
     except ValueError:
-        K = []
-        print("Kalman filter cannot be calculated")
+        K = np.zeros((n_A, C[:, 0].size))
+        warn("Kalman filter cannot be calculated")
         Calculated = False
     return K, Calculated

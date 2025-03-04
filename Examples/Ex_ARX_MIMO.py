@@ -9,6 +9,7 @@ case 3 outputs x 4 inputs
 
 # Checking path to access other files
 import control.matlab as cnt
+import matplotlib.pyplot as plt
 import numpy as np
 from utils import create_output_dir, plot_comparison
 
@@ -117,12 +118,16 @@ theta_list = th
 
 # ARX
 Id_ARX = system_identification(
-    Ytot, Usim, "ARX", ARX_orders=(ordersna, ordersnb, theta_list)
+    Ytot,
+    Usim,
+    "ARX",
+    *(ordersna, ordersnb, theta_list),
+    id_mode="LLS",
 )
 
 # FIR
 Id_FIR = system_identification(
-    Ytot, Usim, "FIR", FIR_orders=(ordersnb, theta_list)
+    Ytot, Usim, "FIR", *([0, 0, 0], ordersnb, theta_list), id_mode="LLS"
 )
 
 # output of the identified model
@@ -147,3 +152,5 @@ fig = plot_comparison(
     title="Output (validation data)",
 )
 fig.savefig(output_dir + "/output_validation.png")
+
+plt.close("all")
