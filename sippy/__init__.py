@@ -20,8 +20,6 @@ from .typing import (
     Flags,
     ICMethods,
     IOMethods,
-    OLSimMethods,
-    PARSIMMethods,
     SSMethods,
 )
 
@@ -439,39 +437,19 @@ def system_identification(
 
         # SS MODELS
         elif id_method in get_args(SSMethods):
-            order = orders[0][0]
-            if id_method in get_args(OLSimMethods):
-                id_method = cast(OLSimMethods, id_method)
-                from . import OLSims_methods
-
-                A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(
-                    y,
-                    u,
-                    id_method,
-                    order,
-                    threshold=SS_threshold,
-                    f=SS_f,
-                    D_required=SS_D_required,
-                    A_stability=SS_A_stability,
-                )
-                x0 = None
-            else:
-                id_method = cast(PARSIMMethods, id_method)
-                from . import Parsim_methods
-
-                A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.parsim(
-                    y,
-                    u,
-                    id_method,
-                    order,
-                    SS_threshold,
-                    SS_f,
-                    SS_p,
-                    SS_D_required,
-                    SS_PK_B_reval,
-                )
-                Q, R, S = None, None, None
-            model = SS_Model(A, B, C, D, K, ts, Vn, x0, Q, R, S)
+            id_method = cast(SSMethods, id_method)
+            order = orders[0]
+            model = SS_Model._identify(
+                y,
+                u,
+                id_method,
+                order,
+                SS_f,
+                SS_p,
+                SS_threshold,
+                SS_D_required,
+                SS_PK_B_reval,
+            )
 
         # NO method selected
         else:
@@ -514,12 +492,6 @@ def system_identification(
                     f"Method {id_mode} not available for {id_method}. Available: {get_args(AvailableModes)}"
                 )
 
-            if not _areinstances(orders, tuple):
-                raise RuntimeError(
-                    f"Orders ranges must be tuples. Got {[type(order) for order in orders]} instead."
-                )
-            else:
-                orders = cast(tuple[tuple[int, int]], orders)
             model = IO_SISO_Model._from_order(
                 y[0],
                 u[0],
@@ -535,57 +507,26 @@ def system_identification(
             model.Yid = _recentering_transform(model.Yid, y_rif)
 
         # SS-MODELS
-        ss_models: dict[
-            SSMethods,
-            str,
-        ] = {
-            "N4SID": "OLSims_methods",
-            "MOESP": "OLSims_methods",
-            "CVA": "OLSims_methods",
-            "PARSIM_K": "Parsim_methods",
-            "PARSIM_S": "Parsim_methods",
-            "PARSIM_P": "Parsim_methods",
-        }
-        if id_method in ss_models:
-            if len(orders) == 1 and isinstance(orders[0], tuple):
-                order = orders[0]
-            else:
-                raise RuntimeError()
-            if id_method in get_args(OLSimMethods):
-                id_method = cast(OLSimMethods, id_method)
-                from . import OLSims_methods
-
-                A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(
-                    y,
-                    u,
-                    id_method,
-                    order,
-                    IC,
-                    SS_f,
-                    SS_D_required,
-                    SS_A_stability,
-                )
-                A_K, B_K, x0 = None, None, None
-            else:
-                id_method = cast(PARSIMMethods, id_method)
-                from . import Parsim_methods
-
-                A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.parsim(
-                    y,
-                    u,
-                    id_method,
-                    order,
-                    f=SS_f,
-                    p=SS_p,
-                    D_required=SS_D_required,
-                    B_recalc=SS_PK_B_reval,
-                    ic_method=IC,
-                )
-                Q, R, S = None, None, None
-            model = SS_Model(A, B, C, D, K, ts, Vn, x0, Q, R, S, A_K, B_K)
+        elif id_method in get_args(SSMethods):
+            id_method = cast(SSMethods, id_method)
+            order = orders[0]
+            model = SS_Model._from_order(
+                y,
+                u,
+                id_method,
+                order,
+                IC,
+                SS_f,
+                SS_p,
+                SS_D_required,
+                SS_PK_B_reval,
+            )
 
         # NO method selected
-        if model is None:
-            raise RuntimeError("No identification method selected")
+        else:
+            raise RuntimeError(
+                f"Wrong identification method selected. Got {id_method}"
+                f"expected one of {get_args(AvailableMethods)}"
+            )
 
     return model

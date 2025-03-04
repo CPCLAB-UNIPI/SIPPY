@@ -6,7 +6,7 @@ Created on Wed Jul 26 2017
 """
 
 from itertools import product
-from typing import cast
+from typing import cast, get_args
 
 import control.matlab as cnt
 import numpy as np
@@ -16,7 +16,16 @@ from .arx import ARX_id, ARX_MISO_id
 from .functionset import information_criterion, rescale
 from .io_opt import GEN_id, GEN_MISO_id
 from .io_rls import GEN_RLS_id, GEN_RLS_MISO_id
-from .typing import Flags, ICMethods, IOMethods, OptMethods, RLSMethods
+from .typing import (
+    Flags,
+    ICMethods,
+    IOMethods,
+    OLSimMethods,
+    OptMethods,
+    PARSIMMethods,
+    RLSMethods,
+    SSMethods,
+)
 from .utils import (
     atleast_3d,
     check_feasibility,
@@ -75,18 +84,102 @@ class SS_Model:
             self.B_K = []
 
     @classmethod
+    def _identify(
+        cls,
+        y: np.ndarray,
+        u: np.ndarray,
+        id_method: SSMethods,
+        order: int | np.ndarray,
+        f: int = 20,
+        p: int = 20,
+        threshold: float = 0.1,
+        D_required: bool = False,
+        A_stability: bool = False,
+        B_recalc: bool = False,
+    ):
+        if isinstance(order, np.ndarray):
+            order = int(order[0])
+        if id_method in get_args(OLSimMethods):
+            id_method = cast(OLSimMethods, id_method)
+            from . import OLSims_methods
+
+            A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(
+                y,
+                u,
+                id_method,
+                order,
+                threshold=threshold,
+                f=f,
+                D_required=D_required,
+                A_stability=A_stability,
+            )
+            A_K, B_K, x0 = None, None, None
+        else:
+            id_method = cast(PARSIMMethods, id_method)
+            from . import Parsim_methods
+
+            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.parsim(
+                y,
+                u,
+                id_method,
+                order,
+                threshold,
+                f,
+                p,
+                D_required,
+                B_recalc,
+            )
+            Q, R, S = None, None, None
+
+        return cls(A, B, C, D, K, 1.0, Vn, x0, Q, R, S, A_K, B_K)
+
+    @classmethod
     def _from_order(
         cls,
-        y,
-        u,
-        f=20,
-        weights="N4SID",
-        method="AIC",
-        orders=[1, 10],
-        D_required=False,
-        A_stability=False,
+        y: np.ndarray,
+        u: np.ndarray,
+        id_method: SSMethods,
+        order: tuple[int, int],
+        ic_method: ICMethods = "AIC",
+        f: int = 20,
+        p: int = 20,
+        D_required: bool = False,
+        A_stability: bool = False,
+        B_recalc: bool = False,
     ):
-        pass
+        if id_method in get_args(OLSimMethods):
+            id_method = cast(OLSimMethods, id_method)
+            from . import OLSims_methods
+
+            A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(
+                y,
+                u,
+                id_method,
+                order,
+                ic_method,
+                f,
+                D_required,
+                A_stability,
+            )
+            A_K, B_K, x0 = None, None, None
+        else:
+            id_method = cast(PARSIMMethods, id_method)
+            from . import Parsim_methods
+
+            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.parsim(
+                y,
+                u,
+                id_method,
+                order,
+                f=f,
+                p=p,
+                D_required=D_required,
+                B_recalc=B_recalc,
+                ic_method=ic_method,
+            )
+            Q, R, S = None, None, None
+
+        return cls(A, B, C, D, K, 1.0, Vn, x0, Q, R, S, A_K, B_K)
 
 
 class IO_SISO_Model:
@@ -272,11 +365,6 @@ class IO_MISO_Model(IO_SISO_Model):
             Yid=Yid,
             **kwargs,
         )
-
-        self.H = H
-
-        self.numerator_H = numerator_H
-        self.denominator_H = denominator_H
 
     @classmethod
     def _identify(
