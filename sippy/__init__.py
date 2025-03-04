@@ -323,22 +323,23 @@ def _recentering_fit_transform(y, u, centering: CenteringMethods = None):
     return y, u, y_rif
 
 
-@overload
-def system_identification(
-    y: np.ndarray,
-    u: np.ndarray,
-    id_method: AvailableMethods,
-    *orders: int | list[int] | list[list[int]] | np.ndarray,
-    IC: None = None,
-): ...
-@overload
-def system_identification(
-    y: np.ndarray,
-    u: np.ndarray,
-    id_method: AvailableMethods,
-    *orders: tuple[int, int],
-    IC: ICMethods,
-): ...
+# TODO: learn how to provide overloads without extensively typing out irrelevant args
+# @overload
+# def system_identification(
+#     y: np.ndarray,
+#     u: np.ndarray,
+#     id_method: AvailableMethods,
+#     *orders: int | list[int] | list[list[int]] | np.ndarray,
+#     IC: None = None,
+# ): ...
+# @overload
+# def system_identification(
+#     y: np.ndarray,
+#     u: np.ndarray,
+#     id_method: AvailableMethods,
+#     *orders: tuple[int, int],
+#     IC: ICMethods,
+# ): ...
 
 
 def system_identification(
