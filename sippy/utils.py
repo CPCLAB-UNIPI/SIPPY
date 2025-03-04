@@ -38,8 +38,8 @@ def check_feasibility(G, H, id_method: str, stab_marg: float, stab_cons: bool):
         poles_G = max(poles_G)
         poles_H = max(poles_H)
         # TODO: verify with RBdC if correct setting this to zero. Raises warnings.
-        check_st_H = np.zeros(1) if id_method == "OE" else poles_H
-        if poles_G > 1.0 or check_st_H > 1.0:
+        # check_st_H = poles_H
+        if poles_G > 1.0 or poles_H > 1.0:
             warn("One of the identified system is not stable")
             if stab_cons is True:
                 raise RuntimeError(
@@ -156,6 +156,8 @@ def build_tf_G(
 
     for k in range(udim):
         if id_method != "ARMA":
+            # TODO: verify whether this adjustment should be done prior to using THETA for polynomial calculations
+            #  actual implementation is consistent with version 0.*.* of SIPPY
             b_slice = (
                 THETA[
                     indices["B"][0] + np.sum(nb[:k]) : indices["B"][0]

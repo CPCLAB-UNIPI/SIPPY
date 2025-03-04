@@ -10,7 +10,7 @@ import numpy as np
 
 from .functionset import rescale
 from .functionset_OPT import opt_id
-from .typing import OptMethods
+from .typing import IOMethods, OptMethods
 from .utils import (
     build_tfs,
     check_valid_orders,
@@ -21,11 +21,9 @@ from .utils import (
 # ----------------- Helper Functions -----------------
 
 
-def _build_initial_guess(
-    n_coeff: int, ylength: int, id_method: str
-) -> np.ndarray:
+def _build_initial_guess(y, n_coeff: int, id_method: IOMethods) -> np.ndarray:
     w_0 = np.zeros((1, n_coeff))
-    w_y = np.zeros((1, ylength))
+    w_y = np.atleast_2d(y)
     w_0 = np.hstack([w_0, w_y])
     if id_method in ["BJ", "GEN", "ARARX", "ARARMAX"]:
         w_0 = np.hstack([w_0, w_y, w_y])
@@ -87,18 +85,18 @@ def GEN_id(
     if iterations >= max_iter:
         warn("Reached maximum number of iterations")
 
-    w_0 = _build_initial_guess(n_coeff, y.size, id_method)
+    w_0 = _build_initial_guess(y, n_coeff, id_method)
     sol = solver(lbx=w_lb, ubx=w_ub, x0=w_0, lbg=g_lb, ubg=g_ub)
 
     THETA, y_id = _extract_results(sol, n_coeff, y.size)
-
+    y_id = y_id * y_std
+    # TODO: this is currently implemented within build_tf_G()
     # Adjust B coefficients with scaling
-    if adjust_B:
-        start_B = na
-        for k in range(udim):
-            end_Bk = start_B + np.sum(nb[:k])
-            THETA[start_B:end_Bk] *= y_std / U_std[k]
-
+    # if adjust_B:
+    #     start_B = na
+    #     for k in range(udim):
+    #         end_Bk = start_B + np.sum(nb[:k])
+    #         THETA[start_B:end_Bk] *= y_std / U_std[k]
     NUM, DEN, NUMH, DENH = build_tfs(
         THETA, na, nb, nc, nd, nf, theta, id_method, udim, y_std, U_std
     )
@@ -131,7 +129,7 @@ def GEN_MISO_id(
     np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.floating, np.ndarray
 ]:
     # Rescale inputs
-    y_std, _ = rescale(y)
+    y_std, y = rescale(y)
     U_std = np.zeros(u.shape[0])
     for j in range(u.shape[0]):
         U_std[j], u[j] = rescale(u[j])
@@ -151,7 +149,7 @@ def GEN_MISO_id(
         max_iter,
         stab_marg,
         stab_cons,
-        True,
+        False,
         y_std,
         U_std,
     )

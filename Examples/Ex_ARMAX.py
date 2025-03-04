@@ -117,8 +117,6 @@ if mode == "IC":
     na_ord = [4, 4]
     nb_ord = [3, 3]
     nc_ord = [2, 2]
-    nd_ord = [3, 3]
-    nf_ord = [4, 4]
     theta = [11, 11]
 
 
@@ -128,8 +126,6 @@ else:
     na_ord = [4]
     nb_ord = [[3]]
     nc_ord = [2]
-    nd_ord = [3]
-    nf_ord = [4]
     theta = [[11]]
 
 # In case of fixed, IC will be ignored

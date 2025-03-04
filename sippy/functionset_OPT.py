@@ -29,17 +29,13 @@ def opt_id(
     n_tr,
 ) -> tuple[Function, DM, DM, DM, DM]:
     # orders
-    Na = na
-    Nb = np.sum(nb)
-    Nc = nc
-    Nd = nd
-    Nf = nf
+    nb = np.sum(nb)
 
     # Augment the optmization variables with Y vector to build a multiple shooting problem
     N = Y.size
 
     # Augment the optmization variables with auxiliary variables
-    if Nd != 0:
+    if nd != 0:
         n_aus = 3 * N
     else:
         n_aus = N
@@ -52,23 +48,23 @@ def opt_id(
 
     # Build optimization variable
     # Get subset a
-    a = w_opt[0:Na]
+    a = w_opt[0:na]
 
     # Get subset b
-    b = w_opt[Na : Na + Nb]
+    b = w_opt[na : na + nb]
 
     # Get subsets c and d
-    c = w_opt[Na + Nb : Na + Nb + Nc]
-    d = w_opt[Na + Nb + Nc : Na + Nb + Nc + Nd]
+    c = w_opt[na + nb : na + nb + nc]
+    d = w_opt[na + nb + nc : na + nb + nc + nd]
 
     # Get subset f
-    f = w_opt[Na + Nb + Nd + Nc : Na + Nb + Nc + Nd + Nf]
+    f = w_opt[na + nb + nd + nc : na + nb + nc + nd + nf]
 
     # Optimization variables
     Yidw = w_opt[-N:]
 
     # Additional optimization variables
-    if Nd != 0:
+    if nd != 0:
         Ww = w_opt[-3 * N : -2 * N]
         Vw = w_opt[-2 * N : -N]
 
@@ -102,25 +98,25 @@ def opt_id(
     Yid = Y * SX.ones(1)
 
     # Preallocate internal variables
-    if Nd != 0:
+    if nd != 0:
         W = Y * SX.ones(1)  # w = B * u or w = B/F * u
         V = Y * SX.ones(1)  # v = A*y - w
 
-        if Na != 0:
+        if na != 0:
             coeff_v = a
-        if Nf != 0:  # BJ, GEN
+        if nf != 0:  # BJ, GEN
             coeff_w = vertcat(b, f)
         else:  # ARARX, ARARMAX
             coeff_w = vertcat(b)
 
-    if Nc != 0:
+    if nc != 0:
         Epsi = SX.zeros(N)
 
     for k in range(N):
         # n_tr: number of not identifiable outputs
         if k >= n_tr:
             # building regressor
-            if Nb != 0:
+            if nb != 0:
                 # inputs
                 vecU = []
                 for nb_i in range(m):
@@ -130,24 +126,24 @@ def opt_id(
                     vecU = vertcat(vecU, vecu)
 
             # measured output Y
-            if Na != 0:
-                vecY = Y[k - Na : k][::-1]
+            if na != 0:
+                vecY = Y[k - na : k][::-1]
 
             # auxiliary variable V
-            if Nd != 0:
-                vecV = Vw[k - Nd : k][::-1]
+            if nd != 0:
+                vecV = Vw[k - nd : k][::-1]
 
                 # auxiliary variable W
-                if Nf != 0:
-                    vecW = Ww[k - Nf : k][::-1]
+                if nf != 0:
+                    vecW = Ww[k - nf : k][::-1]
 
             # prediction error
-            if Nc != 0:
-                vecE = Epsi[k - Nc : k][::-1]
+            if nc != 0:
+                vecE = Epsi[k - nc : k][::-1]
 
             # regressor
             if FLAG == "OE":
-                vecY = Yidw[k - Nf : k][::-1]
+                vecY = Yidw[k - nf : k][::-1]
                 phi = vertcat(vecU, -vecY)
             elif FLAG == "BJ":
                 phi = vertcat(vecU, -vecW, vecE, -vecV)
@@ -166,19 +162,19 @@ def opt_id(
             Yid[k] = mtimes(phi.T, coeff)
 
             # pred. error
-            if Nc != 0:
+            if nc != 0:
                 Epsi[k] = Y[k] - Yidw[k]
 
             # auxiliary variable W
-            if Nd != 0:
-                if Nf != 0:
+            if nd != 0:
+                if nf != 0:
                     phiw = vertcat(vecU, -vecW)  # BJ, GEN
                 else:
                     phiw = vertcat(vecU)  # ARARX, ARARMAX
                 W[k] = mtimes(phiw.T, coeff_w)
 
                 # auxiliary variable V
-                if Na == 0:  # 'BJ'  [A(z) = 1]
+                if na == 0:  # 'BJ'  [A(z) = 1]
                     V[k] = Y[k] - Ww[k]
                 else:  # [A(z) div 1]
                     phiv = vertcat(vecY)
@@ -198,18 +194,18 @@ def opt_id(
     # Equality constraints
     g.append(Yid - Yidw)
 
-    if Nd != 0:
+    if nd != 0:
         g.append(W - Ww)
         g.append(V - Vw)
 
     # Stability check
     ng_norm = 0
     if stab_cons is True:
-        if Na != 0:
+        if na != 0:
             ng_norm += 1
             # companion matrix A(z) polynomial
-            compA = SX.zeros(Na, Na)
-            diagA = SX.eye(Na - 1)
+            compA = SX.zeros(na, na)
+            diagA = SX.eye(na - 1)
             compA[:-1, 1:] = diagA
             compA[-1, :] = -a[::-1]  # opposite reverse coeficient a
 
@@ -219,11 +215,11 @@ def opt_id(
             # append on eq. constraints
             g.append(norm_CompA)
 
-        if Nf != 0:
+        if nf != 0:
             ng_norm += 1
             # companion matrix F(z) polynomial
-            compF = SX.zeros(Nf, Nf)
-            diagF = SX.eye(Nf - 1)
+            compF = SX.zeros(nf, nf)
+            diagF = SX.eye(nf - 1)
             compF[:-1, 1:] = diagF
             compF[-1, :] = -f[::-1]  # opposite reverse coeficient f
 
@@ -233,11 +229,11 @@ def opt_id(
             # append on eq. constraints
             g.append(norm_CompF)
 
-        if Nd != 0:
+        if nd != 0:
             ng_norm += 1
             # companion matrix D(z) polynomial
-            compD = SX.zeros(Nd, Nd)
-            diagD = SX.eye(Nd - 1)
+            compD = SX.zeros(nd, nd)
+            diagD = SX.eye(nd - 1)
             compD[:-1, 1:] = diagD
             compD[-1, :] = -d[::-1]  # opposite reverse coeficient D
 
