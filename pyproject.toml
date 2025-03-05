@@ -1,0 +1,75 @@
+[project]
+name = "sippy"
+version = "1.0.0"
+description = "Systems Identification Package for Python"
+authors = [{ name = "Giuseppe Armenise" }]
+readme = "README.md"
+license = "LGPL-3.0-or-later"
+keywords = [
+    "system identification",
+    "control systems",
+    "ARMAX",
+    "ARX",
+    "state-space",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "control", "slycot", "casadi"]
+
+[project.urls]
+repository = "https://github.com/CPCLAB-UNIPI/sippy"
+
+[tool.poetry.dependencies]
+casadi = "<4.0.0"
+control = "<1.0.0"
+numpy = "<3.0.0"
+scipy = "<2.0.0"
+slycot = "<1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.15.0"
+pre-commit = "^4.1.0"
+pytest = "^8.3.0"
+ruff = "^0.9.0"
+ipykernel = "^6.26.0"
+ipython = "^8.32.0"
+jupyter = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--doctest-modules",
+    "--doctest-glob=README.md",
+    "--verbose",
+    "-ra",
+    "-m not datasets and not slow",
+    "--color=yes",
+]
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "NUMBER",
+    "ELLIPSIS",
+    "IGNORE_EXCEPTION_DETAIL",
+]
+norecursedirs = [".*"]
+
+[tool.ruff]
+lint.ignore = ["E501"]
+lint.select = ["E", "F", "I", "UP"] # https://beta.ruff.rs/docs/rules/
+line-length = 79
+
+[tool.mypy]
+ignore_missing_imports = true
+explicit_package_bases = true
+implicit_optional = true
+check_untyped_defs = true
+warn_redundant_casts = true

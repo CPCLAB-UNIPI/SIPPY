@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on 2017
 
@@ -6,31 +5,365 @@ Created on 2017
 
 @updates: Riccardo Bacci di Capaci, Marco Vaccari, Federico Pelagagge
 """
-from __future__ import print_function
 
-import sys
-from builtins import range
+from collections.abc import Mapping
+from typing import cast, get_args, overload
+from warnings import warn
 
 import numpy as np
 
-## SIPPY package: main file
+from .model import IO_MIMO_Model, IO_SISO_Model, SS_Model
+from .typing import (
+    AvailableMethods,
+    AvailableModes,
+    CenteringMethods,
+    Flags,
+    ICMethods,
+    IOMethods,
+    SSMethods,
+)
+
+ID_MODES: dict[AvailableModes, Flags] = {
+    "LLS": "arx",
+    "RLLS": "rls",
+    "OPT": "opt",
+    "ILLS": "armax",
+}
+
+METHOD_ORDERS: dict[AvailableMethods, list[str]] = {
+    "FIR": ["na", "nb", "theta"],
+    "ARX": ["na", "nb", "theta"],
+    "ARMAX": ["na", "nb", "nc", "theta"],
+    "OE": ["nb", "nf", "theta"],
+    "ARMA": ["na", "nc", "theta"],
+    "ARARX": ["na", "nb", "nd", "theta"],
+    "ARARMAX": ["na", "nb", "nc", "nd", "theta"],
+    "BJ": ["nb", "nc", "nd", "nf", "theta"],
+    "GEN": ["na", "nb", "nc", "nd", "nf", "theta"],
+    "EARMAX": ["na", "nb", "nc", "theta"],
+    "EOE": ["nb", "nf", "theta"],
+    "CVA": ["na"],
+    "MOESP": ["na"],
+    "N4SID": ["na"],
+    "PARSIM_K": ["na"],
+    "PARSIM_P": ["na"],
+    "PARSIM_S": ["na"],
+}
 
 
-def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
-                                  tsample = 1., FIR_orders = [1, 0], ARX_orders = [1, 1, 0], \
-                                  ARMA_orders = [1, 0], ARMAX_orders = [1, 1, 1, 0], \
-                                  ARARX_orders = [1, 1, 1, 0], ARARMAX_orders = [1, 1, 1, 1, 0],\
-                                  OE_orders = [1, 1, 0], BJ_orders = [1, 1, 1, 1, 0], GEN_orders = [1, 1, 1, 1, 1, 0], \
-                                  na_ord = [0, 5], nb_ord = [1, 5], nc_ord = [0, 5], nd_ord = [0, 5], nf_ord = [0, 5], delays = [0, 5], \
-                                  FIR_mod = 'LLS', ARX_mod = 'LLS', ARMAX_mod = 'ILLS', OE_mod = 'OPT', 
-                          max_iterations = 200, stab_marg = 1.0, stab_cons = False,\
-                          SS_f = 20, SS_p = 20, SS_threshold = 0.1, \
-                          SS_max_order = np.NaN, SS_fixed_order = np.NaN, \
-                          SS_orders = [1, 10], SS_D_required = False, SS_A_stability = False, \
-                          SS_PK_B_reval = False):
-    
-    y = 1. * np.atleast_2d(y)
-    u = 1. * np.atleast_2d(u)
+@overload
+def _as_orders_defaults(
+    orders_dict: Mapping[str, int | list | np.ndarray],
+    orders_defaults: Mapping[str, np.ndarray],
+) -> Mapping[str, np.ndarray]: ...
+@overload
+def _as_orders_defaults(
+    orders_dict: Mapping[str, tuple[int, int]],
+    orders_defaults: Mapping[str, tuple[int, int]],
+) -> Mapping[str, tuple[int, int]]: ...
+
+
+def _as_orders_defaults(
+    orders_dict: Mapping[str, int | list | np.ndarray | tuple[int, int]],
+    orders_defaults: Mapping[str, np.ndarray | tuple[int, int]],
+) -> Mapping[str, np.ndarray | tuple[int, int]]:
+    """
+    Ensure that the orders dictionary has the correct shape and type.
+
+    Parameters:
+    orders (Mapping[str, int | list | np.ndarray]): The orders to check.
+    orders_defaults (Mapping[str, np.ndarray]): The default orders to use for shape reference.
+
+    Returns:
+    dict[str, np.ndarray]: The validated and fixed orders.
+
+    Raises:
+    RuntimeError: If the order is not an int, list, or np.ndarray, or if the list length does not match the default shape.
+
+    Examples:
+    >>> orders_defaults = {'na': np.zeros((1,)), 'nb': np.zeros((2,2)), 'nc': np.zeros((2,))}
+    >>> orders = {'na': 2, 'nb': [[1, 2], [3, 4]], 'nc': np.array([3, 4])}
+    >>> _as_orders_defaults(orders, orders_defaults)
+    {'na': array([2]), 'nb': array([[1, 2], [3, 4]]), 'nc': array([3, 4])}
+
+    >>> orders = {'na': 2, 'nb': [1, 2, 3], 'nc': np.array([3, 4])}
+    >>> _as_orders_defaults(orders, orders_defaults)
+    Traceback (most recent call last):
+        ...
+    RuntimeError: Order for nb must have 2 elements
+
+    >>> orders_defaults = {'na': (0, 0), 'nb': (0, 0), 'nc': (0, 0)}
+    >>> orders = {'na': (0, 0), 'nb': (0, 0), 'nc': (0, 0)}
+    >>> _as_orders_defaults(orders, orders_defaults)
+    {'na': (0, 0), 'nb': (0, 0), 'nc': (0, 0)}
+    >>> orders = {'na': 0, 'nb': (0, 0), 'nc': (0, 0)}
+    >>> _as_orders_defaults(orders, orders_defaults)
+    Traceback (most recent call last):
+        ...
+    RuntimeError: Order for na must be convertible to (0, 0). Got 0 instead.
+    """
+    orders_: dict[str, np.ndarray | tuple[int, int]] = {}
+    for name, order in orders_dict.items():
+        order_defaults = orders_defaults[name]
+        if isinstance(order_defaults, np.ndarray):
+            shape = order_defaults.shape
+            if isinstance(order, int):
+                order_ = order * np.ones(shape, dtype=int)
+            elif isinstance(order, list | np.ndarray):
+                order_ = np.array(order, dtype=int)
+                if order_.shape != shape:
+                    raise RuntimeError(
+                        f"Order for {name} must be of shape {shape}. Got {order_.shape} instead."
+                    )
+            orders_[name] = order_
+        elif isinstance(order, tuple):
+            if len(order) != 2:
+                raise RuntimeError(
+                    f"Order for {name} must have 2 elements. Got {len(order)} instead."
+                )
+            orders_[name] = order
+
+        else:
+            raise RuntimeError(
+                f"Order for {name} must be convertible to {order_defaults}. Got {order} instead."
+            )
+
+    return orders_
+
+
+def _areinstances(args: tuple, class_or_tuple):
+    """
+    Check if all arguments are instances of a given class or tuple of classes.
+    Args:
+        *args: Variable length argument list of objects to check.
+        class_or_tuple (type or tuple of types): The class or tuple of classes to check against.
+    Returns:
+        bool: True if all arguments are instances of the given class or tuple of classes, False otherwise.
+    Examples:
+        >>> _areinstances((1, 2, 3), int)
+        True
+        >>> _areinstances((1, 'a', 3), int)
+        False
+        >>> _areinstances((1, 'a', 3), (int, str))
+        True
+    """
+
+    return all(isinstance(x, class_or_tuple) for x in args)
+
+
+def _verify_orders_types(
+    *orders: int | list | np.ndarray | tuple, IC: ICMethods | None = None
+):
+    """
+    Validates the orders types.
+
+    Args:
+        orders (list): A list of orders which can be of type int, list, or tuple.
+        IC (ICMethods | None): An instance of ICMethods or None.
+
+    Raises:
+        ValueError: If orders are tuples and IC is not one of the ICMethods.
+        ValueError: If orders are not all int, list, or tuple.
+
+    Examples:
+        >>> _verify_orders_types(*[1, 2, 3])
+        >>> _verify_orders_types(*[(1, 2), (3, 4)], IC="AIC")
+        >>> _verify_orders_types(*[1, [2, 3], (4, 5)])
+        Traceback (most recent call last):
+        ...
+        ValueError: All orders must be either int, list, or tuple.Got [<class 'int'>, <class 'list'>, <class 'tuple'>] instead.
+        >>> _verify_orders_types(*[(1, 2), (3, 4)])
+        Traceback (most recent call last):
+        ...
+        ValueError: IC must be one of ('AIC', 'AICc', ...) if orders are tuples.
+    """
+    if _areinstances(orders, tuple):
+        if IC is None or IC not in get_args(ICMethods):
+            raise ValueError(
+                f"IC must be one of {get_args(ICMethods)} if orders are tuples. Got {IC} with {orders} instead."
+            )
+    elif not (_areinstances(orders, int) or _areinstances(orders, list)):
+        raise ValueError(
+            "All orders must be either int, list, or tuple."
+            f"Got {[type(order) for order in orders]} instead."
+        )
+
+
+def _verify_orders_len(
+    id_method: AvailableMethods,
+    *orders: int | list | np.ndarray | tuple,
+    ydim: int,
+    IC: ICMethods | None,
+):
+    """
+    Verify the number and values of orders for a given identification method.
+
+    Args:
+        id_method (AvailableMethods): The identification method to be used.
+        *orders (int | list | np.ndarray | tuple): Variable length argument list of orders.
+        ydim (int): The dimension of the output.
+        IC (ICMethods | None): The information criterion method, if any.
+
+    Raises:
+        ValueError: If the number of orders does not match the required number of orders for the method.
+        ValueError: If the order 'na' for FIR is not valid.
+
+    Examples:
+        No exception raised
+        >>> _verify_orders_len("FIR", *[[0,0], [1, 2], [2,3]], ydim=2, IC=None)
+
+        >>> _verify_orders_len("FIR", *[1, 0], ydim=2, IC=None)
+        Traceback (most recent call last):
+            ...
+        ValueError: Order 'na' for FIR must be [0, 0]. Got [1, 0] instead.
+
+        >>> _verify_orders_len("ARX", 1, 2, ydim=2, IC=None)
+        Traceback (most recent call last):
+            ...
+        ValueError: Number of orders (2) does not match the number of required orders (3). Required are [na, nb, theta] got [1, 2]
+    """
+    method_orders = METHOD_ORDERS[id_method]
+    # TODO: allow user to not define `na` for FIR.
+    if id_method == "FIR":
+        if orders[0] != [0] * ydim and orders[0] != (0, 0):
+            raise ValueError(
+                f"Order 'na' for FIR must be {[0] * ydim if IC is None or IC not in get_args(ICMethods) else (0, 0)}. Got {orders[0]} instead."
+            )
+
+    if len(orders) != len(method_orders):
+        raise ValueError(
+            f"Number of orders ({len(orders)}) does not match the number of required orders ({len(method_orders)})."
+            f"Required are {method_orders} got [{', '.join(map(str, orders))}]"
+        )
+
+
+@overload
+def _update_orders(
+    orders: tuple[int | list[int] | list[list[int]] | np.ndarray, ...],
+    orders_defaults: Mapping[str, np.ndarray],
+    id_method: AvailableMethods,
+) -> tuple[np.ndarray, ...]: ...
+@overload
+def _update_orders(
+    orders: tuple[tuple[int, int], ...],
+    orders_defaults: Mapping[str, tuple[int, int]],
+    id_method: AvailableMethods,
+) -> tuple[tuple[int, int], ...]: ...
+
+
+def _update_orders(
+    orders: tuple[
+        int | list[int] | list[list[int]] | np.ndarray | tuple[int, int], ...
+    ],
+    orders_defaults: Mapping[str, np.ndarray | tuple[int, int]],
+    id_method: AvailableMethods,
+) -> tuple[np.ndarray | tuple[int, int], ...]:
+    """
+    Consolidates two dictionaries of orders, giving precedence to the values in `orders`.
+    This function merges `orders_defaults` and `orders`, with `orders` values
+    taking precedence over `orders_defaults`. It then checks and fixes the consolidated
+    orders using the `_as_orders_defaults` function and returns the final orders as a tuple.
+    Args:
+        orders: The orders dictionary with updated values.
+        orders_defaults: The default orders dictionary.
+    Returns:
+        tuple: A tuple containing the consolidated orders.
+    Examples:
+        >>> orders = ([0], [[1, 2], [3, 4]], np.array([[1, 2], [3, 4]]))
+        >>> orders_defaults = {'na': np.zeros((1,)), 'nb': np.zeros((2,2)), 'nc': np.zeros((2,)), 'nd': np.zeros((2,)), 'nf': np.zeros((2,)), 'theta': np.zeros((2,2))}
+        >>> _update_orders(orders, orders_defaults, id_method="FIR")
+        (array([0]), array([[1, 2], [3, 4]]), array([0, 0]), array([0, 0]), array([0, 0]), array([[1, 2], [3, 4]]))
+
+        >>> orders = (2, [1, 2, 3], np.array([3, 4]))
+        >>> _update_orders(orders, orders_defaults, id_method="FIR")
+        Traceback (most recent call last):
+            ...
+        RuntimeError: Order for nb must be of shape (2, 2). Got (3,) instead.
+    """
+    orders_dict = dict(zip(METHOD_ORDERS[id_method], orders, strict=True))
+    orders_up = dict(orders_defaults)
+    orders_up.update(orders_dict)
+    orders_up = _as_orders_defaults(orders_up, orders_defaults)
+    return tuple(orders_up.values())
+
+
+def _recentering_transform(y, y_rif):
+    ylength = y.shape[1]
+    for i in range(ylength):
+        y[:, i] = y[:, i] + y_rif
+    return y
+
+
+def _recentering_fit_transform(y, u, centering: CenteringMethods = None):
+    ydim, ylength = y.shape
+    udim, ulength = u.shape
+    if centering == "InitVal":
+        y_rif = 1.0 * y[:, 0]
+        u_init = 1.0 * u[:, 0]
+        for i in range(ylength):
+            y[:, i] = y[:, i] - y_rif
+            u[:, i] = u[:, i] - u_init
+    elif centering == "MeanVal":
+        y_rif = np.zeros(ydim)
+        u_mean = np.zeros(udim)
+        for i in range(ydim):
+            y_rif[i] = np.mean(y[i, :])
+        for i in range(udim):
+            u_mean[i] = np.mean(u[i, :])
+        for i in range(ylength):
+            y[:, i] = y[:, i] - y_rif
+            u[:, i] = u[:, i] - u_mean
+    else:
+        if centering is not None:
+            warn(
+                "'centering' argument is not valid, its value has been reset to 'None'"
+            )
+        y_rif = 0.0 * y[:, 0]
+
+    return y, u, y_rif
+
+
+# TODO: learn how to provide overloads without extensively typing out irrelevant args
+# @overload
+# def system_identification(
+#     y: np.ndarray,
+#     u: np.ndarray,
+#     id_method: AvailableMethods,
+#     *orders: int | list[int] | list[list[int]] | np.ndarray,
+#     IC: None = None,
+# ): ...
+# @overload
+# def system_identification(
+#     y: np.ndarray,
+#     u: np.ndarray,
+#     id_method: AvailableMethods,
+#     *orders: tuple[int, int],
+#     IC: ICMethods,
+# ): ...
+
+
+def system_identification(
+    y: np.ndarray,
+    u: np.ndarray,
+    id_method: AvailableMethods,
+    *orders: int | list[int] | list[list[int]] | np.ndarray | tuple[int, int],
+    ts: float = 1.0,
+    centering: CenteringMethods | None = None,
+    IC: ICMethods | None = None,
+    id_mode: AvailableModes = "OPT",  # TODO: figure out whether to remove default
+    max_iter: int = 200,
+    stab_marg: float = 1.0,
+    stab_cons: bool = False,
+    SS_f: int = 20,
+    SS_p: int = 20,
+    SS_threshold: float = 0.1,
+    SS_D_required: bool = False,
+    SS_A_stability: bool = False,
+    SS_PK_B_reval: bool = False,
+) -> IO_SISO_Model | IO_MIMO_Model | SS_Model:
+    # Verify y and u
+    y = np.atleast_2d(y)
+    u = np.atleast_2d(u)
     [n1, n2] = y.shape
     ydim = min(n1, n2)
     ylength = max(n1, n2)
@@ -41,736 +374,160 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
     udim = min(n1, n2)
     if ulength == n1:
         u = u.T
-        
-    # Checking data consinstency    
+
+    # Checking data consinstency
     if ulength != ylength:
-        sys.stdout.write("\033[0;35m")
-        print(
-            "Warning! y and u lengths are not the same. The minor value between the two lengths has been chosen. The perfomed indentification may be not correct, be sure to check your input and output data alignement")
-        sys.stdout.write(" ")
+        warn(
+            "y and u lengths are not the same. The minor value between the two lengths has been chosen. The perfomed indentification may be not correct, be sure to check your input and output data alignement"
+        )
         # Recasting data cutting out the over numbered data
         minlength = min(ulength, ylength)
         y = y[:, :minlength]
         u = u[:, :minlength]
 
+    _verify_orders_types(*orders, IC=IC)
+
+    _verify_orders_len(id_method, *orders, ydim=ydim, IC=IC)
+
     # Data centering
-    if centering == 'InitVal':
-        y_rif = 1. * y[:, 0]
-        u_init = 1. * u[:, 0]
-        for i in range(ylength):
-            y[:, i] = y[:, i] - y_rif
-            u[:, i] = u[:, i] - u_init
-    elif centering == 'MeanVal':
-        y_rif = np.zeros(ydim)
-        u_mean = np.zeros(udim)
-        for i in range(ydim):
-            y_rif[i] = np.mean(y[i, :])
-        for i in range(udim):
-            u_mean[i] = np.mean(u[i, :])
-        for i in range(ylength):
-            y[:, i] = y[:, i] - y_rif
-            u[:, i] = u[:, i] - u_mean
-    elif centering == 'None':
-        y_rif = 0. * y[:, 0]       
-    else:
-    # elif centering != 'None':
-        sys.stdout.write("\033[0;35m")
-        print("Warning! \'Centering\' argument is not valid, its value has been reset to \'None\'")
-        sys.stdout.write(" ")
-        
-    # Defining default values for orders
-    na = [0]*ydim; nb = [0]*ydim; nc = [0]*ydim; nd= [0]*ydim; nf = [0]*ydim 
-    
+    y, u, y_rif = _recentering_fit_transform(y, u, centering)
+
     ##### Check Information Criterion #####
-        
-    ### MODE 1) fixed orders
-    if (IC == 'AIC' or IC == 'AICc' or IC == 'BIC') == False:
-        # if none IC is selected
-        
-        # if something goes wrong
-        if IC != 'None':
-            sys.stdout.write("\033[0;35m")
-            print(
-                "Warning, no correct information criterion selected, its value has been reset to \'None\'")
-            sys.stdout.write(" ")
-               
-        ###### MODEL choice
-        
-        ## INPUT-OUTPUT MODELS
-        
-        # FIR or ARX   
-        if id_method == 'FIR' or id_method == 'ARX':
-            
-            if id_method == 'FIR':
-                # not 2 inputs
-                if len(FIR_orders) != 2:
-                    sys.exit("Error! FIR identification takes two arguments in FIR_orders")
-                    model = 'None'
-                    
-                # assigned orders   
-                if (type(FIR_orders[0]) == list and type(FIR_orders[1]) == list):
-                    # na is set to 0  
-                    # na = [0]*ydim                  
-                    nb = FIR_orders[0]
-                    theta = FIR_orders[1]
-    
-                # not assigned orders (read default)    
-                elif (type(FIR_orders[0]) == int and type(FIR_orders[1]) == int):
-                    # na is set to 0 
-                    # na = [0]*ydim
-                    nb = (FIR_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
-                    theta = (FIR_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                
-                # something goes wrong
-                else:
-                    sys.exit(
-                        "Error! FIR_orders must be a list containing two lists or two integers")
-                    model = 'None'
-            
-            elif id_method == 'ARX':
-                # not 3 inputs
-                if len(ARX_orders) != 3:
-                    sys.exit("Error! ARX identification takes three arguments in ARX_orders")
-                    model = 'None'
-                    
-                # assigned orders   
-                if (type(ARX_orders[0]) == list and type(ARX_orders[1]) == list and type(ARX_orders[2]) == list):
-                    na = ARX_orders[0]
-                    nb = ARX_orders[1]
-                    theta = ARX_orders[2]
-    
-                # not assigned orders (read default)    
-                elif (type(ARX_orders[0]) == int and type(ARX_orders[1]) == int and type(ARX_orders[2]) == int):
-                    na = (ARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                    theta = (ARX_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
-                
-                # something goes wrong
-                else:
-                    sys.exit(
-                        "Error! ARX_orders must be a list containing three lists or three integers")
-                    model = 'None'
-                  
-            # id ARX (also for FIR, which is a subcase)
-            
-            # Standard Linear Least Square
-            if ARX_mod == 'LLS' or FIR_mod == 'LLS':
-            
-                from . import arxMIMO
-                #import arxMIMO
-                # id ARX MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = arxMIMO.ARX_MIMO_id(y, u, na, nb, theta, tsample)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength) 
-                # form model
-                model = arxMIMO.ARX_MIMO_model(na, nb, theta, tsample, NUMERATOR, DENOMINATOR, G, H, Vn_tot, Yid)
-             
-            # Recursive Least Square
-            elif ARX_mod == 'RLLS' or FIR_mod == 'RLLS':
-                
-                from . import io_rlsMIMO
-                #import io_rlsMIMO
-                # id ARMAX RLS MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Yid = io_rlsMIMO.GEN_MIMO_id(
-                        id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = io_rlsMIMO.GEN_MIMO_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn_tot, Yid)
-                
-        # ARMAX        
-        elif id_method == 'ARMAX':
-            
-            # not 4 inputs
-            if len(ARMAX_orders) != 4:
-                sys.exit("Error! ARMAX identification takes four arguments in ARMAX_orders")
 
-            # assigned orders    
-            if (type(ARMAX_orders[0]) == list and type(ARMAX_orders[1]) == list and type(ARMAX_orders[2]) == list and type(ARMAX_orders[3]) == list):
-                na = ARMAX_orders[0]
-                nb = ARMAX_orders[1]
-                nc = ARMAX_orders[2]
-                # nd = [0]*ydim
-                # nf = [0]*ydim
-                theta = ARMAX_orders[3]
-            
-            # not assigned orders (read default)   
-            elif (type(ARMAX_orders[0]) == int and type(ARMAX_orders[1]) == int and type(ARMAX_orders[2]) == int and type(ARMAX_orders[3]) == int):
-                na = (ARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                nb = (ARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                nc = (ARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                # nd = [0]*ydim
-                # nf = [0]*ydim
-                theta = (ARMAX_orders[3] * np.ones((ydim, udim), dtype=int)).tolist()
-            
-            # something goes wrong
-            else:
-                sys.exit(
-                    "Error! ARMAX_orders must be a list containing four lists or four integers")
-                model = 'None'
-            
-            # check identification method
-                
-            # Iterative Linear Least Squares
-            if ARMAX_mod == 'ILLS':
-                
-                from . import armaxMIMO
-                #import armaxMIMO
-                # id ARMAX MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Yid = armaxMIMO.ARMAX_MIMO_id(
-                        y, u, na, nb, nc, theta, tsample, max_iterations)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = armaxMIMO.ARMAX_MIMO_model(na, nb, nc, theta, tsample, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn_tot, Yid)
-                
-            # Recursive Least Square
-            elif ARMAX_mod == 'RLLS':
-                
-                from . import io_rlsMIMO
-                #import io_rlsMIMO
-                # id ARMAX RLS MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Yid = io_rlsMIMO.GEN_MIMO_id(
-                        id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = io_rlsMIMO.GEN_MIMO_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn_tot, Yid)
-                         
-            # OPTMIZATION-BASED
-            elif ARMAX_mod == 'OPT':
-                from . import io_optMIMO
-                #import io_optMIMO
-                # id GEN MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Yid = io_optMIMO.GEN_MIMO_id(
-                    id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations, stab_marg, stab_cons)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                # form model
-                model = io_optMIMO.GEN_MIMO_model(na, nb, nc, nd, nf, theta, tsample,
-                                               NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn_tot, Yid)
-            
-            else:
-                # error in writing the identification mode
-                print('Warning: the selected method for solving the ARMAX model is not correct.')
-                model = 'None'
-                    
-              
-        # (OE) Output-Error
-        elif id_method == 'OE':
-            
-            # not 3 inputs
-            if len(OE_orders) != 3:
-                sys.exit("Error! OE identification takes three arguments in OE_orders")
-                model = 'None'
-                
-            # assigned orders   
-            if (type(OE_orders[0]) == list and type(OE_orders[1]) == list and type(OE_orders[2]) == list):
-                # na = [0]*ydim
-                nb = OE_orders[0]
-                # nc = [0]*ydim
-                # nd = [0]*ydim
-                nf = OE_orders[1]
-                theta = OE_orders[2]
+    # MODE 1) fixed orders
+    if not _areinstances(orders, tuple):
+        if IC is not None:
+            warn("Ignoring argument 'IC' as fixed orders are provided.")
 
-            # not assigned orders (read default)   
-            elif (type(OE_orders[0]) == int and type(OE_orders[1]) == int and type(OE_orders[2]) == int):
-                # na = [0]*ydim
-                nb = (OE_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
-                # nc = [0]*ydim
-                # nd = [0]*ydim
-                nf = (OE_orders[1] * np.ones((ydim,), dtype=int)).tolist()
-                theta = (OE_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
-            
-            # something goes wrong
-            else:
-                sys.exit(
-                    "Error! OE_orders must be a list containing three lists or three integers")
-                model = 'None'
-                
-            # check identification method
-                
-            # Iterative Linear Least Squares
-            if OE_mod == 'RLLS':
-                
-                from . import io_rlsMIMO
-                #import io_rlsMIMO
-                # id ARMAX RLS MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Yid = io_rlsMIMO.GEN_MIMO_id(
-                        id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = io_rlsMIMO.GEN_MIMO_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn_tot, Yid)
-                    
-                         
-            # OPTMIZATION-BASED
-            elif OE_mod == 'OPT':
-                from . import io_optMIMO
-                #import io_optMIMO
-                # id GEN MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Yid = io_optMIMO.GEN_MIMO_id(
-                    id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations, stab_marg, stab_cons)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                # form model
-                model = io_optMIMO.GEN_MIMO_model(na, nb, nc, nd, nf, theta, tsample,
-                                               NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn_tot, Yid)
-            
-            else:
-                # error in writing the identification mode
-                print('Warning: the selected method for solving the OE model is not correct.')
-                model = 'None'
-                
-                
-        
-        # other INPUT-OUTPUT STRUCTURES OPTIMIZATION-BASED:
-        # ARMA, ARARX, ARARMAX            
-        # BJ (BOX-JENKINS), GEN-MOD (GENERALIZED MODEL) 
-                         
-        elif id_method == 'ARMA' or id_method == 'ARARX' or id_method == 'ARARMAX' \
-            or id_method == 'GEN' or id_method == 'BJ' or id_method == 'OE':
-            
-            # ARMA       
-            if id_method == 'ARMA':
-            
-                # not 3 inputs
-                if len(ARMA_orders) != 3:
-                    sys.exit("Error! ARMA identification takes three arguments in ARMA_orders")
-    
-                # assigned orders    
-                if (type(ARMA_orders[0]) == list and type(ARMA_orders[1]) == list and type(ARMA_orders[2]) == list):
-                    na = ARMA_orders[0]
-                    nb = np.zeros((ydim, udim), dtype=int).tolist()
-                    nc = ARMA_orders[1]
-                    # nd = [0]*ydim
-                    # nf = [0]*ydim
-                    theta = ARMA_orders[2]
-                
-                # not assigned orders (read default)   
-                elif (type(ARMA_orders[0]) == int and type(ARMA_orders[1]) == int and type(ARMA_orders[2]) == int):
-                    na = (ARMA_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    #nb = (ARMA_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                    nb = np.zeros((ydim, udim), dtype=int).tolist()
-                    nc = ARMA_orders[1]
-                    # nd = [0]*ydim
-                    # nf = [0]*ydim
-                    theta = (ARMA_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
-                
-                # something goes wrong
-                else:
-                    sys.exit(
-                        "Error! ARMA_orders must be a list containing three lists or three integers")
-                    model = 'None'
-                
-            # ARARX       
-            elif id_method == 'ARARX':
-            
-                # not 4 inputs
-                if len(ARARX_orders) != 4:
-                    sys.exit("Error! ARARX identification takes four arguments in ARARX_orders")
-    
-                # assigned orders    
-                if (type(ARARX_orders[0]) == list and type(ARARX_orders[1]) == list and type(ARARX_orders[2]) == list and type(ARARX_orders[3]) == list):
-                    na = ARARX_orders[0]
-                    nb = ARARX_orders[1]
-                    # nc = [0]*ydim
-                    nd = ARARX_orders[2]
-                    # nf = [0]*ydim
-                    theta = ARARX_orders[3]
-                
-                # not assigned orders (read default)   
-                elif (type(ARARX_orders[0]) == int and type(ARARX_orders[1]) == int and type(ARARX_orders[2]) == int and type(ARARX_orders[3]) == int):
-                    na = (ARARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARARX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                    nc = [0]*ydim
-                    nd = (ARARX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                    nf = [0]*ydim
-                    theta = (ARARX_orders[3] * np.ones((ydim, udim), dtype=int)).tolist()
-                
-                # something goes wrong
-                else:
-                    sys.exit(
-                        "Error! ARARX_orders must be a list containing four lists or four integers")
-                    model = 'None'
-        
-            # ARARMAX        
-            elif id_method == 'ARARMAX':
-            
-                # not 5 inputs
-                if len(ARARMAX_orders) != 5:
-                    sys.exit("Error! ARARMAX identification takes five arguments in ARARMAX_orders")
-    
-                # assigned orders    
-                if (type(ARARMAX_orders[0]) == list and type(ARARMAX_orders[1]) == list and type(ARARMAX_orders[2]) == list and type(ARARMAX_orders[3]) == list and type(ARARMAX_orders[4]) == list):
-                    na = ARARMAX_orders[0]
-                    nb = ARARMAX_orders[1]
-                    nc = ARARMAX_orders[2]
-                    nd = ARARMAX_orders[3]
-                    # nf = [0]*ydim
-                    theta = ARARMAX_orders[4]
-                
-                # not assigned orders (read default)   
-                elif (type(ARARMAX_orders[0]) == int and type(ARARMAX_orders[1]) == int and type(ARARMAX_orders[2]) == int and type(ARARMAX_orders[3]) == int and type(ARARMAX_orders[4]) == int):
-                    na = (ARARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (ARARMAX_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                    nc = (ARARMAX_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                    nd = (ARARMAX_orders[3] * np.ones((ydim,), dtype=int)).tolist()
-                    # nf = [0]*ydim
-                    theta = (ARARMAX_orders[4] * np.ones((ydim, udim), dtype=int)).tolist()
-                
-                # something goes wrong
-                else:
-                    sys.exit(
-                        "Error! ARARMAX_orders must be a list containing five lists or five integers")
-                    model = 'None'
-            
+        orders = cast(
+            tuple[int | list[int] | list[list[int]] | np.ndarray, ...], orders
+        )
+        orders_defaults: Mapping[str, np.ndarray] = {
+            "na": np.zeros((ydim,), dtype=int),
+            "nb": np.zeros((ydim, udim), dtype=int),
+            "nc": np.zeros((ydim,), dtype=int),
+            "nd": np.zeros((ydim,), dtype=int),
+            "nf": np.zeros((ydim,), dtype=int),
+            "theta": np.zeros((ydim, udim), dtype=int),
+        }
+        orders = _update_orders(orders, orders_defaults, id_method=id_method)
 
-            # BJ 
-            elif id_method == 'BJ':
-            
-                # not 5 inputs
-                if len(BJ_orders) != 5:
-                    sys.exit("Error! BJ identification takes five arguments in BJ_orders")
-    
-                # assigned orders    
-                if (type(BJ_orders[0]) == list and type(BJ_orders[1]) == list and type(BJ_orders[2]) == list \
-                    and type(BJ_orders[3]) == list and type(BJ_orders[4]) == list):
-                    # na = [0]*ydim 
-                    nb = BJ_orders[0]
-                    nc = BJ_orders[1]
-                    nd = BJ_orders[2]
-                    nf = BJ_orders[3]
-                    theta = BJ_orders[4]
-                
-                # not assigned orders (read default)   
-                elif (type(BJ_orders[0]) == int and type(BJ_orders[1]) == int and type(BJ_orders[2]) == int \
-                      and type(BJ_orders[3]) == int and type(BJ_orders[4]) == int):
-                    # na = [0]*ydim 
-                    nb = (BJ_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
-                    nc = (BJ_orders[1] * np.ones((ydim,), dtype=int)).tolist()
-                    nd = (BJ_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                    nf = (BJ_orders[3] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (BJ_orders[4] * np.ones((ydim, udim), dtype=int)).tolist()
-                
-                # something goes wrong
-                else:
-                    sys.exit(
-                        "Error! BJ_orders must be a list containing five lists or five integers")
-                    model = 'None'
-                        
-            # GEN
-            elif id_method == 'GEN':
-            
-                # not 6 inputs
-                if len(GEN_orders) != 6:
-                    sys.exit("Error! GEN-MODEL identification takes six arguments in GEN_orders")
-    
-                # assigned orders    
-                if (type(GEN_orders[0]) == list and type(GEN_orders[1]) == list and type(GEN_orders[2]) == list \
-                    and type(GEN_orders[3]) == list and type(GEN_orders[4]) == list and type(GEN_orders[5]) == list):
-                    na = GEN_orders[0]
-                    nb = GEN_orders[1]
-                    nc = GEN_orders[2]
-                    nd = GEN_orders[3]
-                    nf = GEN_orders[4]
-                    theta = GEN_orders[5]
-                
-                # not assigned orders (read default)   
-                elif (type(GEN_orders[0]) == int and type(GEN_orders[1]) == int and type(GEN_orders[2]) == int \
-                      and type(GEN_orders[3]) == int and type(GEN_orders[4]) == int and type(GEN_orders[5]) == int): 
-                    na = (GEN_orders[0] * np.ones((ydim,), dtype=int)).tolist()
-                    nb = (GEN_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
-                    nc = (GEN_orders[2] * np.ones((ydim,), dtype=int)).tolist()
-                    nd = (GEN_orders[3] * np.ones((ydim,), dtype=int)).tolist()
-                    nf = (GEN_orders[4] * np.ones((ydim,), dtype=int)).tolist()
-                    theta = (GEN_orders[5] * np.ones((ydim, udim), dtype=int)).tolist()
-                
-                # something goes wrong
-                else:
-                    sys.exit(
-                        "Error! GEN_orders must be a list containing six lists or six integers")
-                    model = 'None'
-            
-            # id MODEL: ARMA, ARARX, ARARMAX, BJ, GEN
-            from . import io_optMIMO
-            #import io_optMIMO
-            # id MIMO (also SISO case)
-            DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Yid = io_optMIMO.GEN_MIMO_id(
-                    id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterations, stab_marg, stab_cons)
-            # recentering
-            Yid = data_recentering(Yid,y_rif,ylength)
-            # form model
-            model = io_optMIMO.GEN_MIMO_model(na, nb, nc, nd, nf, theta, tsample,
-                                               NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn_tot, Yid)
-            
-            
-        
-        ## SS MODELS
-            
-        # N4SID-MOESP-CVA    
-        elif id_method == 'N4SID' or id_method == 'MOESP' or id_method == 'CVA':
-            from . import OLSims_methods
-            A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(y, u, SS_f, id_method, SS_threshold,
-                                                               SS_max_order, SS_fixed_order,
-                                                               SS_D_required, SS_A_stability)
-            model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
-            
-        # PARSIM-K
-        elif id_method == 'PARSIM-K':
-            from . import Parsim_methods
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_K(y, u, SS_f, SS_p,
-                                                                      SS_threshold, SS_max_order,
-                                                                      SS_fixed_order, SS_D_required,
-                                                                      SS_PK_B_reval)
-            model = Parsim_methods.SS_PARSIM_model(A, B, C, D, K, A_K, B_K, x0, tsample,Vn)
-        
-        # PARSIM-S  
-        elif id_method == 'PARSIM-S':
-            from . import Parsim_methods
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_S(y, u, SS_f, SS_p,
-                                                                      SS_threshold, SS_max_order,
-                                                                      SS_fixed_order, SS_D_required)
-            model = Parsim_methods.SS_PARSIM_model(A, B, C, D, K, A_K, B_K, x0, tsample,Vn)
-        
-        # PARSIM-P
-        elif id_method == 'PARSIM-P':
-            from . import Parsim_methods
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_P(y, u, SS_f, SS_p,
-                                                                      SS_threshold, SS_max_order,
-                                                                      SS_fixed_order, SS_D_required)
-            model = Parsim_methods.SS_PARSIM_model(A, B, C, D, K, A_K, B_K, x0, tsample,Vn)
-        
+        # IO Models
+        if id_method in get_args(IOMethods):
+            id_method = cast(IOMethods, id_method)
+            if id_mode in get_args(AvailableModes):
+                flag = ID_MODES[id_mode]
+            else:
+                raise RuntimeError(
+                    f"Method {id_mode} not available for {id_method}. Available: {get_args(AvailableModes)}"
+                )
+
+            model = IO_MIMO_Model._identify(
+                y,
+                u,
+                flag,
+                id_method,
+                *orders,
+                ts=ts,
+                max_iter=max_iter,
+                stab_marg=stab_marg,
+                stab_cons=stab_cons,
+            )
+
+            model.Yid = _recentering_transform(model.Yid, y_rif)
+
+        # SS MODELS
+        elif id_method in get_args(SSMethods):
+            id_method = cast(SSMethods, id_method)
+            order = orders[0]
+            model = SS_Model._identify(
+                y,
+                u,
+                id_method,
+                order,
+                SS_f,
+                SS_p,
+                SS_threshold,
+                SS_D_required,
+                SS_PK_B_reval,
+            )
+
         # NO method selected
         else:
-            sys.exit("Error! No identification method selected")
+            raise RuntimeError(
+                f"Wrong identification method selected. Got {id_method}"
+                f"expected one of {get_args(AvailableMethods)}"
+            )
 
-    
-    ##### 
-    ### MODE 2) order range
+    # =========================================================================
+    # MODE 2) order range
     # if an IC is selected
     else:
-        
-        # method choice
-        
-        ## INPUT-OUTPUT MODELS (MIMO case --> not implemented)
-        if (id_method == 'FIR' or id_method == 'ARX' or id_method == 'ARMA' or id_method == 'ARMAX' \
-            or id_method == 'ARARX' or id_method == 'ARARMAX' or id_method == 'OE' or id_method == 'BJ' or id_method == 'GEN' \
-                or id_method == 'EARMAX' or id_method == 'EOE'):
-            if (ydim != 1 or udim != 1):
-                sys.exit(
-                    "Error! Information criteria are implemented ONLY in SISO case for INPUT-OUTPUT model sets.  Use subspace methods instead for MIMO cases")
-                model = 'None'
-        
-        ## FIR or ARX      
-        if id_method == 'FIR' or id_method == 'ARX':
-            
-            if ARX_mod == 'LLS' or FIR_mod == 'LLS':
-                
-                from . import arx
-                if id_method == 'FIR':
-                    # no iteration on A order: rewrite na
-                    na_ord = [0,0]
-                # import arx
-                na, nb, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = arx.select_order_ARX(y[0], u[0], tsample, na_ord, nb_ord, delays, IC)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = arx.ARX_model(na, nb, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
-            
-            elif ARX_mod == 'RLLS' or FIR_mod == 'RLLS':
-                # no iteration on C, D and F orders: rewrite nc, nd and nf
-                if id_method == 'FIR':
-                    # no iteration on A order: rewrite na
-                    na_ord = [0,0]
-                nc_ord = [0,0]    
-                nd_ord = [0,0]
-                nf_ord = [0,0]
-                from . import io_rls
-                #import io_rlsMIMO
-                # id IO RLS MIMO (also SISO case)
-                na, nb, nc, nd, nf, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_rls.select_order_GEN(id_method, y[0], u[0],
-                                                        tsample, na_ord, nb_ord, nc_ord, nd_ord, nf_ord, delays, IC, max_iterations)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = io_rls.GEN_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
-                
-                    
-        
-        ## ARMAX
-        elif id_method == 'ARMAX':
-            
-            # Iterative Linear Least Squares
-            if ARMAX_mod == 'ILLS':               
-            
-                from . import armax
-                # import armax
-                # file updated by people external from CPCLAB
-                model = armax.Armax(na_ord, nb_ord, nc_ord, delays, tsample, IC, max_iterations)
-                #
-                model.find_best_estimate(y[0], u[0])
-                # recentering
-                Yid = data_recentering(model.Yid,y_rif,ylength)
-                
-            # Recursive Least Square
-            elif ARMAX_mod == 'RLLS':
-                # no iteration on D and F orders: rewrite nd and nf
-                nd_ord = [0,0]
-                nf_ord = [0,0]
-                from . import io_rls
-                #import io_rlsMIMO
-                # id IO RLS MIMO (also SISO case)
-                na, nb, nc, nd, nf, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_rls.select_order_GEN(id_method, y[0], u[0],
-                                                        tsample, na_ord, nb_ord, nc_ord, nd_ord, nf_ord, delays, IC, max_iterations)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = io_rls.GEN_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
-                   
-            
-            # OPTMIZATION-BASED
-            elif ARMAX_mod == 'OPT':
-                # no iteration on D and F orders: rewrite nd and nf
-                nd_ord = [0,0]
-                nf_ord = [0, 0]
-                from . import io_opt
-                # import io_opt
-                na, nb, nc, nd, nf, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_opt.select_order_GEN(id_method, y[0], u[0], 
-                                                        tsample, na_ord, nb_ord, nc_ord, nd_ord, nf_ord, delays, IC, max_iterations, stab_marg, stab_cons)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = io_opt.GEN_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
-                
-            else: # error in writing the mode
-                print('Warning: the selected method for solving the ARMAX model is not correct.') 
-                model = 'None'
-         
-        # (OE) Output-Error    
-        elif id_method == 'OE':
-            
-            if OE_mod == 'RLLS':
-                # no iteration on A, C, and D orders: rewrite na, nc, nd
-                na_ord = [0,0]
-                nc_ord = [0,0]
-                nd_ord = [0,0]
-                
-                from . import io_rls
-                #import io_rlsMIMO
-                # id IO RLS MIMO (also SISO case)
-                na, nb, nc, nd, nf, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_rls.select_order_GEN(id_method, y[0], u[0],
-                                                        tsample, na_ord, nb_ord, nc_ord, nd_ord, nf_ord, delays, IC, max_iterations)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = io_rls.GEN_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
-            
-            elif OE_mod == 'OPT':
-                # no iteration on A, C, and D orders: rewrite na, nc, nd
-                na_ord = [0,0]
-                nc_ord = [0,0]
-                nd_ord = [0,0]
-                
-                from . import io_opt
-                # import io_opt
-                na, nb, nc, nd, nf, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_opt.select_order_GEN(id_method, y[0], u[0], 
-                                                        tsample, na_ord, nb_ord, nc_ord, nd_ord, nf_ord, delays, IC, max_iterations, stab_marg, stab_cons)
-                # recentering
-                Yid = data_recentering(Yid,y_rif,ylength)
-                model = io_opt.GEN_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
-                
-            else: # error in writing the mode
-                print('Warning: the selected method for solving the ARMAX model is not correct.') 
-                model = 'None'
-                
-        # (EOE or EARMAX) Extended Output-Error and Extended ARMAX   
-        elif id_method == 'EOE' or id_method == 'EARMAX':
-            
-            if OE_mod == 'EOE':
-                nc_ord = [0, 0]
-                
-            from . import io_ex_rls
-            #import io_ex_rlsMIMO
-            # id IO RLS MIMO (also SISO case)
-            na, nb, nc, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_ex_rls.select_order_GEN(id_method, y[0], u[0],
-                                                    tsample, nf_ord, nb_ord, nc_ord, delays, IC, max_iterations)
-            # recentering
-            Yid = data_recentering(Yid,y_rif,ylength)
-            model = io_ex_rls.GEN_model(na, nb, nc, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
-            
-  
-        # INPUT-OUTPUT STRUCTURES OPTIMIZATION-BASED:
-        # ARMA, ARARX, ARARMAX and OE, BJ (BOX-JENKINS), GEN-MOD (GENERALIZED MODEL)           
-            
-        elif id_method == 'ARMA' or id_method == 'ARARX' or id_method == 'ARARMAX' \
-            or id_method == 'GEN' or id_method == 'BJ':
-            
-            # ARMA           
-            if id_method == 'ARMA':
-                nb_ord = [1,1]
-                nd_ord = [0,0]
-                nf_ord = [0,0]
-            
-            # ARARX            
-            elif id_method == 'ARARX':
-                nc_ord = [0,0]
-                nf_ord = [0,0]
-            
-            # ARARMAX
-            elif id_method == 'ARARMAX':
-                nf_ord = [0,0]
-            
-            # BJ
-            elif id_method == 'BJ':
-                na_ord = [0,0]
-            
-            ## GEN MODEL (all parameters already defined or by-default)
+        IC = cast(ICMethods, IC)
+        if ydim != 1 or udim != 1:
+            raise RuntimeError(
+                "Information criteria are implemented ONLY in SISO case "
+                "for INPUT-OUTPUT model sets. Use subspace methods instead"
+                " for MIMO cases"
+            )
 
-            from . import io_opt
-            # import io_opt
-            na, nb, nc, nd, nf, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_opt.select_order_GEN(id_method, y[0], u[0], 
-                                                    tsample, na_ord, nb_ord, nc_ord, nd_ord, nf_ord, delays, IC, max_iterations, stab_marg, stab_cons)
-            # recentering
-            Yid = data_recentering(Yid,y_rif,ylength)
-            model = io_opt.GEN_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
-            
+        orders = cast(tuple[tuple[int, int], ...], orders)
+        orders_ranges_defaults: Mapping[str, tuple[int, int]] = {
+            "na": (0, 0),
+            "nb": (0, 0),
+            "nc": (0, 0),
+            "nd": (0, 0),
+            "nf": (0, 0),
+            "theta": (0, 0),
+        }
+        orders = _update_orders(
+            orders, orders_ranges_defaults, id_method=id_method
+        )
 
-        ## SS-MODELS
-            
-        ## N4SID-MOESP-CVA
-        elif id_method == 'N4SID' or id_method == 'MOESP' or id_method == 'CVA':
-            from . import OLSims_methods
-            A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(y, u, SS_f, id_method, IC,
-                                                                         SS_orders, SS_D_required,
-                                                                         SS_A_stability)
-            model = OLSims_methods.SS_model(A, B, C, D, K, Q, R, S, tsample, Vn)
-        
-        ## PARSIM-K
-        elif id_method == 'PARSIM-K':
-            from . import Parsim_methods
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_K(y, u, SS_f, SS_p,
-                                                                                   IC, SS_orders,
-                                                                                   SS_D_required,
-                                                                                   SS_PK_B_reval)
-            model = Parsim_methods.SS_PARSIM_model(A, B, C, D, K, A_K, B_K, x0, tsample,Vn)
-        
-        ## PARSIM-S
-        elif id_method == 'PARSIM-S':
-            from . import Parsim_methods
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_S(y, u, SS_f, SS_p,
-                                                                                   IC, SS_orders,
-                                                                                   SS_D_required)
-            model = Parsim_methods.SS_PARSIM_model(A, B, C, D, K, A_K, B_K, x0, tsample,Vn)
-        
-        # PARSIM-P
-        elif id_method == 'PARSIM-P':
-            from . import Parsim_methods
-            A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.select_order_PARSIM_P(y, u, SS_f, SS_p,
-                                                                                   IC, SS_orders,
-                                                                                   SS_D_required)
-            model = Parsim_methods.SS_PARSIM_model(A, B, C, D, K, A_K, B_K, x0, tsample,Vn)
-        
+        if id_method in get_args(IOMethods):
+            id_method = cast(IOMethods, id_method)
+            if id_mode in get_args(AvailableModes):
+                flag = ID_MODES[id_mode]
+            else:
+                raise RuntimeError(
+                    f"Method {id_mode} not available for {id_method}. Available: {get_args(AvailableModes)}"
+                )
+
+            model = IO_SISO_Model._from_order(
+                y[0],
+                u[0],
+                *orders,
+                flag=flag,
+                id_method=id_method,
+                ts=ts,
+                ic_method=IC,
+                max_iter=max_iter,
+                stab_marg=stab_marg,
+                stab_cons=stab_cons,
+            )
+            model.Yid = _recentering_transform(model.Yid, y_rif)
+
+        # SS-MODELS
+        elif id_method in get_args(SSMethods):
+            id_method = cast(SSMethods, id_method)
+            order = orders[0]
+            model = SS_Model._from_order(
+                y,
+                u,
+                id_method,
+                order,
+                IC,
+                SS_f,
+                SS_p,
+                SS_D_required,
+                SS_PK_B_reval,
+            )
+
         # NO method selected
         else:
-            sys.exit("Error! No identification method selected")
-            model = 'None'
+            raise RuntimeError(
+                f"Wrong identification method selected. Got {id_method}"
+                f"expected one of {get_args(AvailableMethods)}"
+            )
 
     return model
-
-# Data recentering
-def data_recentering(y,y_rif,ylength):  
-    for i in range(ylength):
-        y[:, i] = y[:, i] + y_rif
-    return y
