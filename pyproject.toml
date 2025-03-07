@@ -1,5 +1,5 @@
 [project]
-name = "sippy"
+name = "sippy-unipi"
 version = "1.0.2"
 description = "Systems Identification Package for Python"
 authors = [{ name = "Giuseppe Armenise" }]
