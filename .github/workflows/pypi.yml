@@ -50,8 +50,6 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
-      - name: Install dependencies
-        run: poetry install --no-dev
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         timeout-minutes: 720
@@ -74,8 +72,6 @@ jobs:
         os: [macos-13, macos-14]
     steps:
       - uses: actions/checkout@main
-      - name: Install dependencies
-        run: poetry install --no-dev
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         timeout-minutes: 720
@@ -98,8 +94,6 @@ jobs:
         os: [windows-2019, windows-2022]
     steps:
       - uses: actions/checkout@main
-      - name: Install dependencies
-        run: poetry install --no-dev
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
         timeout-minutes: 720
@@ -121,8 +115,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - name: Install dependencies
-        run: poetry install --no-dev
+      - name: Set up Python
+        uses: ./.github/actions/install-env
+        with:
+          python-version: "3.12"
       - name: Build source distribution
         run: poetry build
       - uses: actions/upload-artifact@main
