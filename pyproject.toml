@@ -1,6 +1,6 @@
 [project]
 name = "sippy"
-version = "1.0.0"
+version = "1.0.2"
 description = "Systems Identification Package for Python"
 authors = [{ name = "Giuseppe Armenise" }]
 readme = "README.md"
@@ -40,6 +40,14 @@ ruff = "^0.9.0"
 ipykernel = "^6.26.0"
 ipython = "^8.32.0"
 jupyter = "^1.0.0"
+
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
 
 [build-system]
 requires = ["poetry-core"]
