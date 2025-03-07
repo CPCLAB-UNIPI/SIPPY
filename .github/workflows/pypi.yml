@@ -7,36 +7,6 @@ on:
       - "*"
 
 jobs:
-  version_bump:
-    runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.bump_version.outputs.NEW_VERSION }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Needed to push tags
-
-      - name: Install Python & Commitizen
-        run: |
-          pip install commitizen poetry
-
-      - name: Bump version with Commitizen
-        id: bump_version
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-          cz bump --yes
-          NEW_VERSION=$(poetry version -s)
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Commit version bump
-        run: |
-          git add pyproject.toml
-          git commit -m "chore(release): bump version to ${{ env.NEW_VERSION }}"
-          git tag v${{ env.NEW_VERSION }}
-          git push origin main --tags
-
   build_wheels:
     name: Build Wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
