@@ -61,6 +61,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
+          merge-multiple: true
       # - name: Verify wheels before publishing
       #   run: pip install twine && twine check dist/*
       - name: Publish to PyPI
