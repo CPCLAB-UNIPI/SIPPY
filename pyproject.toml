@@ -1,5 +1,5 @@
 [project]
-name = "sippy-unipi"
+name = "sippy_unipi"
 version = "1.0.2"
 description = "Systems Identification Package for Python"
 authors = [{ name = "Giuseppe Armenise" }]
@@ -20,17 +20,10 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "control", "slycot", "casadi"]
+dependencies = ["numpy<3.0.0", "scipy<2.0.0", "control<1.0.0", "slycot<1.0.0", "casadi<4.0.0"]
 
 [project.urls]
 repository = "https://github.com/CPCLAB-UNIPI/sippy"
-
-[tool.poetry.dependencies]
-casadi = "<4.0.0"
-control = "<1.0.0"
-numpy = "<3.0.0"
-scipy = "<2.0.0"
-slycot = "<1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.15.0"

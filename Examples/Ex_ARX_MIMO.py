@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from utils import create_output_dir, plot_comparison
 
-from sippy import functionset as fset
-from sippy import system_identification
+from sippy_unipi import functionset as fset
+from sippy_unipi import system_identification
 
 np.random.seed(0)
 output_dir = create_output_dir(__file__)
