@@ -15,9 +15,9 @@ from utils import (
     plot_responses,
 )
 
-from sippy import functionset as fset
-from sippy import system_identification
-from sippy.typing import FlexOrderParams
+from sippy_unipi import functionset as fset
+from sippy_unipi import system_identification
+from sippy_unipi.typing import FlexOrderParams
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)
