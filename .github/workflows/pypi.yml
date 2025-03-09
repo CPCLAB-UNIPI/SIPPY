@@ -106,9 +106,9 @@ jobs:
             python -m pip install --upgrade pip wheel setuptools && pip wheel numpy slycot --wheel-dir=./wheelhouse
           # Set necessary environment variables for compilation
           CIBW_ENVIRONMENT_WINDOWS: >
-            LIB="C:\\msys64\\mingw64\\lib;$LIB" 
+            LIB="C:\\msys64\\mingw64\\lib;$LIB"
             INCLUDE="C:\\msys64\\mingw64\\include;$INCLUDE"
-            PATH="C:\\msys64\\mingw64\\bin;$PATH"
+            PATH="$PATH;C:\\msys64\\mingw64\\bin"
 
       - uses: actions/upload-artifact@v4
         with:
