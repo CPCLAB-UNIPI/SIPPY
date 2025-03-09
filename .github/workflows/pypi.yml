@@ -44,8 +44,8 @@ jobs:
               apk add --no-cache gfortran openblas-dev
               # Try to find ipopt from community repo
               apk add --no-cache ipopt-dev || echo "ipopt-dev not found, continuing without it"
-            fi
-            python -m pip install --upgrade pip wheel setuptools && pip wheel numpy slycot --wheel-dir=./wheelhouse
+            fi &&
+            python -m pip install --upgrade pip wheel setuptools && python -m pip wheel numpy slycot --wheel-dir=./wheelhouse
       - uses: actions/upload-artifact@v4
         with:
           name: artifact-${{ matrix.linux_tag }}-cp${{ matrix.python-version }}
@@ -74,10 +74,11 @@ jobs:
             for file in {dest_dir}/*.whl ; do mv $file ${file//x86_64/universal2} ; done
           # CIBW_ENVIRONMENT: 'PATH="$HOME/...:$PATH"'
           # CIBW_BEFORE_BUILD: >
+          CIBW_ENVIRONMENT:
+            FC=/usr/local/bin/gfortran
           CIBW_BEFORE_BUILD_MACOS:
-            > # TODO: Verify if correct var and that brew has the following
-            brew update || true && brew install gfortran openblas ipopt &&
-            python -m pip install --upgrade pip wheel setuptools && pip wheel numpy slycot --wheel-dir=./wheelhouse
+            brew update || true && brew install gfortran openblas ipopt cmake ninja &&
+            python -m pip install --upgrade pip wheel setuptools && python -m pip wheel numpy slycot --wheel-dir=./wheelhouse
       - uses: actions/upload-artifact@v4
         with:
           name: artifact-${{ matrix.os }}
@@ -103,7 +104,7 @@ jobs:
             choco install -y cmake ninja &&
             refreshenv &&
             C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack" &&
-            python -m pip install --upgrade pip wheel setuptools && pip wheel numpy slycot --wheel-dir=./wheelhouse
+            python -m pip install --upgrade pip wheel setuptools && python -m pip wheel numpy slycot --wheel-dir=./wheelhouse
           # Set necessary environment variables for compilation
           CIBW_ENVIRONMENT_WINDOWS: >
             LIB="C:\\msys64\\mingw64\\lib;$LIB"
