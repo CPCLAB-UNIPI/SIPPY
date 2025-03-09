@@ -24,7 +24,7 @@ output_dir = create_output_dir(__file__)
 np.random.seed(0)
 ylegends = ["System", "ARMA", "ARARX", "ARARMAX", "OE", "BJ", "GEN"]
 # TEST OPTIMIZATION-BASED IDENTIFICATION METHODS for GENERAL INPUT-OUTPUT MODEL
-n_samples = 400
+n_samples = 401
 ts = 1.0
 time, Ysim, Usim, g_sys, Yerr, Uerr, h_sys, Ytot, Utot = load_sample_siso(
     n_samples, ts, seed=0
@@ -158,7 +158,7 @@ u[0] = 0
 
 for tf in ["G", "H"]:
     syss_tfs = [
-        locals()[f"{tf.lower()}_sample"],
+        locals()[f"{tf.lower()}_sys"],
         *[getattr(sys, tf) for sys in syss],
     ]
     mags, fis, oms = zip(*[cnt.bode(sys, W_V) for sys in syss_tfs])

@@ -24,7 +24,8 @@ from sippy_unipi import functionsetSIM as fsetSIM
 from sippy_unipi.typing import IOMethods
 
 output_dir = create_output_dir(__file__)
-np.random.seed(0)
+seed = 0
+np.random.seed(seed)
 
 # sampling time
 ts = 1.0  # [min]
@@ -97,24 +98,28 @@ prob_switch_1 = 0.05
 F_min = 0.4
 F_max = 0.6
 Range_GBN_1 = [F_min, F_max]
-[U[0, :], _, _] = fset.GBN_seq(npts, prob_switch_1, scale=Range_GBN_1)
+[U[0, :], _, _] = fset.GBN_seq(
+    npts, prob_switch_1, scale=Range_GBN_1, seed=seed
+)
 # Steam Flow rate W = U[1]          [kg/min]
 prob_switch_2 = 0.05
 W_min = 20
 W_max = 40
 Range_GBN_2 = [W_min, W_max]
-[U[1, :], _, _] = fset.GBN_seq(npts, prob_switch_2, scale=Range_GBN_2)
+[U[1, :], _, _] = fset.GBN_seq(
+    npts, prob_switch_2, scale=Range_GBN_2, seed=seed
+)
 
 # disturbance inputs as RW (random-walk)
 
 # Input Concentration Ca_in = U[2]  [kg salt/m^3 solution]
 Ca_0 = 10.0  # initial condition
 sigma_Ca = 0.01  # variation
-U[2, :] = fset.RW_seq(npts, Ca_0, sigma=sigma_Ca)
+U[2, :] = fset.RW_seq(npts, Ca_0, sigma=sigma_Ca, seed=seed)
 # Input Temperature T_in            [°C]
 Tin_0 = 25.0  # initial condition
 sigma_T = 0.01  # variation
-U[3, :] = fset.RW_seq(npts, Tin_0, sigma=sigma_T)
+U[3, :] = fset.RW_seq(npts, Tin_0, sigma=sigma_T, seed=seed)
 
 
 # COLLECT DATA
@@ -145,7 +150,7 @@ for j in range(npts - 1):
 
 # Add noise (with assigned variances)
 var = [0.001, 0.001]
-noise = fset.white_noise_var(npts, var)
+noise = fset.white_noise_var(npts, var, seed=seed)
 
 # Build Output
 Y = X + noise
@@ -266,23 +271,27 @@ prob_switch_1 = 0.05
 F_min = 0.4
 F_max = 0.6
 Range_GBN_1 = [F_min, F_max]
-[U_val[0, :], _, _] = fset.GBN_seq(npts, prob_switch_1, scale=Range_GBN_1)
+[U_val[0, :], _, _] = fset.GBN_seq(
+    npts, prob_switch_1, scale=Range_GBN_1, seed=seed
+)
 # Steam Flow rate W = U[1]          [kg/min]
 prob_switch_2 = 0.05
 W_min = 20
 W_max = 40
 Range_GBN_2 = [W_min, W_max]
-[U_val[1, :], _, _] = fset.GBN_seq(npts, prob_switch_2, scale=Range_GBN_2)
+[U_val[1, :], _, _] = fset.GBN_seq(
+    npts, prob_switch_2, scale=Range_GBN_2, seed=seed
+)
 
 # disturbance inputs as RW (random-walk)
 # Input Concentration Ca_in = U[2]  [kg salt/m^3 solution]
 Ca_0 = 10.0  # initial condition
 sigma_Ca = 0.02  # variation
-U_val[2, :] = fset.RW_seq(npts, Ca_0, sigma=sigma_Ca)
+U_val[2, :] = fset.RW_seq(npts, Ca_0, sigma=sigma_Ca, seed=seed)
 # Input Temperature T_in            [°C]
 Tin_0 = 25.0  # initial condition
 sigma_T = 0.1  # variation
-U_val[3, :] = fset.RW_seq(npts, Tin_0, sigma=sigma_T)
+U_val[3, :] = fset.RW_seq(npts, Tin_0, sigma=sigma_T, seed=seed)
 
 # COLLECT DATA
 
@@ -312,7 +321,7 @@ for j in range(npts - 1):
 
 # Add noise (with assigned variances)
 var = [0.01, 0.05]
-noise_val = fset.white_noise_var(npts, var)
+noise_val = fset.white_noise_var(npts, var, seed=seed)
 
 # Build Output
 Y_val = X_val + noise_val
