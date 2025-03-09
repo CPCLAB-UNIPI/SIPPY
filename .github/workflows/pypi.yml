@@ -38,7 +38,7 @@ jobs:
           # CIBW_BEFORE_BUILD: >
           CIBW_BEFORE_BUILD_LINUX: >
             if [ "${{ matrix.linux_tag }}" = "manylinux" ]; then
-              yum install -y libgfortran openblas-devel coin-or-ipopt-devel
+              yum install -y libgfortran openblas-devel coin-or-Ipopt-devel
             elif [ "${{ matrix.linux_tag }}" = "musllinux" ]; then
               apk add --no-cache --update
               apk add --no-cache gfortran openblas-dev
@@ -75,9 +75,9 @@ jobs:
           # CIBW_ENVIRONMENT: 'PATH="$HOME/...:$PATH"'
           # CIBW_BEFORE_BUILD: >
           CIBW_ENVIRONMENT:
-            FC=/usr/local/bin/gfortran
+            FC=/opt/homebrew/bin/gfortran
           CIBW_BEFORE_BUILD_MACOS:
-            brew update || true && brew install gfortran openblas ipopt cmake ninja && xcode-select --install &&
+            brew update || true && brew install gfortran openblas ipopt cmake ninja && 
             python -m pip install --upgrade pip wheel setuptools && python -m pip wheel numpy slycot --wheel-dir=./wheelhouse
       - uses: actions/upload-artifact@v4
         with:
