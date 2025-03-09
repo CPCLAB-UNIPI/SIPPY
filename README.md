@@ -1,50 +1,122 @@
 # Welcome to SIPPY
 
+[![Supported versions](https://img.shields.io/pypi/pyversions/sippy_unipi.svg?style=)](https://pypi.org/project/sippy_unipi/)
+[![PyPI Package latest release](https://img.shields.io/pypi/v/sippy_unipi.svg?style=)](https://pypi.org/project/sippy_unipi/)
+[![PyPI Package download count (per month)](https://img.shields.io/pypi/dm/sippy_unipi?style=)](https://pypi.org/project/sippy_unipi/)
+[![Quality and Tests](https://github.com/CPCLAB-UNIPI/SIPPY/actions/workflows/ci.yml/badge.svg)](https://github.com/CPCLAB-UNIPI/SIPPY/actions/workflows/ci.yml)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-green?style=&logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![codecov](https://codecov.io/gh/CPCLAB-UNIPI/SIPPY/branch/master/graph/badge.svg?token=BIS0A7CF1F)](https://codecov.io/gh/CPCLAB-UNIPI/SIPPY)
+
 ## Systems Identification Package for PYthon (SIPPY)
 
-The main objective of this code is to provide different identification methods
-to build linear models of dynamic systems, starting from input-output collected
-data. The models can be built as transfer functions or state-space models in
-discrete-time domain. The Python user has many options in terms of identification
-algorithms and in terms of settings to look for the best model.
-It is originally developed by Giuseppe Armenise at the Department of Civil and Industrial Engineering of University of Pisa under supervision of [Prof. Gabriele Pannocchia](https://people.unipi.it/gabriele_pannocchia/). The identification code is distributed under the LGPL license, meaning the code can be used royalty-free even in commercial applications.
-The developed code is quite simple to use and, having default settings, it can
-be used by beginners but also by experts, having many adjustable settings that
-can be changed according to the particular case. Furthermore, there are some
-functions that the user can use, e.g. to test if the identified system follows the
-plant data.
-The linear model to be identified can be chosen between:
+SIPPY is a library for linear model identification of dynamic systems. It aims to be the most user-friendly and comprehensive library for system identification in Python. 
 
-* input-output structures: FIR, ARX, ARMAX, ARMA, ARARX, ARARMAX, OE, BJ, GEN;
-* state-space structures: N4SID, MOESP, CVA, PARSIM_P, PARSIM_S or PARSIM_K.
-All the proposed structures are available both in the SISO case, for which the information criteria
-are available, and in the MIMO case.
+Originally developed by Giuseppe Armenise at the Department of Civil and Industrial Engineering of University of Pisa under supervision of [Prof. Gabriele Pannocchia](https://people.unipi.it/gabriele_pannocchia/).
 
-## Installation and package content
+## ⚡️ Quickstart
 
-The code has been implemented in Python 2.7, compatible with Python 3.7, (download it [here](https://www.python.org/downloads/)) and requires the following packages:
-NumPy, SciPy, control (version >= 0.8.2), math, Slycot, Future (See installation instruction [here](http://python-future.org/quickstart.html#installation)), CasADi (see [here](https://web.casadi.org/get/)).
-The Slycot package is available [here](https://pypi.python.org/pypi/slycot/0.2.0) or alternatively the binaries can be found [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/).
+To identify system as Auto-Regressive with eXogenous Inputs model (ARX) using Linear Least Squares  (LLS) on example data, simply run:
 
-In order to make the installation easier, the user can simply use the quick command
-`python setup.py install`
-in order to gather all the required packages all together.
+```python
+from sippy_unipi import system_identification
+from sippy_unipi.datasets import load_sample_siso
 
-SIPPY is distributed as packed file SIPPY.zip (download it from [here](https://github.com/CPCLAB-UNIPI/SIPPY)) that contains the following items:
+Y, U = load_sample_siso()
 
-* `user_guide.pdf`: documentation for Identification_code usage.
-* `sippy/__init__.py`: main file containing the function that has to be recalled to perform the
-identifications.
-* `Examples/Ex_ARMAX_MIMO.py`: example of usage of the Identification_code for ARMAX systems (multi input-multi output case).
-* `Examples/Ex_ARX_MIMO.py`: example of usage of the Identification_code for ARX systems (multi input-multi output case).
-* `Examples/Ex_ARMAX.py`: example of usage of the Identification_code for ARMAX systems (single input-single output case, using the information criteria).
-* `Examples/SS.py`: example of usage of the Identification_code for State-space systems.
-* `Examples/Ex_OPT_GEN-INOUT.py`: example of usage of the Identification_code for the input-output structures using optimization methods.
-* `Examples/Ex_RECURSIVE.py`: example of usage of the Identification_code for the input-output structures using recursive methods.
-* `Examples/Ex_CST.py`: example of usage of the Identification_code for a Continuous Stirred Tank system.
-* `sippy/functionset.py`:  file containing most of the functions used by the identification functions and other useful functions (see the user_guide for the usage).
-* `sippy/functionset_OPT.py`: file containing the nonlinear optimization problem used by some of the identification methods.
-* `sippy/functionsetSIM.py`: additional functions used by the Subspace identification functions and other useful functions for state space models (see the user_guide for the usage).
+Id_ARX = system_identification(
+    Y,
+    U,
+    "ARX",
+    *([4], [[3]], [2], [[11]]),
+    id_mode="LLS",
+)
+```
 
-In the folder `sippy/` there are other files `.py`, that are called by the main file, so the user has
-not to use them.
+Get your hand on the algorithms using following Jupyter notebooks and play around with open-spource example data:
+
+* [ARX systems (multi input-multi output case)](https://github.com/CPCLAB-UNIPI/SIPPY/blob/master/Examples/Ex_ARX_MIMO.py)
+* [ARMAX systems (single input-single output case)](https://github.com/CPCLAB-UNIPI/SIPPY/blob/master/Examples/Ex_ARMAX.py)
+* [ARMAX systems (multi input-multi output case)](https://github.com/CPCLAB-UNIPI/SIPPY/blob/master/Examples/Ex_ARMAX_MIMO.py)
+* [Input-output structures (using optimization methods)](https://github.com/CPCLAB-UNIPI/SIPPY/blob/master/Examples/Ex_ARMAX_MIMO.py)
+* [Input-output structures (using recursive methods)](https://github.com/CPCLAB-UNIPI/SIPPY/blob/master/Examples/Ex_OPT_GEN-INOUT.py)
+* [State space system (multi input-multi output case)](https://github.com/CPCLAB-UNIPI/SIPPY/blob/master/Examples/Ex_SS.py)
+* [Continuous Stirred Tank Reactor](https://github.com/CPCLAB-UNIPI/SIPPY/blob/master/Examples/Ex_CST.py)
+
+## 🛠 Installation
+
+Intended to work with Python 3.10 and above. Building project dependencies requires C compiler (euther CMake or Ninja). Pre-build wheels are currently not available (feel free to contribute).
+
+Simply run:
+
+```bash
+pip install sippy_unipi
+```
+
+To install from source, use poetry:
+
+```bash
+poetry install
+```
+
+Alternatively, you can use Docker to set up the environment. Follow these steps:
+
+1. Build the Docker image:
+
+```bash
+docker build -t sippy .
+```
+
+2. Run the Docker container:
+
+```bash
+docker run -it --rm sippy
+```
+
+## 🔮 Features
+
+SIPPY provides implementations of the following:
+
+**Input-Output Models**
+
+- FIR
+- ARX
+- ARMAX
+- ARMA
+- ARARX
+- ARARMAX
+- OE
+- BJ
+- GEN
+
+**State-Space Models**
+
+- N4SID
+- MOESP
+- CVA
+- PARSIM_P
+- PARSIM_S
+- PARSIM_K
+
+## 👐 Contributing
+
+Feel free to contribute in any way you like, we're always open to new ideas and
+approaches.
+
+* Feel welcome to
+[open an issue](https://github.com/CPCLAB-UNIPI/SIPPY/issues/new/choose)
+if you think you've spotted a bug or a performance issue.
+
+## 💬 Citation
+
+If the service or the algorithm has been useful to you and you would like to cite it in an scientific publication, please refer to the
+[paper]():
+
+<!-- ```bibtex
+@article{sippy,
+}
+``` -->
+
+
+## 📝 License
+
+This algorithm is free and open-source software licensed under the [LGPL](https://github.com/CPCLAB-UNIPI/SIPPY/blob/master/LICENSE). license, meaning the code can be used royalty-free even in commercial applications.
