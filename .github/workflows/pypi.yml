@@ -40,11 +40,12 @@ jobs:
             if [ "${{ matrix.linux_tag }}" = "manylinux" ]; then
               yum install -y gfortran openblas-devel coin-or-ipopt-devel
             elif [ "${{ matrix.linux_tag }}" = "musllinux" ]; then
-            apk add --no-cache --update
-            apk add --no-cache gfortran openblas-dev
-            # Try to find ipopt from community repo
-            apk add --no-cache ipopt-dev || echo "ipopt-dev not found, continuing without it"
+              apk add --no-cache --update
+              apk add --no-cache gfortran openblas-dev
+              # Try to find ipopt from community repo
+              apk add --no-cache ipopt-dev || echo "ipopt-dev not found, continuing without it"
             fi
+            python -m pip install --upgrade pip wheel setuptools numpy slycot --wheel-dir=./wheelhouse
       - uses: actions/upload-artifact@v4
         with:
           name: artifact-${{ matrix.linux_tag }}-cp${{ matrix.python-version }}
@@ -75,7 +76,8 @@ jobs:
           # CIBW_BEFORE_BUILD: >
           CIBW_BEFORE_BUILD_MACOS:
             > # TODO: Verify if correct var and that brew has the following
-            brew update || true && brew install gfortran openblas ipopt
+            brew update || true && brew install gfortran openblas ipopt &&
+            python -m pip install --upgrade pip wheel setuptools numpy slycot --wheel-dir=./wheelhouse
       - uses: actions/upload-artifact@v4
         with:
           name: artifact-${{ matrix.os }}
@@ -101,12 +103,12 @@ jobs:
             choco install -y cmake ninja &&
             refreshenv &&
             C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack" &&
-            python -m pip install --upgrade pip wheel setuptools numpy slycot
+            python -m pip install --upgrade pip wheel setuptools numpy slycot --wheel-dir=./wheelhouse
           # Set necessary environment variables for compilation
           CIBW_ENVIRONMENT_WINDOWS: >
-            LIB="C:\\msys64\\mingw64\\lib;%LIB%" 
-            INCLUDE="C:\\msys64\\mingw64\\include;%INCLUDE%"
-            PATH="C:\\msys64\\mingw64\\bin;%PATH%"
+            LIB="C:\\msys64\\mingw64\\lib;$LIB" 
+            INCLUDE="C:\\msys64\\mingw64\\include;$INCLUDE"
+            PATH="C:\\msys64\\mingw64\\bin;$PATH"
 
       - uses: actions/upload-artifact@v4
         with:
