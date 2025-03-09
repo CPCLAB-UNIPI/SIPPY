@@ -1,4 +1,4 @@
-nname: pypi
+name: pypi
 
 on:
   workflow_dispatch:
@@ -70,7 +70,8 @@ jobs:
             for file in {dest_dir}/*.whl ; do mv $file ${file//x86_64/universal2} ; done
           # CIBW_ENVIRONMENT: 'PATH="$HOME/...:$PATH"'
           # CIBW_BEFORE_BUILD: >
-          CIBW_BEFORE_BUILD_MACOS: >  # TODO: Verify if correct var and that brew has the following
+          CIBW_BEFORE_BUILD_MACOS:
+            > # TODO: Verify if correct var and that brew has the following
             brew update || true && brew install gfortran openblas coin-or-tools/coinor/ipopt
       - uses: actions/upload-artifact@v4
         with:
@@ -123,7 +124,13 @@ jobs:
           path: dist/*.tar.gz
 
   upload_pypi:
-    needs: [build_linux_wheels, build_macos_wheels, build_windows_wheels, build_sdist]
+    needs:
+      [
+        build_linux_wheels,
+        build_macos_wheels,
+        build_windows_wheels,
+        build_sdist,
+      ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4.1.7
