@@ -9,7 +9,7 @@
 
 ## Systems Identification Package for PYthon (SIPPY)
 
-SIPPY is a library for linear model identification of dynamic systems. It aims to be the most user-friendly and comprehensive library for system identification in Python. 
+SIPPY is a library for linear model identification of dynamic systems. It aims to be the most user-friendly and comprehensive library for system identification in Python.
 
 Originally developed by Giuseppe Armenise at the Department of Civil and Industrial Engineering of University of Pisa under supervision of [Prof. Gabriele Pannocchia](https://people.unipi.it/gabriele_pannocchia/).
 

@@ -70,7 +70,7 @@ jobs:
             for file in {dest_dir}/*.whl ; do mv $file ${file//x86_64/universal2} ; done
           # CIBW_ENVIRONMENT: 'PATH="$HOME/...:$PATH"'
           # CIBW_BEFORE_BUILD: >
-          CIBW_BEFORE_BUILD_MACOS: >  # TODO: Verify if correct var and that brew has the following 
+          CIBW_BEFORE_BUILD_MACOS: >  # TODO: Verify if correct var and that brew has the following
             brew update || true && brew install gfortran openblas coin-or-tools/coinor/ipopt
       - uses: actions/upload-artifact@v4
         with:
