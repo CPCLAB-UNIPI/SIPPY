@@ -22,7 +22,7 @@ jobs:
           platforms: all
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
-        timeout-minutes: 720
+        timeout-minutes: 10
         env:
           CIBW_BUILD: "cp${{ matrix.python-version }}-${{ matrix.linux_tag }}_*"
           CIBW_ARCHS_LINUX: "x86_64 i686 aarch64"
@@ -30,9 +30,9 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
           CIBW_MANYLINUX_I686_IMAGE: "manylinux2014"
           CIBW_MANYLINUX_AARCH64_IMAGE: "manylinux2014"
-          CIBW_MUSLLINUX_X86_64_IMAGE: "musllinux_1_1"
-          CIBW_MUSLLINUX_I686_IMAGE: "musllinux_1_1"
-          CIBW_MUSLLINUX_AARCH64_IMAGE: "musllinux_1_1"
+          CIBW_MUSLLINUX_X86_64_IMAGE: "musllinux_1_2"
+          CIBW_MUSLLINUX_I686_IMAGE: "musllinux_1_2"
+          CIBW_MUSLLINUX_AARCH64_IMAGE: "musllinux_1_2"
           # CIBW_ENVIRONMENT: 'PATH="$HOME/...:$PATH"'
           # CIBW_ENVIRONMENT_LINUX: 'PATH="$HOME/...:$PATH"'
           # CIBW_BEFORE_BUILD: >
@@ -40,7 +40,10 @@ jobs:
             if [ "${{ matrix.linux_tag }}" = "manylinux" ]; then
               yum install -y gfortran openblas-devel coin-or-ipopt-devel
             elif [ "${{ matrix.linux_tag }}" = "musllinux" ]; then
-              apk add --no-cache gfortran openblas-dev coin-or-ipopt-dev
+            apk add --no-cache --update
+            apk add --no-cache gfortran openblas-dev
+            # Try to find ipopt from community repo
+            apk add --no-cache ipopt-dev || echo "ipopt-dev not found, continuing without it"
             fi
       - uses: actions/upload-artifact@v4
         with:
@@ -57,7 +60,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
-        timeout-minutes: 720
+        timeout-minutes: 10
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
           CIBW_ARCHS_MACOS: "universal2"
@@ -72,7 +75,7 @@ jobs:
           # CIBW_BEFORE_BUILD: >
           CIBW_BEFORE_BUILD_MACOS:
             > # TODO: Verify if correct var and that brew has the following
-            brew update || true && brew install gfortran openblas coin-or-tools/coinor/ipopt
+            brew update || true && brew install gfortran openblas ipopt
       - uses: actions/upload-artifact@v4
         with:
           name: artifact-${{ matrix.os }}
@@ -88,14 +91,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.22.0
-        timeout-minutes: 720
+        timeout-minutes: 10
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
           CIBW_ARCHS_WINDOWS: "AMD64 x86"
-          # CIBW_ENVIRONMENT: 'PATH="$HOME/...:$PATH"'
-          # CIBW_ENVIRONMENT_WINDOWS: 'PATH="$UserProfile\...;$PATH"'
+          CIBW_ENVIRONMENT: "CIBW_ALLOW_PURE_WHEEL=1"
+          # Install required build dependencies for slycot
           CIBW_BEFORE_BUILD: >
-            choco install -y cmake ninja && refreshenv && C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas"
+            choco install -y cmake ninja &&
+            refreshenv &&
+            C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack" &&
+            python -m pip install --upgrade pip wheel setuptools numpy slycot
+          # Set necessary environment variables for compilation
+          CIBW_ENVIRONMENT_WINDOWS: >
+            LIB="C:\\msys64\\mingw64\\lib;%LIB%" 
+            INCLUDE="C:\\msys64\\mingw64\\include;%INCLUDE%"
+            PATH="C:\\msys64\\mingw64\\bin;%PATH%"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -136,6 +147,7 @@ jobs:
       - uses: actions/download-artifact@v4.1.7
         with:
           name: artifact
+          pattern: artifact-*
           path: dist
           merge-multiple: true
 
