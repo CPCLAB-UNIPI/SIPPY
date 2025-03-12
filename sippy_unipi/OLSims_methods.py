@@ -10,6 +10,7 @@ import numpy as np
 import scipy as sc
 from numpy.linalg import pinv
 
+from ._typing import ICMethods, OLSimMethods
 from .functionset import information_criterion, rescale
 from .functionsetSIM import (
     K_calc,
@@ -21,7 +22,6 @@ from .functionsetSIM import (
     ordinate_sequence,
     reducingOrder,
 )
-from .typing import ICMethods, OLSimMethods
 
 
 def SVD_weighted(y, u, f, l_, weights: OLSimMethods = "N4SID"):

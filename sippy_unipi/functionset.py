@@ -10,7 +10,7 @@ import control as cnt
 import numpy as np
 from numpy.random import PCG64, Generator
 
-from .typing import CenteringMethods
+from ._typing import CenteringMethods
 
 
 # function which generates a sequence of inputs GBN

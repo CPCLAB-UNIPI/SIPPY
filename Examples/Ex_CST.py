@@ -21,7 +21,7 @@ from utils import create_output_dir, plot_comparison
 from sippy_unipi import SS_Model, system_identification
 from sippy_unipi import functionset as fset
 from sippy_unipi import functionsetSIM as fsetSIM
-from sippy_unipi.typing import IOMethods
+from sippy_unipi._typing import IOMethods
 
 output_dir = create_output_dir(__file__)
 seed = 0

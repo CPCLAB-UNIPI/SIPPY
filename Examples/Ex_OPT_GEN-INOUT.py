@@ -17,8 +17,8 @@ from utils import (
 
 from sippy_unipi import functionset as fset
 from sippy_unipi import system_identification
+from sippy_unipi._typing import IOMethods
 from sippy_unipi.datasets import load_sample_siso
-from sippy_unipi.typing import IOMethods
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)

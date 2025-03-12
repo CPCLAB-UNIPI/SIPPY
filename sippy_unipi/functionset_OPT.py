@@ -7,7 +7,7 @@ Created on 2021
 import numpy as np
 from casadi import DM, SX, Function, mtimes, nlpsol, norm_inf, vertcat
 
-from .typing import OptMethods
+from ._typing import OptMethods
 
 
 # Defining the optimization problem
