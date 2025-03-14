@@ -1,6 +1,6 @@
 [project]
 name = "sippy_unipi"
-version = "1.0.2"
+version = "1.1.2"
 description = "Systems Identification Package for Python"
 authors = [{ name = "Giuseppe Armenise" }]
 readme = "README.md"
@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 requires-python = ">=3.10"
-dependencies = ["numpy<3.0.0", "scipy<2.0.0", "control<1.0.0", "slycot<1.0.0", "casadi<4.0.0"]
+dependencies = ["numpy<3.0.0", "scipy<2.0.0", "control<1.0.0", "casadi<4.0.0"]
 
 [project.urls]
 repository = "https://github.com/CPCLAB-UNIPI/sippy"

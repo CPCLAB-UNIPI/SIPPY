@@ -6,11 +6,12 @@ Created on Sun Sep 10 2017
 
 from warnings import warn
 
-import control as cnt
 import numpy as np
+from control import impulse_response, tf
 from numpy.random import PCG64, Generator
 
 from ._typing import CenteringMethods
+from .timeresp import forced_response
 
 
 # function which generates a sequence of inputs GBN
@@ -196,17 +197,15 @@ def validation(SYS, u, y, Time, k=1, centering: CenteringMethods = None):
     for i in range(ydim):
         # one-step ahead predictor
         if k == 1:
-            T, Y_u = cnt.forced_response(
-                (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u
-            )
-            T, Y_y = cnt.forced_response(
+            T, Y_u = forced_response((1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u)
+            T, Y_y = forced_response(
                 1 - (1 / SYS.H[i, 0]), Time, y[i, :] - y_rif[i]
             )
             Yval[i, :] = Y_u + np.atleast_2d(Y_y) + y_rif[i]
         else:
             # k-step ahead predictor
             # impulse response of disturbance model H
-            T, hout = cnt.impulse_response(SYS.H[i, 0], T=Time)
+            T, hout = impulse_response(SYS.H[i, 0], T=Time)
             # extract first k-1 coefficients
             if hout is None:
                 raise RuntimeError("H is not a valid transfer function")
@@ -214,12 +213,12 @@ def validation(SYS, u, y, Time, k=1, centering: CenteringMethods = None):
             # set denumerator
             h_k_den = np.hstack((np.ones((1, 1)), np.zeros((1, k - 1))))
             # FdT of impulse response
-            Hk = cnt.tf(h_k_num, h_k_den[0], SYS.ts)
+            Hk = tf(h_k_num, h_k_den[0], SYS.ts)
             # k-step ahead prediction
-            T, Y_u = cnt.forced_response(
+            T, Y_u = forced_response(
                 Hk * (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u
             )
-            T, Y_y = cnt.forced_response(
+            T, Y_y = forced_response(
                 1 - Hk * (1 / SYS.H[i, 0]), Time, y[i, :] - y_rif[i]
             )
             Yval[i, :] = np.atleast_2d(Y_u + Y_y + y_rif[i])

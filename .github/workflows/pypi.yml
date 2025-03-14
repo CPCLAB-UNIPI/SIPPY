@@ -1,160 +1,63 @@
-name: pypi
-
-on:
-  workflow_dispatch:
-  push:
-    tags:
-      - "*"
-
 jobs:
-  build_linux_wheels:
-    name: Build ${{ matrix.linux_tag }} wheels with cp${{ matrix.python-version }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        linux_tag: ["manylinux", "musllinux"]
-        python-version: ["310", "311", "312", "313"]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22.0
-        timeout-minutes: 10
-        env:
-          CIBW_BUILD: "cp${{ matrix.python-version }}-${{ matrix.linux_tag }}_*"
-          CIBW_ARCHS_LINUX: "x86_64 i686 aarch64"
-          CIBW_SKIP: "*-musllinux_i686"
-          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
-          CIBW_MANYLINUX_I686_IMAGE: "manylinux2014"
-          CIBW_MANYLINUX_AARCH64_IMAGE: "manylinux2014"
-          CIBW_MUSLLINUX_X86_64_IMAGE: "musllinux_1_2"
-          CIBW_MUSLLINUX_I686_IMAGE: "musllinux_1_2"
-          CIBW_MUSLLINUX_AARCH64_IMAGE: "musllinux_1_2"
-          # CIBW_ENVIRONMENT: 'PATH="$HOME/...:$PATH"'
-          # CIBW_ENVIRONMENT_LINUX: 'PATH="$HOME/...:$PATH"'
-          # CIBW_BEFORE_BUILD: >
-          CIBW_BEFORE_BUILD_LINUX: >
-            if [ "${{ matrix.linux_tag }}" = "manylinux" ]; then
-              yum install -y libgfortran openblas-devel coin-or-Ipopt-devel
-            elif [ "${{ matrix.linux_tag }}" = "musllinux" ]; then
-              apk add --no-cache --update
-              apk add --no-cache gfortran openblas-dev
-              # Try to find ipopt from community repo
-              apk add --no-cache ipopt-dev || echo "ipopt-dev not found, continuing without it"
-            fi &&
-            python -m pip install --upgrade pip wheel setuptools && python -m pip wheel numpy slycot --wheel-dir=./wheelhouse
-      - uses: actions/upload-artifact@v4
-        with:
-          name: artifact-${{ matrix.linux_tag }}-cp${{ matrix.python-version }}
-          path: ./wheelhouse/*.whl
-
-  build_macos_wheels:
-    name: Build wheels on ${{ matrix.os }}
+  build_wheels:
+    name: Build Wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-13, macos-14]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22.0
-        timeout-minutes: 10
-        env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
-          CIBW_ARCHS_MACOS: "universal2"
-          # arm64 and universal2 wheels are tagged with x86_64 because there's an issue with Poetry
-          # More information here: https://cibuildwheel.readthedocs.io/en/stable/faq/#how-to-cross-compile (CTRL + F "poetry")
-          # https://github.com/pypa/cibuildwheel/issues/1415
-          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
-            ls {dest_dir} &&
-            delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel} &&
-            for file in {dest_dir}/*.whl ; do mv $file ${file//x86_64/universal2} ; done
-          # CIBW_ENVIRONMENT: 'PATH="$HOME/...:$PATH"'
-          # CIBW_BEFORE_BUILD: >
-          CIBW_ENVIRONMENT:
-            FC=/opt/homebrew/bin/gfortran
-          CIBW_BEFORE_BUILD_MACOS:
-            brew update || true && brew install gfortran openblas ipopt cmake ninja && 
-            python -m pip install --upgrade pip wheel setuptools && python -m pip wheel numpy slycot --wheel-dir=./wheelhouse
-      - uses: actions/upload-artifact@v4
-        with:
-          name: artifact-${{ matrix.os }}
-          path: ./wheelhouse/*.whl
-
-  build_windows_wheels:
-    name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-2019, windows-2022]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22.0
-        timeout-minutes: 10
-        env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
-          CIBW_ARCHS_WINDOWS: "AMD64 x86"
-          CIBW_ENVIRONMENT: "CIBW_ALLOW_PURE_WHEEL=1"
-          # Install required build dependencies for slycot
-          CIBW_BEFORE_BUILD: >
-            choco install -y cmake ninja &&
-            refreshenv &&
-            C:\msys64\usr\bin\bash -lc "pacman -Sy --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-openblas mingw-w64-x86_64-lapack" &&
-            python -m pip install --upgrade pip wheel setuptools && python -m pip wheel numpy slycot --wheel-dir=./wheelhouse
-          # Set necessary environment variables for compilation
-          CIBW_ENVIRONMENT_WINDOWS: >
-            LIB="C:\\msys64\\mingw64\\lib;$LIB"
-            INCLUDE="C:\\msys64\\mingw64\\include;$INCLUDE"
-            PATH="$PATH;C:\\msys64\\mingw64\\bin"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: artifact-${{ matrix.os }}
-          path: ./wheelhouse/*.whl
-
-  build_sdist:
-    name: Build source distribution
-    # Can't use more than 12 jobs in parallel
-    needs: [build_macos_wheels]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Env
-        uses: ./.github/actions/install-env
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Build dist
-        run: poetry build
-
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install build
+      - name: Build wheel
+        run: python -m build --wheel
       - uses: actions/upload-artifact@v4
         with:
-          name: artifact-sdist
+          name: wheels-${{ matrix.os }}
+          path: dist/*.whl
+
+  build_sdist:
+    name: Build Source Distribution
+    runs-on: ubuntu-latest
+    needs: build_wheels
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install build
+      - name: Build source distribution
+        run: python -m build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
           path: dist/*.tar.gz
 
   upload_pypi:
-    needs:
-      [
-        build_linux_wheels,
-        build_macos_wheels,
-        build_windows_wheels,
-        build_sdist,
-      ]
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     steps:
-      - uses: actions/download-artifact@v4.1.7
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          name: artifact
-          pattern: artifact-*
           path: dist
           merge-multiple: true
-
-      - uses: pypa/gh-action-pypi-publish@v1.12.2
+      # - name: Verify wheels before publishing
+      #   run: pip install twine && twine check dist/*
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.12.2
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
