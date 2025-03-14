@@ -11,12 +11,7 @@ from typing import cast, get_args
 import control.matlab as cnt
 import numpy as np
 
-from .armax import Armax, ARMAX_MISO_id
-from .arx import ARX_id, ARX_MISO_id
-from .functionset import information_criterion, rescale
-from .io_opt import GEN_id, GEN_MISO_id
-from .io_rls import GEN_RLS_id, GEN_RLS_MISO_id
-from .typing import (
+from ._typing import (
     Flags,
     ICMethods,
     IOMethods,
@@ -26,6 +21,11 @@ from .typing import (
     RLSMethods,
     SSMethods,
 )
+from .armax import Armax, ARMAX_MISO_id
+from .arx import ARX_id, ARX_MISO_id
+from .functionset import information_criterion, rescale
+from .io_opt import GEN_id, GEN_MISO_id
+from .io_rls import GEN_RLS_id, GEN_RLS_MISO_id
 from .utils import (
     atleast_3d,
     check_feasibility,

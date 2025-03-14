@@ -6,8 +6,8 @@ Created on 2021
 
 import numpy as np
 
+from ._typing import RLSMethods
 from .functionset import rescale
-from .typing import RLSMethods
 from .utils import build_tfs, common_setup, validate_and_prepare_inputs
 
 # ----------------- Helper Functions -----------------

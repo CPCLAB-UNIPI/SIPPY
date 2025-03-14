@@ -6,10 +6,12 @@ Created on Sun Sep 10 2017
 
 from warnings import warn
 
-import control as cnt
 import numpy as np
+from control import impulse_response, tf
+from numpy.random import PCG64, Generator
 
-from .typing import CenteringMethods
+from ._typing import CenteringMethods
+from .timeresp import forced_response
 
 
 # function which generates a sequence of inputs GBN
@@ -19,10 +21,13 @@ from .typing import CenteringMethods
 # Range: input range
 # Tol: tolerance on switching probability relative error
 # nit_max: maximum number of iterations
-def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
-    min_Range = min(Range)
-    max_Range = max(Range)
-    prob = np.random.random()
+def GBN_seq(
+    N, p_swd, Nmin=1, scale=[-1.0, 1.0], Tol=0.01, nit_max=30, seed=None
+):
+    rng = Generator(PCG64(seed))
+    min_Range = min(scale)
+    max_Range = max(scale)
+    prob = rng.random()
     # set first value
     if prob < 0.5:
         gbn = -1.0 * np.ones(N)
@@ -38,7 +43,7 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
             gbn[i + 1] = gbn[i]
             # test switch probability
             if i - i_fl >= Nmin:
-                prob = np.random.random()
+                prob = rng.random()
                 # track last test of p_sw
                 i_fl = i
                 if prob < p_swd:
@@ -67,12 +72,13 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
 # N: sequence length (total number of samples);
 # sigma: standard deviation (mobility) of randow walk
 # rw0: initial value
-def RW_seq(N, rw0, sigma: float = 1.0):
+def RW_seq(N, rw0, sigma: float = 1.0, seed=None):
+    rng = Generator(PCG64(seed))
     rw = rw0 * np.ones(N)
     for i in range(N - 1):
         # return random sample from a normal (Gaussian) distribution with:
         # mean = 0.0, standard deviation = sigma, and length = 1
-        delta = np.random.normal(0.0, sigma, 1)
+        delta = rng.normal(0.0, sigma, 1)
         # refresh input
         rw[i + 1] = (rw[i] + delta).item()
     return rw
@@ -82,7 +88,8 @@ def RW_seq(N, rw0, sigma: float = 1.0):
 # y:clean signal
 # A_rel: relative amplitude (0<x<1) to the standard deviation of y (example: 0.05)
 # noise amplitude=  A_rel*(standard deviation of y)
-def white_noise(y, A_rel):
+def white_noise(y, A_rel, seed=None):
+    rng = Generator(PCG64(seed))
     num = y.size
     errors = np.zeros(num)
     y_err = np.zeros(num)
@@ -92,14 +99,15 @@ def white_noise(y, A_rel):
         scale = np.finfo(np.float32).eps
         warn("A_rel may be too small, its value set to the lowest default one")
 
-    errors = np.random.normal(0.0, scale, num)
+    errors = rng.normal(0.0, scale, num)
     y_err = y + errors
     return errors, y_err
 
 
 # this function generates a white noise matrix (rows with zero mean), L:size (columns), Var: variance vector
 # e.g.   noise=white_noise_var(100,[1,1]) , noise matrix has two row vectors with variance=1
-def white_noise_var(L, Var):
+def white_noise_var(L, Var, seed=None):
+    rng = Generator(PCG64(seed))
     Var = np.array(Var)
     n = Var.size
     noise = np.zeros((n, L))
@@ -109,7 +117,7 @@ def white_noise_var(L, Var):
             warn(
                 f"Var[{i}] may be too small, its value set to the lowest default one",
             )
-        noise[i, :] = np.random.normal(0.0, Var[i] ** 0.5, L)
+        noise[i, :] = rng.normal(0.0, Var[i] ** 0.5, L)
     return noise
 
 
@@ -189,17 +197,15 @@ def validation(SYS, u, y, Time, k=1, centering: CenteringMethods = None):
     for i in range(ydim):
         # one-step ahead predictor
         if k == 1:
-            T, Y_u = cnt.forced_response(
-                (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u
-            )
-            T, Y_y = cnt.forced_response(
+            T, Y_u = forced_response((1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u)
+            T, Y_y = forced_response(
                 1 - (1 / SYS.H[i, 0]), Time, y[i, :] - y_rif[i]
             )
             Yval[i, :] = Y_u + np.atleast_2d(Y_y) + y_rif[i]
         else:
             # k-step ahead predictor
             # impulse response of disturbance model H
-            T, hout = cnt.impulse_response(SYS.H[i, 0], T=Time)
+            T, hout = impulse_response(SYS.H[i, 0], T=Time)
             # extract first k-1 coefficients
             if hout is None:
                 raise RuntimeError("H is not a valid transfer function")
@@ -207,12 +213,12 @@ def validation(SYS, u, y, Time, k=1, centering: CenteringMethods = None):
             # set denumerator
             h_k_den = np.hstack((np.ones((1, 1)), np.zeros((1, k - 1))))
             # FdT of impulse response
-            Hk = cnt.tf(h_k_num, h_k_den[0], SYS.ts)
+            Hk = tf(h_k_num, h_k_den[0], SYS.ts)
             # k-step ahead prediction
-            T, Y_u = cnt.forced_response(
+            T, Y_u = forced_response(
                 Hk * (1 / SYS.H[i, 0]) * SYS.G[i, :], Time, u
             )
-            T, Y_y = cnt.forced_response(
+            T, Y_y = forced_response(
                 1 - Hk * (1 / SYS.H[i, 0]), Time, y[i, :] - y_rif[i]
             )
             Yval[i, :] = np.atleast_2d(Y_u + Y_y + y_rif[i])

@@ -52,10 +52,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install slycot manually
-        run: |
-          CMAKE_MAKE_PROGRAM=C:/msys64/usr/bin/make.exe pip install slycot==0.6.0 --no-cache-dir --use-pep517
-
       - name: Install Poetry
         uses: snok/install-poetry@main
         with:

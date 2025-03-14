@@ -18,7 +18,7 @@ from utils import create_output_dir
 from sippy_unipi import SS_Model, system_identification
 from sippy_unipi import functionset as fset
 from sippy_unipi import functionsetSIM as fsetSIM
-from sippy_unipi.typing import SSMethods
+from sippy_unipi._typing import SSMethods
 
 output_dir = create_output_dir(__file__)
 np.random.seed(0)

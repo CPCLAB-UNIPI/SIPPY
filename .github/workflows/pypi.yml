@@ -1,11 +1,3 @@
-name: pypi
-
-on:
-  workflow_dispatch:
-  push:
-    tags:
-      - "*"
-
 jobs:
   build_wheels:
     name: Build Wheels on ${{ matrix.os }}

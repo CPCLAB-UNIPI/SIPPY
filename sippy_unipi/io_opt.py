@@ -8,9 +8,9 @@ from warnings import warn
 
 import numpy as np
 
+from ._typing import IOMethods, OptMethods
 from .functionset import rescale
 from .functionset_OPT import opt_id
-from .typing import IOMethods, OptMethods
 from .utils import (
     build_tfs,
     check_valid_orders,
