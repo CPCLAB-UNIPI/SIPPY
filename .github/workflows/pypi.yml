@@ -1,3 +1,5 @@
+on: [push, pull_request]
+
 jobs:
   build_wheels:
     name: Build Wheels on ${{ matrix.os }}
