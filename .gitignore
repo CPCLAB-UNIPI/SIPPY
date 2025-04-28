@@ -122,3 +122,9 @@ simulator.sublime-project
 
 # QQmlEngine QML Cache
 *.qmlc
+
+# MacOS
+.DS_Store
+
+# Misc
+Examples/results

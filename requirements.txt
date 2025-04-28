@@ -1,7 +1,0 @@
-numpy
-scipy
-control
-slycot
-future
-pytest
-casadi
