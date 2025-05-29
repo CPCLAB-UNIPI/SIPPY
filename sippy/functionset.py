@@ -13,7 +13,7 @@ import numpy as np
 from past.utils import old_div
 
 import control as cnt
-
+from tf2ss import forced_response
 
 # function which generates a sequence of inputs GBN
 # N: sequence length (total number of samples)
@@ -189,8 +189,8 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
     for i in range(ydim):
         # one-step ahead predictor 
         if k == 1:
-            T, Y_u = cnt.forced_response((1/SYS.H[i,0])*SYS.G[i,:], Time, u)
-            T, Y_y = cnt.forced_response(1 - (1/SYS.H[i,0]), Time, y[i,:] - y_rif[i])
+            T, Y_u = forced_response((1/SYS.H[i,0])*SYS.G[i,:], Time, u)
+            T, Y_y = forced_response(1 - (1/SYS.H[i,0]), Time, y[i,:] - y_rif[i])
             Yval[i,:] = (Y_u + np.atleast_2d(Y_y) + y_rif[i])
         else:
         # k-step ahead predictor
@@ -203,8 +203,8 @@ def validation(SYS,u,y,Time, k = 1, centering = 'None'):
             # FdT of impulse response
             Hk = cnt.tf(h_k_num,h_k_den[0],SYS.ts)
             # k-step ahead prediction
-            T, Y_u = cnt.forced_response(Hk*(1/SYS.H[i,0])*SYS.G[i,:], Time, u)
-            T, Y_y = cnt.forced_response(1 - Hk*(1/SYS.H[i,0]), Time, y[i,:] - y_rif[i])
+            T, Y_u = forced_response(Hk*(1/SYS.H[i,0])*SYS.G[i,:], Time, u)
+            T, Y_y = forced_response(1 - Hk*(1/SYS.H[i,0]), Time, y[i,:] - y_rif[i])
             Yval[i,:] = np.atleast_2d(Y_u + Y_y + y_rif[i]) 
       
     return Yval

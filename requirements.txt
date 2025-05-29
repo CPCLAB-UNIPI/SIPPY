@@ -1,7 +1,7 @@
 numpy
 scipy
 control
-slycot
 future
 pytest
 casadi
+tf2ss

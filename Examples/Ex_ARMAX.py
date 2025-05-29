@@ -13,6 +13,7 @@ from sippy import *
 import numpy as np
 import control.matlab as cnt
 import matplotlib.pyplot as plt
+from tf2ss import lsim
 
 ## TEST IDENTIFICATION METHODS for ARMAX model
 
@@ -53,7 +54,7 @@ h_sample = cnt.tf(NUM_H, DEN, sampling_time)
 
 # ### Input reponse
 
-Y1, Time, Xsim = cnt.lsim(g_sample, Usim, Time)
+Y1, Time, Xsim = lsim(g_sample, Usim, Time)
 plt.figure(0)
 plt.plot(Time, Usim)
 plt.plot(Time, Y1)
@@ -65,7 +66,7 @@ plt.show()
 
 # ### Noise response
 
-Y2, Time, Xsim = cnt.lsim(h_sample, e_t, Time)
+Y2, Time, Xsim = lsim(h_sample, e_t, Time)
 plt.figure(1)
 plt.plot(Time, e_t)
 plt.plot(Time, Y2)
@@ -163,8 +164,8 @@ e_valid = fset.white_noise_var(U_valid.size, white_noise_variance)[0]
 #
 ## Compute time responses for true system with new inputs
 
-Yvalid1, Time, Xsim = cnt.lsim(g_sample, U_valid, Time)
-Yvalid2, Time, Xsim = cnt.lsim(h_sample, e_valid, Time)
+Yvalid1, Time, Xsim = lsim(g_sample, U_valid, Time)
+Yvalid2, Time, Xsim = lsim(h_sample, e_valid, Time)
 Ytotvalid = Yvalid1 + Yvalid2
 
 # ## Compute time responses for identified systems with new inputs
