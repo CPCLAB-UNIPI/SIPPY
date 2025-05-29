@@ -23,7 +23,7 @@ def ordinate_sequence(y, f, p):
     return Yf, Yp
 
 def Z_dot_PIort(z, X):
-    """
+    r"""
     Compute the scalar product between a vector z and $I - x^T \cdot pinv(X^T)$, avoiding the direct computation of the matrix
     
     PI = np.dot(X.T, np.linalg.pinv(X.T)), causing high memory usage
