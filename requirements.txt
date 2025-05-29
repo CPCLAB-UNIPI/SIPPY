@@ -1,7 +1,6 @@
-numpy
-scipy
-control
-future
-pytest
-casadi
-tf2ss
+casadi<4.0.0
+control>=0.10.0,<1.0.0
+matplotlib<4.0.0
+numpy<3.0.0
+scipy<2.0.0
+tf2ss>=1.1.2,<2.0.0
