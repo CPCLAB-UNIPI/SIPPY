@@ -250,7 +250,7 @@ class Armax(object):
             raise ValueError("model cannot be estimated based on a constant input signal")
 
         IC_old = np.inf
-        G_num_opt, G_den_opt, H_num_opt, H_den_opt = np.NAN, np.NAN, np.NAN, np.NAN
+        G_num_opt, G_den_opt, H_num_opt, H_den_opt = np.nan, np.nan, np.nan, np.nan
         for na in self.na_range:
             for nb in self.nb_range:
                 for nc in self.nc_range:
