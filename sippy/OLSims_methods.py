@@ -87,7 +87,7 @@ def extracting_matrices(M, n):
     return A, B, C, D
 
 
-def OLSims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.NaN, fixed_order=np.NaN,
+def OLSims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.nan, fixed_order=np.nan,
            D_required=False, A_stability=False):
     y = 1. * np.atleast_2d(y)
     u = 1. * np.atleast_2d(u)
@@ -138,7 +138,7 @@ def select_order_SIM(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10], 
     min_ord = min(orders)
     l, L = y.shape
     m, L = u.shape
-    if check_types(0.0, np.NaN, np.NaN, f) == False:
+    if check_types(0.0, np.nan, np.nan, f) == False:
         return np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array(
                 [[0.0]]), np.inf, [], [], [], []
     else:

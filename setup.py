@@ -17,7 +17,6 @@ setuptools.setup(
 		"numpy",
 		"scipy",
 		"control",
-		"slycot",
 		"future",
 		"casadi"),
 	classifiers=(

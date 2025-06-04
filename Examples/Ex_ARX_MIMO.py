@@ -23,6 +23,7 @@ except ImportError:
 import numpy as np
 import control.matlab as cnt
 from sippy import functionset as fset
+from tf2ss import lsim
 
 # 4*3 MIMO system
 # generating transfer functions in z-operator
@@ -115,23 +116,23 @@ err_inputH = np.zeros((4, npts))
 err_inputH = fset.white_noise_var(npts, var_list)
 
 err_outputH = np.ones((3, npts))
-err_outputH1, Time, Xsim = cnt.lsim(H_sample1, err_inputH[0, :], Time)
-err_outputH2, Time, Xsim = cnt.lsim(H_sample2, err_inputH[1, :], Time)
-err_outputH3, Time, Xsim = cnt.lsim(H_sample3, err_inputH[2, :], Time)
+err_outputH1, Time, Xsim = lsim(H_sample1, err_inputH[0, :], Time)
+err_outputH2, Time, Xsim = lsim(H_sample2, err_inputH[1, :], Time)
+err_outputH3, Time, Xsim = lsim(H_sample3, err_inputH[2, :], Time)
 
 # Noise-free output
-Yout11, Time, Xsim = cnt.lsim(g_sample11, Usim[0, :], Time)
-Yout12, Time, Xsim = cnt.lsim(g_sample12, Usim[1, :], Time)
-Yout13, Time, Xsim = cnt.lsim(g_sample13, Usim[2, :], Time)
-Yout14, Time, Xsim = cnt.lsim(g_sample14, Usim[3, :], Time)
-Yout21, Time, Xsim = cnt.lsim(g_sample21, Usim[0, :], Time)
-Yout22, Time, Xsim = cnt.lsim(g_sample22, Usim[1, :], Time)
-Yout23, Time, Xsim = cnt.lsim(g_sample23, Usim[2, :], Time)
-Yout24, Time, Xsim = cnt.lsim(g_sample24, Usim[3, :], Time)
-Yout31, Time, Xsim = cnt.lsim(g_sample31, Usim[0, :], Time)
-Yout32, Time, Xsim = cnt.lsim(g_sample32, Usim[1, :], Time)
-Yout33, Time, Xsim = cnt.lsim(g_sample33, Usim[2, :], Time)
-Yout34, Time, Xsim = cnt.lsim(g_sample34, Usim[3, :], Time)
+Yout11, Time, Xsim = lsim(g_sample11, Usim[0, :], Time)
+Yout12, Time, Xsim = lsim(g_sample12, Usim[1, :], Time)
+Yout13, Time, Xsim = lsim(g_sample13, Usim[2, :], Time)
+Yout14, Time, Xsim = lsim(g_sample14, Usim[3, :], Time)
+Yout21, Time, Xsim = lsim(g_sample21, Usim[0, :], Time)
+Yout22, Time, Xsim = lsim(g_sample22, Usim[1, :], Time)
+Yout23, Time, Xsim = lsim(g_sample23, Usim[2, :], Time)
+Yout24, Time, Xsim = lsim(g_sample24, Usim[3, :], Time)
+Yout31, Time, Xsim = lsim(g_sample31, Usim[0, :], Time)
+Yout32, Time, Xsim = lsim(g_sample32, Usim[1, :], Time)
+Yout33, Time, Xsim = lsim(g_sample33, Usim[2, :], Time)
+Yout34, Time, Xsim = lsim(g_sample34, Usim[3, :], Time)
 
 # Total output
 Ytot1 = Yout11 + Yout12 + Yout13 + Yout14 + err_outputH1

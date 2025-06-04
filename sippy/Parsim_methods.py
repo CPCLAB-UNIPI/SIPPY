@@ -136,7 +136,7 @@ def AK_C_estimating_S_P(U_n, S_n, V_n, l, f, m, Zp, Uf, Yf):
     return A, C, A_K, K, n
 
 
-def PARSIM_K(y, u, f=20, p=20, threshold=0.1, max_order=np.NaN, fixed_order=np.NaN,
+def PARSIM_K(y, u, f=20, p=20, threshold=0.1, max_order=np.nan, fixed_order=np.nan,
              D_required=False, B_recalc=False):
     y = 1. * np.atleast_2d(y)
     u = 1. * np.atleast_2d(u)
@@ -215,7 +215,7 @@ def select_order_PARSIM_K(y, u, f=20, p=20, method = 'AIC', orders = [1, 10], D_
     min_ord = min(orders)
     l, L = y.shape
     m, L = u.shape
-    if check_types(0.0, np.NaN, np.NaN, f, p) == False:
+    if check_types(0.0, np.nan, np.nan, f, p) == False:
         return np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array(
                 [[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.inf
     else:
@@ -318,7 +318,7 @@ def select_order_PARSIM_K(y, u, f=20, p=20, method = 'AIC', orders = [1, 10], D_
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
-def PARSIM_S(y, u, f=20, p=20, threshold=0.1, max_order=np.NaN, fixed_order=np.NaN,
+def PARSIM_S(y, u, f=20, p=20, threshold=0.1, max_order=np.nan, fixed_order=np.nan,
              D_required=False):
     y = 1. * np.atleast_2d(y)
     u = 1. * np.atleast_2d(u)
@@ -379,7 +379,7 @@ def select_order_PARSIM_S(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
     min_ord = min(orders)
     l, L = y.shape
     m, L = u.shape
-    if check_types(0.0, np.NaN, np.NaN, f, p) == False:
+    if check_types(0.0, np.nan, np.nan, f, p) == False:
         return np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array(
                 [[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.inf
     else:
@@ -461,7 +461,7 @@ def select_order_PARSIM_S(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
-def PARSIM_P(y, u, f=20, p=20, threshold=0.1, max_order=np.NaN, fixed_order=np.NaN,
+def PARSIM_P(y, u, f=20, p=20, threshold=0.1, max_order=np.nan, fixed_order=np.nan,
              D_required=False):
     y = 1. * np.atleast_2d(y)
     u = 1. * np.atleast_2d(u)
@@ -520,7 +520,7 @@ def select_order_PARSIM_P(y, u, f=20, p=20, method='AIC', orders=[1, 10], D_requ
     min_ord = min(orders)
     l, L = y.shape
     m, L = u.shape
-    if check_types(0.0, np.NaN, np.NaN, f, p) == False:
+    if check_types(0.0, np.nan, np.nan, f, p) == False:
         return np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array(
                 [[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.array([[0.0]]), np.inf
     else:

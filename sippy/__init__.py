@@ -25,7 +25,7 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                                   FIR_mod = 'LLS', ARX_mod = 'LLS', ARMAX_mod = 'ILLS', OE_mod = 'OPT', 
                           max_iterations = 200, stab_marg = 1.0, stab_cons = False,\
                           SS_f = 20, SS_p = 20, SS_threshold = 0.1, \
-                          SS_max_order = np.NaN, SS_fixed_order = np.NaN, \
+                          SS_max_order = np.nan, SS_fixed_order = np.nan, \
                           SS_orders = [1, 10], SS_D_required = False, SS_A_stability = False, \
                           SS_PK_B_reval = False):
     

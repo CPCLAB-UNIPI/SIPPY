@@ -22,6 +22,7 @@ from sippy import functionset as fset
 import numpy as np
 import control.matlab as cnt
 import matplotlib.pyplot as plt
+from tf2ss import lsim
 
 ## TEST RECURSIVE IDENTIFICATION METHODS
 
@@ -62,24 +63,24 @@ h_sample = cnt.tf(NUM_H, DEN, sampling_time)
 
 # ### Input reponse
 
-Y1, Time, Xsim = cnt.lsim(g_sample, Usim, Time)
+Y1, Time, Xsim = lsim(g_sample, Usim, Time)
 plt.figure(0)
 plt.plot(Time, Usim)
 plt.plot(Time, Y1)
 plt.xlabel("Time")
-plt.title("Time response y$_k$(u) = g$\cdot$u$_k$")
+plt.title(r"Time response y$_k$(u) = g$\cdot$u$_k$")
 plt.legend(['u(t)', 'y(t)'])
 plt.grid()
 plt.show()
 
 # ### Noise response
 
-Y2, Time, Xsim = cnt.lsim(h_sample, e_t, Time)
+Y2, Time, Xsim = lsim(h_sample, e_t, Time)
 plt.figure(1)
 plt.plot(Time, e_t)
 plt.plot(Time, Y2)
 plt.xlabel("Time")
-plt.title("Time response y$_k$(e) = h$\cdot$e$_k$")
+plt.title(r"Time response y$_k$(e) = h$\cdot$e$_k$")
 plt.legend(['e(t)', 'y(t)'])
 plt.grid()
 plt.show()
@@ -93,7 +94,7 @@ plt.figure(2)
 plt.plot(Time, Utot)
 plt.plot(Time, Ytot)
 plt.xlabel("Time")
-plt.title("Time response y$_k$ = g$\cdot$u$_k$ + h$\cdot$e$_k$")
+plt.title(r"Time response y$_k$ = g$\cdot$u$_k$ + h$\cdot$e$_k$")
 plt.legend(['u(t) + e(t)', 'y_t(t)'])
 plt.grid()
 
@@ -163,8 +164,8 @@ e_valid = fset.white_noise_var(U_valid.size, white_noise_variance)[0]
 #
 ## Compute time responses for true system with new inputs
 
-Yvalid1, Time, Xsim = cnt.lsim(g_sample, U_valid, Time)
-Yvalid2, Time, Xsim = cnt.lsim(h_sample, e_valid, Time)
+Yvalid1, Time, Xsim = lsim(g_sample, U_valid, Time)
+Yvalid2, Time, Xsim = lsim(h_sample, e_valid, Time)
 Ytotvalid = Yvalid1 + Yvalid2
 
 # ## Compute time responses for identified system with new inputs
@@ -207,10 +208,10 @@ plt.title("Validation: | Explained Variance ARMAX = {}%".format(EV))
 ## Bode Plots
 w_v = np.logspace(-3,4,num=701)
 plt.figure(7)
-mag, fi, om = cnt.bode(g_sample,w_v)
-mag1, fi1, om = cnt.bode(Id_ARMAX.G,w_v)
-mag2, fi2, om = cnt.bode(Id_ARX.G,w_v)
-mag3, fi3, om = cnt.bode(Id_OE.G,w_v)
+mag, fi, om = cnt.frequency_response(g_sample,w_v)
+mag1, fi1, om = cnt.frequency_response(Id_ARMAX.G,w_v)
+mag2, fi2, om = cnt.frequency_response(Id_ARX.G,w_v)
+mag3, fi3, om = cnt.frequency_response(Id_OE.G,w_v)
 plt.subplot(2,1,1), plt.loglog(om,mag), plt.grid(), 
 plt.loglog(om,mag1), plt.loglog(om,mag2), plt.loglog(om,mag3)
 plt.xlabel("w"),plt.ylabel("Amplitude Ratio"), plt.title("Bode Plot G(iw)")
@@ -220,10 +221,10 @@ plt.xlabel("w"),plt.ylabel("phase")
 plt.legend(['System', 'ARMAX', 'ARX', 'OE'])
 
 plt.figure(8)
-mag, fi, om = cnt.bode(h_sample,w_v)
-mag1, fi1, om = cnt.bode(Id_ARMAX.H,w_v)
-mag2, fi2, om = cnt.bode(Id_ARX.H,w_v)
-mag3, fi3, om = cnt.bode(Id_OE.H,w_v)
+mag, fi, om = cnt.frequency_response(h_sample,w_v)
+mag1, fi1, om = cnt.frequency_response(Id_ARMAX.H,w_v)
+mag2, fi2, om = cnt.frequency_response(Id_ARX.H,w_v)
+mag3, fi3, om = cnt.frequency_response(Id_OE.H,w_v)
 plt.subplot(2,1,1), plt.loglog(om,mag), plt.grid(), 
 plt.loglog(om,mag1), plt.loglog(om,mag2), plt.loglog(om,mag3)
 plt.xlabel("w"),plt.ylabel("Amplitude Ratio"), plt.title("Bode Plot H(iw)")
