@@ -63,7 +63,7 @@ class Armax:
             and isinstance(nb_bounds, np.ndarray | list | tuple)
             and isinstance(nc_bounds, np.ndarray | list | tuple)
             and isinstance(delay_bounds, np.ndarray | list | tuple)
-            and isinstance(dt, float)
+            and isinstance(dt, int | float)
         ):
             raise ValueError("wrong arguments passed to define an armax model")
 

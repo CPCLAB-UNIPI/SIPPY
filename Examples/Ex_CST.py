@@ -235,7 +235,7 @@ for i in range(m):
     plt.ylabel(str_input[i])
     plt.grid()
     plt.xlabel("Time")
-    plt.axis([0, tfin, 0.95 * np.amin(U[i, :]), 1.05 * np.amax(U[i, :])])
+    plt.axis([0, tfin, 0.95 * np.amin(U[i, :]), 1.05 * np.amax(U[i, :])])  # type: ignore
     if i == 0:
         plt.title("identification")
 
@@ -359,7 +359,7 @@ for i in range(m):
     plt.grid()
     plt.xlabel("Time")
     plt.axis(
-        [0, tfin, 0.95 * np.amin(U_val[i, :]), 1.05 * np.amax(U_val[i, :])]
+        [0, tfin, 0.95 * np.amin(U_val[i, :]), 1.05 * np.amax(U_val[i, :])]  # type: ignore
     )
     if i == 0:
         plt.title("validation")

@@ -7,7 +7,6 @@ import sys
 
 import control.matlab as cnt
 import numpy as np
-from casadi import DM
 
 from .functionset import rescale
 
@@ -78,7 +77,7 @@ def GEN_RLS_MISO_id(
                 vecY = y[k - na : k][::-1]  # Y vector
                 vecYp = Yp[k - nf : k][::-1]  # Yp vector
                 #
-                vecU = DM()
+                vecU = np.array([])
                 for nb_i in range(udim):  # U vector
                     vecu = u[nb_i, :][
                         k - nb[nb_i] - theta[nb_i] : k - theta[nb_i]
@@ -96,7 +95,7 @@ def GEN_RLS_MISO_id(
                 elif id_method == "OE":
                     fi[:, :, k] = np.hstack((-vecYp, vecU))
                 elif id_method == "FIR":
-                    fi[:, :, k] = np.hstack(vecU)
+                    fi[:, :, k] = np.hstack(vecU)  # type: ignore
                 phi = fi[:, :, k].T
 
                 ## Step 2: Gain Update
