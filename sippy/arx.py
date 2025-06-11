@@ -6,8 +6,9 @@
 import sys
 
 import control.matlab as cnt
+import numpy as np
 
-from .functionset import *
+from .functionset import information_criterion, rescale
 
 
 def ARX_id(y, u, na, nb, theta):
@@ -61,7 +62,7 @@ def select_order_ARX(
     sum_ords = np.sum(
         na_Min + na_MAX + nb_Min + nb_MAX + theta_Min + theta_Max
     )
-    if (
+    if not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
             or np.issubdtype(sum_ords, np.unsignedinteger)
@@ -69,7 +70,7 @@ def select_order_ARX(
         and na_Min >= 0
         and nb_Min > 0
         and theta_Min >= 0
-    ) == False:
+    ):
         sys.exit(
             "Error! na, theta must be positive integers, nb must be strictly positive integer"
         )

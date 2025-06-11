@@ -8,7 +8,7 @@ import warnings
 import control.matlab as cnt
 import numpy as np
 
-from .functionset import *
+from .functionset import information_criterion, mean_square_error, rescale
 
 
 class Armax:
@@ -59,16 +59,16 @@ class Armax:
         :type max_iterations: int
         """
         if not (
-            isinstance(na_bounds, (np.ndarray, list, tuple))
-            and isinstance(nb_bounds, (np.ndarray, list, tuple))
-            and isinstance(nc_bounds, (np.ndarray, list, tuple))
-            and isinstance(delay_bounds, (np.ndarray, list, tuple))
-            and isinstance(dt, (float))
+            isinstance(na_bounds, np.ndarray | list | tuple)
+            and isinstance(nb_bounds, np.ndarray | list | tuple)
+            and isinstance(nc_bounds, np.ndarray | list | tuple)
+            and isinstance(delay_bounds, np.ndarray | list | tuple)
+            and isinstance(dt, float)
         ):
             raise ValueError("wrong arguments passed to define an armax model")
 
         for param in (na_bounds, nb_bounds, nc_bounds, delay_bounds):
-            if isinstance(param, (list, tuple)):
+            if isinstance(param, list | tuple):
                 if not all(isinstance(x, int) for x in param):
                     raise ValueError(
                         "wrong arguments passed to define an armax model"

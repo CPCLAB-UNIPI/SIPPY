@@ -5,13 +5,29 @@
 
 import sys
 
+import control.matlab as cnt
+import numpy as np
 import scipy as sc
 from numpy.linalg import pinv
 
-from .functionsetSIM import *
+from .functionset import (
+    information_criterion,
+    rescale,
+)
+from .functionsetSIM import (
+    K_calc,
+    SS_lsim_process_form,
+    Vn_mat,
+    Z_dot_PIort,
+    check_inputs,
+    check_types,
+    impile,
+    ordinate_sequence,
+    reducingOrder,
+)
 
 
-def SVD_weighted(y, u, f, l, weights="N4SID"):
+def SVD_weighted(y, u, f, l_, weights="N4SID"):
     Yf, Yp = ordinate_sequence(y, f, f)
     Uf, Up = ordinate_sequence(u, f, f)
     Zp = impile(Up, Yp)
@@ -38,7 +54,7 @@ def SVD_weighted(y, u, f, l, weights="N4SID"):
 
     elif weights == "N4SID":
         W1 = None  # is identity
-        W2 = None  # not used in 'N4SID'
+        # W2 = None  # not used in 'N4SID'
         U_n, S_n, V_n = np.linalg.svd(
             O_i, full_matrices=False
         )  # full matrices not used
@@ -47,7 +63,7 @@ def SVD_weighted(y, u, f, l, weights="N4SID"):
 
 
 def algorithm_1(
-    y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, D_required
+    y, u, l_, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, D_required
 ):
     U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold, max_order)
     V_n = V_n.T
@@ -60,23 +76,23 @@ def algorithm_1(
     X_fd = np.dot(np.linalg.pinv(Ob), O_i)
     Sxterm = impile(X_fd[:, 1:N], y[:, f : f + N - 1])
     Dxterm = impile(X_fd[:, 0 : N - 1], u[:, f : f + N - 1])
-    if D_required == True:
+    if D_required:
         M = np.dot(Sxterm, np.linalg.pinv(Dxterm))
     else:
-        M = np.zeros((n + l, n + m))
+        M = np.zeros((n + l_, n + m))
         M[0:n, :] = np.dot(Sxterm[0:n], np.linalg.pinv(Dxterm))
         M[n::, 0:n] = np.dot(Sxterm[n::], np.linalg.pinv(Dxterm[0:n, :]))
     residuals = Sxterm - np.dot(M, Dxterm)
     return Ob, X_fd, M, n, residuals
 
 
-def forcing_A_stability(M, n, Ob, l, X_fd, N, u, f):
+def forcing_A_stability(M, n, Ob, l_, X_fd, N, u, f):
     Forced_A = False
     if np.max(np.abs(np.linalg.eigvals(M[0:n, 0:n]))) >= 1.0:
         Forced_A = True
         print("Forcing A stability")
         M[0:n, 0:n] = np.dot(
-            np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n)))
+            np.linalg.pinv(Ob), impile(Ob[l_::, :], np.zeros((l_, n)))
         )
         M[0:n, n::] = np.dot(
             X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1]),
@@ -111,9 +127,9 @@ def OLSims(
 ):
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
-    l, L = y.shape
+    l_, L = y.shape
     m = u[:, 0].size
-    if check_types(threshold, max_order, fixed_order, f) == False:
+    if not check_types(threshold, max_order, fixed_order, f):
         return (
             np.array([[0.0]]),
             np.array([[0.0]]),
@@ -131,16 +147,16 @@ def OLSims(
         )
         N = L - 2 * f + 1
         Ustd = np.zeros(m)
-        Ystd = np.zeros(l)
+        Ystd = np.zeros(l_)
         for j in range(m):
             Ustd[j], u[j] = rescale(u[j])
-        for j in range(l):
+        for j in range(l_):
             Ystd[j], y[j] = rescale(y[j])
-        U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l, weights)
+        U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l_, weights)
         Ob, X_fd, M, n, residuals = algorithm_1(
             y,
             u,
-            l,
+            l_,
             m,
             f,
             N,
@@ -153,9 +169,9 @@ def OLSims(
             max_order,
             D_required,
         )
-        if A_stability == True:
+        if A_stability:
             M, residuals[0:n, :], useless = forcing_A_stability(
-                M, n, Ob, l, X_fd, N, u, f
+                M, n, Ob, l_, X_fd, N, u, f
             )
         A, B, C, D = extracting_matrices(M, n)
         Covariances = np.dot(residuals, residuals.T) / (N - 1)
@@ -170,10 +186,10 @@ def OLSims(
         for j in range(m):
             B[:, j] = B[:, j] / Ustd[j]
             D[:, j] = D[:, j] / Ustd[j]
-        for j in range(l):
+        for j in range(l_):
             C[j, :] = C[j, :] * Ystd[j]
             D[j, :] = D[j, :] * Ystd[j]
-            if K_calculated == True:
+            if K_calculated:
                 K[:, j] = K[:, j] / Ystd[j]
         return A, B, C, D, Vn, Q, R, S, K
 
@@ -191,9 +207,9 @@ def select_order_SIM(
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
     min_ord = min(orders)
-    l, L = y.shape
+    l_, L = y.shape
     m, L = u.shape
-    if check_types(0.0, np.nan, np.nan, f) == False:
+    if not check_types(0.0, np.nan, np.nan, f):
         return (
             np.array([[0.0]]),
             np.array([[0.0]]),
@@ -229,21 +245,21 @@ def select_order_SIM(
         IC_old = np.inf
         N = L - 2 * f + 1
         Ustd = np.zeros(m)
-        Ystd = np.zeros(l)
+        Ystd = np.zeros(l_)
         for j in range(m):
             Ustd[j], u[j] = rescale(u[j])
-        for j in range(l):
+        for j in range(l_):
             Ystd[j], y[j] = rescale(y[j])
-        U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l, weights)
+        U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l_, weights)
         for i in range(min_ord, max_ord):
             Ob, X_fd, M, n, residuals = algorithm_1(
-                y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0, i, D_required
+                y, u, l_, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0, i, D_required
             )
-            if A_stability == True:
+            if A_stability:
                 M, residuals[0:n, :], ForcedA = forcing_A_stability(
-                    M, n, Ob, l, X_fd, N, u, f
+                    M, n, Ob, l_, X_fd, N, u, f
                 )
-                if ForcedA == True:
+                if ForcedA:
                     print("at n=", n)
                     print("--------------------")
             A, B, C, D = extracting_matrices(M, n)
@@ -252,20 +268,20 @@ def select_order_SIM(
 
             Vn = Vn_mat(y, Y_estimate)
 
-            K_par = n * l + m * n
-            if D_required == True:
-                K_par = K_par + l * m
+            K_par = n * l_ + m * n
+            if D_required:
+                K_par = K_par + l_ * m
             IC = information_criterion(K_par, L, Vn, method)
             if IC < IC_old:
                 n_min = i
                 IC_old = IC
         print("The suggested order is: n=", n_min)
         Ob, X_fd, M, n, residuals = algorithm_1(
-            y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0, n_min, D_required
+            y, u, l_, m, f, N, U_n, S_n, V_n, W1, O_i, 0.0, n_min, D_required
         )
-        if A_stability == True:
+        if A_stability:
             M, residuals[0:n, :], useless = forcing_A_stability(
-                M, n, Ob, l, X_fd, N, u, f
+                M, n, Ob, l_, X_fd, N, u, f
             )
         A, B, C, D = extracting_matrices(M, n)
         Covariances = np.dot(residuals, residuals.T) / (N - 1)
@@ -280,10 +296,10 @@ def select_order_SIM(
         for j in range(m):
             B[:, j] = B[:, j] / Ustd[j]
             D[:, j] = D[:, j] / Ustd[j]
-        for j in range(l):
+        for j in range(l_):
             C[j, :] = C[j, :] * Ystd[j]
             D[j, :] = D[j, :] * Ystd[j]
-            if K_calculated == True:
+            if K_calculated:
                 K[:, j] = K[:, j] / Ystd[j]
         return A, B, C, D, Vn, Q, R, S, K
 
@@ -307,7 +323,7 @@ class SS_model:
         try:
             A_K = A - np.dot(K, C)
             B_K = B - np.dot(K, D)
-        except:
+        except Exception:
             A_K = []
             B_K = []
         self.A_K = A_K

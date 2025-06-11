@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """ARMAX Example
 
 @author: Giuseppe Armenise, revised by RBdC
@@ -9,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tf2ss import lsim
 
-from sippy import *
 from sippy import functionset as fset
+from sippy import system_identification
 
 ## TEST OPTIMIZATION-BASED IDENTIFICATION METHODS for GENERAL INPUT-OUTPUT MODEL
 

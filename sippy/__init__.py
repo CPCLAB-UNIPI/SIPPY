@@ -114,7 +114,7 @@ def system_identification(
     ##### Check Information Criterion #####
 
     ### MODE 1) fixed orders
-    if (IC == "AIC" or IC == "AICc" or IC == "BIC") == False:
+    if not (IC == "AIC" or IC == "AICc" or IC == "BIC"):
         # if none IC is selected
 
         # if something goes wrong
@@ -141,14 +141,18 @@ def system_identification(
                     model = "None"
 
                 # assigned orders
-                if type(FIR_orders[0]) == list and type(FIR_orders[1]) == list:
+                if isinstance(FIR_orders[0], list) and isinstance(
+                    FIR_orders[1], list
+                ):
                     # na is set to 0
                     # na = [0]*ydim
                     nb = FIR_orders[0]
                     theta = FIR_orders[1]
 
                 # not assigned orders (read default)
-                elif type(FIR_orders[0]) == int and type(FIR_orders[1]) == int:
+                elif isinstance(FIR_orders[0], int) and isinstance(
+                    FIR_orders[1], int
+                ):
                     # na is set to 0
                     # na = [0]*ydim
                     nb = (
@@ -175,9 +179,9 @@ def system_identification(
 
                 # assigned orders
                 if (
-                    type(ARX_orders[0]) == list
-                    and type(ARX_orders[1]) == list
-                    and type(ARX_orders[2]) == list
+                    isinstance(ARX_orders[0], list)
+                    and isinstance(ARX_orders[1], list)
+                    and isinstance(ARX_orders[2], list)
                 ):
                     na = ARX_orders[0]
                     nb = ARX_orders[1]
@@ -185,9 +189,9 @@ def system_identification(
 
                 # not assigned orders (read default)
                 elif (
-                    type(ARX_orders[0]) == int
-                    and type(ARX_orders[1]) == int
-                    and type(ARX_orders[2]) == int
+                    isinstance(ARX_orders[0], int)
+                    and isinstance(ARX_orders[1], int)
+                    and isinstance(ARX_orders[2], int)
                 ):
                     na = (ARX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
                     nb = (
@@ -289,10 +293,10 @@ def system_identification(
 
             # assigned orders
             if (
-                type(ARMAX_orders[0]) == list
-                and type(ARMAX_orders[1]) == list
-                and type(ARMAX_orders[2]) == list
-                and type(ARMAX_orders[3]) == list
+                isinstance(ARMAX_orders[0], list)
+                and isinstance(ARMAX_orders[1], list)
+                and isinstance(ARMAX_orders[2], list)
+                and isinstance(ARMAX_orders[3], list)
             ):
                 na = ARMAX_orders[0]
                 nb = ARMAX_orders[1]
@@ -303,10 +307,10 @@ def system_identification(
 
             # not assigned orders (read default)
             elif (
-                type(ARMAX_orders[0]) == int
-                and type(ARMAX_orders[1]) == int
-                and type(ARMAX_orders[2]) == int
-                and type(ARMAX_orders[3]) == int
+                isinstance(ARMAX_orders[0], int)
+                and isinstance(ARMAX_orders[1], int)
+                and isinstance(ARMAX_orders[2], int)
+                and isinstance(ARMAX_orders[3], int)
             ):
                 na = (ARMAX_orders[0] * np.ones((ydim,), dtype=int)).tolist()
                 nb = (
@@ -480,9 +484,9 @@ def system_identification(
 
             # assigned orders
             if (
-                type(OE_orders[0]) == list
-                and type(OE_orders[1]) == list
-                and type(OE_orders[2]) == list
+                isinstance(OE_orders[0], list)
+                and isinstance(OE_orders[1], list)
+                and isinstance(OE_orders[2], list)
             ):
                 # na = [0]*ydim
                 nb = OE_orders[0]
@@ -493,9 +497,9 @@ def system_identification(
 
             # not assigned orders (read default)
             elif (
-                type(OE_orders[0]) == int
-                and type(OE_orders[1]) == int
-                and type(OE_orders[2]) == int
+                isinstance(OE_orders[0], int)
+                and isinstance(OE_orders[1], int)
+                and isinstance(OE_orders[2], int)
             ):
                 # na = [0]*ydim
                 nb = (OE_orders[0] * np.ones((ydim, udim), dtype=int)).tolist()
@@ -642,9 +646,9 @@ def system_identification(
 
                 # assigned orders
                 if (
-                    type(ARMA_orders[0]) == list
-                    and type(ARMA_orders[1]) == list
-                    and type(ARMA_orders[2]) == list
+                    isinstance(ARMA_orders[0], list)
+                    and isinstance(ARMA_orders[1], list)
+                    and isinstance(ARMA_orders[2], list)
                 ):
                     na = ARMA_orders[0]
                     nb = np.zeros((ydim, udim), dtype=int).tolist()
@@ -655,9 +659,9 @@ def system_identification(
 
                 # not assigned orders (read default)
                 elif (
-                    type(ARMA_orders[0]) == int
-                    and type(ARMA_orders[1]) == int
-                    and type(ARMA_orders[2]) == int
+                    isinstance(ARMA_orders[0], int)
+                    and isinstance(ARMA_orders[1], int)
+                    and isinstance(ARMA_orders[2], int)
                 ):
                     na = (
                         ARMA_orders[0] * np.ones((ydim,), dtype=int)
@@ -690,10 +694,10 @@ def system_identification(
 
                 # assigned orders
                 if (
-                    type(ARARX_orders[0]) == list
-                    and type(ARARX_orders[1]) == list
-                    and type(ARARX_orders[2]) == list
-                    and type(ARARX_orders[3]) == list
+                    isinstance(ARARX_orders[0], list)
+                    and isinstance(ARARX_orders[1], list)
+                    and isinstance(ARARX_orders[2], list)
+                    and isinstance(ARARX_orders[3], list)
                 ):
                     na = ARARX_orders[0]
                     nb = ARARX_orders[1]
@@ -704,10 +708,10 @@ def system_identification(
 
                 # not assigned orders (read default)
                 elif (
-                    type(ARARX_orders[0]) == int
-                    and type(ARARX_orders[1]) == int
-                    and type(ARARX_orders[2]) == int
-                    and type(ARARX_orders[3]) == int
+                    isinstance(ARARX_orders[0], int)
+                    and isinstance(ARARX_orders[1], int)
+                    and isinstance(ARARX_orders[2], int)
+                    and isinstance(ARARX_orders[3], int)
                 ):
                     na = (
                         ARARX_orders[0] * np.ones((ydim,), dtype=int)
@@ -741,11 +745,11 @@ def system_identification(
 
                 # assigned orders
                 if (
-                    type(ARARMAX_orders[0]) == list
-                    and type(ARARMAX_orders[1]) == list
-                    and type(ARARMAX_orders[2]) == list
-                    and type(ARARMAX_orders[3]) == list
-                    and type(ARARMAX_orders[4]) == list
+                    isinstance(ARARMAX_orders[0], list)
+                    and isinstance(ARARMAX_orders[1], list)
+                    and isinstance(ARARMAX_orders[2], list)
+                    and isinstance(ARARMAX_orders[3], list)
+                    and isinstance(ARARMAX_orders[4], list)
                 ):
                     na = ARARMAX_orders[0]
                     nb = ARARMAX_orders[1]
@@ -756,11 +760,11 @@ def system_identification(
 
                 # not assigned orders (read default)
                 elif (
-                    type(ARARMAX_orders[0]) == int
-                    and type(ARARMAX_orders[1]) == int
-                    and type(ARARMAX_orders[2]) == int
-                    and type(ARARMAX_orders[3]) == int
-                    and type(ARARMAX_orders[4]) == int
+                    isinstance(ARARMAX_orders[0], int)
+                    and isinstance(ARARMAX_orders[1], int)
+                    and isinstance(ARARMAX_orders[2], int)
+                    and isinstance(ARARMAX_orders[3], int)
+                    and isinstance(ARARMAX_orders[4], int)
                 ):
                     na = (
                         ARARMAX_orders[0] * np.ones((ydim,), dtype=int)
@@ -796,11 +800,11 @@ def system_identification(
 
                 # assigned orders
                 if (
-                    type(BJ_orders[0]) == list
-                    and type(BJ_orders[1]) == list
-                    and type(BJ_orders[2]) == list
-                    and type(BJ_orders[3]) == list
-                    and type(BJ_orders[4]) == list
+                    isinstance(BJ_orders[0], list)
+                    and isinstance(BJ_orders[1], list)
+                    and isinstance(BJ_orders[2], list)
+                    and isinstance(BJ_orders[3], list)
+                    and isinstance(BJ_orders[4], list)
                 ):
                     # na = [0]*ydim
                     nb = BJ_orders[0]
@@ -811,11 +815,11 @@ def system_identification(
 
                 # not assigned orders (read default)
                 elif (
-                    type(BJ_orders[0]) == int
-                    and type(BJ_orders[1]) == int
-                    and type(BJ_orders[2]) == int
-                    and type(BJ_orders[3]) == int
-                    and type(BJ_orders[4]) == int
+                    isinstance(BJ_orders[0], int)
+                    and isinstance(BJ_orders[1], int)
+                    and isinstance(BJ_orders[2], int)
+                    and isinstance(BJ_orders[3], int)
+                    and isinstance(BJ_orders[4], int)
                 ):
                     # na = [0]*ydim
                     nb = (
@@ -845,12 +849,12 @@ def system_identification(
 
                 # assigned orders
                 if (
-                    type(GEN_orders[0]) == list
-                    and type(GEN_orders[1]) == list
-                    and type(GEN_orders[2]) == list
-                    and type(GEN_orders[3]) == list
-                    and type(GEN_orders[4]) == list
-                    and type(GEN_orders[5]) == list
+                    isinstance(GEN_orders[0], list)
+                    and isinstance(GEN_orders[1], list)
+                    and isinstance(GEN_orders[2], list)
+                    and isinstance(GEN_orders[3], list)
+                    and isinstance(GEN_orders[4], list)
+                    and isinstance(GEN_orders[5], list)
                 ):
                     na = GEN_orders[0]
                     nb = GEN_orders[1]
@@ -861,12 +865,12 @@ def system_identification(
 
                 # not assigned orders (read default)
                 elif (
-                    type(GEN_orders[0]) == int
-                    and type(GEN_orders[1]) == int
-                    and type(GEN_orders[2]) == int
-                    and type(GEN_orders[3]) == int
-                    and type(GEN_orders[4]) == int
-                    and type(GEN_orders[5]) == int
+                    isinstance(GEN_orders[0], int)
+                    and isinstance(GEN_orders[1], int)
+                    and isinstance(GEN_orders[2], int)
+                    and isinstance(GEN_orders[3], int)
+                    and isinstance(GEN_orders[4], int)
+                    and isinstance(GEN_orders[5], int)
                 ):
                     na = (GEN_orders[0] * np.ones((ydim,), dtype=int)).tolist()
                     nb = (

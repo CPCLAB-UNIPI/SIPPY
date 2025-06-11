@@ -8,15 +8,15 @@ case 3 outputs x 4 inputs
 
 # Checking path to access other files
 try:
-    from sippy import *
+    from sippy import system_identification
 except ImportError:
     import os
     import sys
 
     sys.path.append(os.pardir)
-    from sippy import *
-
+    from sippy import system_identification
 import control.matlab as cnt
+import matplotlib.pyplot as plt
 import numpy as np
 from tf2ss import lsim
 
@@ -199,7 +199,6 @@ Yout_ARMAXr = Id_ARMAXr.Yid
 
 ######plots
 #
-import matplotlib.pyplot as plt
 
 # U
 plt.close("all")

@@ -8,8 +8,8 @@ import sys
 import control.matlab as cnt
 import numpy as np
 
-from .functionset import *
-from .functionset_OPT import *
+from .functionset import rescale
+from .functionset_OPT import opt_id
 
 
 def GEN_MISO_id(
@@ -21,7 +21,7 @@ def GEN_MISO_id(
     ylength = y.size
     ystd, y = rescale(y)
     [udim, ulength] = u.shape
-    eps = np.zeros(y.size)
+    # eps = np.zeros(y.size)
     Reached_max = False
     # checking dimension
     if nb.size != udim:
@@ -83,7 +83,7 @@ def GEN_MISO_id(
         sol = solver(lbx=w_lb, ubx=w_ub, x0=w_0, lbg=g_lb, ubg=g_ub)
 
         # model output: info from the solver
-        f_opt = sol["f"]  # objective function
+        # f_opt = sol["f"]  # objective function
         x_opt = sol["x"]  # optimization variables = model coefficients
         iterations = solver.stats()["iter_count"]  # iteration number
         y_id0 = x_opt[-ylength:].full()[:, 0]  # model output
@@ -234,7 +234,7 @@ def GEN_MIMO_id(
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
-    elif (
+    elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
             or np.issubdtype(sum_ords, np.unsignedinteger)
@@ -245,7 +245,7 @@ def GEN_MIMO_id(
         and np.min(nd) >= 0
         and np.min(nf) >= 0
         and np.min(theta) >= 0
-    ) == False:
+    ):
         sys.exit(
             "Error! nf, nb, nc, nd, theta must contain only positive integer elements"
         )
@@ -275,7 +275,7 @@ def GEN_MIMO_id(
                 st_c,
             )
 
-            if Reached_max == True:
+            if Reached_max:
                 print("at ", (i + 1), "° output")
                 print("-------------------------------------")
 

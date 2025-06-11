@@ -6,8 +6,9 @@
 import sys
 
 import control.matlab as cnt
+import numpy as np
 
-from .functionset import *
+from .functionset import rescale
 
 
 def ARX_MISO_id(y, u, na, nb, theta):
@@ -95,7 +96,7 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,np.inf
-    elif (
+    elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
             or np.issubdtype(sum_ords, np.unsignedinteger)
@@ -103,7 +104,7 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
         and np.min(nb) >= 0
         and np.min(na) >= 0
         and np.min(theta) >= 0
-    ) == False:
+    ):
         sys.exit(
             "Error! na, nb, theta must contain only positive integer elements"
         )

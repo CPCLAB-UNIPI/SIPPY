@@ -11,13 +11,13 @@ that the package slycot is not well-installed.
 
 # Checking path to access other files
 try:
-    from sippy import *
+    from sippy import system_identification
 except ImportError:
     import os
     import sys
 
     sys.path.append(os.pardir)
-    from sippy import *
+    from sippy import system_identification
 
 import matplotlib.pyplot as plt
 import numpy as np

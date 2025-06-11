@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Created on 2021
 
 @author: RBdC & MV
@@ -99,7 +98,7 @@ def opt_id(
 
     # Define Yid output model
     Yid = Y * SX.ones(1)
-    Yid1 = Y * SX.ones(1)
+    # Yid1 = Y * SX.ones(1)
 
     # Preallocate internal variables
     if Nd != 0:

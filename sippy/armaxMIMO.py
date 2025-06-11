@@ -6,8 +6,9 @@
 import sys
 
 import control.matlab as cnt
+import numpy as np
 
-from .functionset import *
+from .functionset import rescale
 
 
 def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
@@ -137,7 +138,7 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
-    elif (
+    elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
             or np.issubdtype(sum_ords, np.unsignedinteger)
@@ -146,7 +147,7 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         and np.min(na) >= 0
         and np.min(nc) >= 0
         and np.min(theta) >= 0
-    ) == False:
+    ):
         sys.exit(
             "Error! na, nb, nc, theta must contain only positive integer elements"
         )
@@ -164,7 +165,7 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
             DEN, NUM, NUMH, Vn, y_id, Reached_max = ARMAX_MISO_id(
                 y[i, :], u, na[i], nb[i, :], nc[i], theta[i, :], max_iterations
             )
-            if Reached_max == True:
+            if Reached_max:
                 print("at ", (i + 1), "° output")
                 print("-------------------------------------")
             # append values to vectors

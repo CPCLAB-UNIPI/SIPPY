@@ -8,16 +8,15 @@ import sys
 import control.matlab as cnt
 import numpy as np
 
-from .functionset import *
-from .functionset_OPT import *
+from .functionset import information_criterion, rescale
 
 
 def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
     ylength = y.size
 
     # input/output number
-    m = 1
-    p = 1
+    # m = 1
+    # p = 1
 
     # max number of non predictable data
     nbth = nb + theta
@@ -27,7 +26,7 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
 
     # Total Order: both LTI and time varying part
     nt = na + nb + nc + nd + nf + 1
-    nh = max([na, nc])
+    # nh = max([na, nc])
 
     ## Iterative Identification Algorithm
 

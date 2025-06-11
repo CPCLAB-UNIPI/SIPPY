@@ -7,9 +7,9 @@ import sys
 
 import control.matlab as cnt
 import numpy as np
-from control import DM
+from casadi import DM
 
-from .functionset import *
+from .functionset import rescale
 
 
 def GEN_RLS_MISO_id(
@@ -21,7 +21,7 @@ def GEN_RLS_MISO_id(
     ylength = y.size
     ystd, y = rescale(y)
     [udim, ulength] = u.shape
-    eps = np.zeros(y.size)
+    # eps = np.zeros(y.size)
     Reached_max = False
     # checking dimension
     if nb.size != udim:
@@ -45,7 +45,7 @@ def GEN_RLS_MISO_id(
 
         # Total Order: both LTI and time varying part
         nt = na + np.sum(nb[:]) + nc + nd + nf + 1
-        nh = max([na, nc, nf])
+        # nh = max([na, nc, nf])
 
         ## Iterative Identification Algorithm
 
@@ -246,7 +246,7 @@ def GEN_MIMO_id(
     elif th1 != ydim:
         sys.exit("Error! theta matrix must have yxu dimensions")
     #        return 0.,0.,0.,0.,0.,0.,np.inf
-    elif (
+    elif not (
         (
             np.issubdtype(sum_ords, np.signedinteger)
             or np.issubdtype(sum_ords, np.unsignedinteger)
@@ -255,7 +255,7 @@ def GEN_MIMO_id(
         and np.min(na) >= 0
         and np.min(nc) >= 0
         and np.min(theta) >= 0
-    ) == False:
+    ):
         sys.exit(
             "Error! na, nb, nc, theta must contain only positive integer elements"
         )
@@ -282,7 +282,7 @@ def GEN_MIMO_id(
                 theta[i, :],
                 max_iterations,
             )
-            if Reached_max == True:
+            if Reached_max:
                 print("at ", (i + 1), "° output")
                 print("-------------------------------------")
             # append values to vectors

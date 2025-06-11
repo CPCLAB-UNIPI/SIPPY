@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """ARMAX Example
 
 @author: Giuseppe Armenise, revised by RBdC
@@ -6,13 +5,13 @@
 
 # Checking path to access other files
 try:
-    from sippy import *
+    from sippy import system_identification
 except ImportError:
     import os
     import sys
 
     sys.path.append(os.pardir)
-    from sippy import *
+    from sippy import system_identification
 
 import control.matlab as cnt
 import matplotlib.pyplot as plt

@@ -8,8 +8,8 @@ import sys
 import control.matlab as cnt
 import numpy as np
 
-from .functionset import *
-from .functionset_OPT import *
+from .functionset import information_criterion, rescale
+from .functionset_OPT import opt_id
 
 
 def GEN_id(
@@ -63,9 +63,9 @@ def GEN_id(
     sol = solver(lbx=w_lb, ubx=w_ub, x0=w_0, lbg=g_lb, ubg=g_ub)
 
     # model output: info from the solver
-    f_opt = sol["f"]  # objective function
+    # f_opt = sol["f"]  # objective function
     x_opt = sol["x"]  # optimization variables = model coefficients
-    iterations = solver.stats()["iter_count"]  # iteration number
+    # iterations = solver.stats()["iter_count"]  # iteration number
     y_id = x_opt[-ylength:].full()[:, 0]  # model output
     THETA = np.array(x_opt[:n_coeff])[:, 0]
 
