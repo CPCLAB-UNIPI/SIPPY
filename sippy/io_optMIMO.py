@@ -204,11 +204,11 @@ def GEN_MIMO_id(id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterati
         G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
         H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
         
-        check_st_H = np.zeros(1) if id_method == 'OE' else np.abs(cnt.pole(H))
-        if max(np.abs(cnt.pole(G))) > 1.0 or max(check_st_H) > 1.0:
+        check_st_H = np.zeros(1) if id_method == 'OE' else np.abs(cnt.poles(H))
+        if max(np.abs(cnt.poles(G))) > 1.0 or max(check_st_H) > 1.0:
             print("Warning: One of the identified system is not stable")
             if st_c is True:
-                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))} \
+                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.poles(H))),max(np.abs(cnt.poles(G))))} \
                       ... against the imposed stability margin {st_m}")
                            
         return DENOMINATOR, NUMERATOR, DENOMINATOR_H, NUMERATOR_H, G, H, Vn_tot, Y_id

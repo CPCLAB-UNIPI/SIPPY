@@ -142,14 +142,14 @@ def select_order_GEN(id_method, y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], 
         G = cnt.tf(NUM, DEN, tsample)
         H = cnt.tf(NUMH, DENH, tsample)
         
-        check_st_H = np.zeros(1) if id_method == 'OE' else np.abs(cnt.pole(H))
-        if max(np.abs(cnt.pole(G))) > 1.0 or max(check_st_H) > 1.0:
+        check_st_H = np.zeros(1) if id_method == 'OE' else np.abs(cnt.poles(H))
+        if max(np.abs(cnt.poles(G))) > 1.0 or max(check_st_H) > 1.0:
             print("Warning: One of the identified system is not stable")
             if st_c is True:
-                print(f"Infeasible solution: the stability constraint has been violated, since the maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))} \
+                print(f"Infeasible solution: the stability constraint has been violated, since the maximum poles is {max(max(np.abs(cnt.poles(H))),max(np.abs(cnt.poles(G))))} \
                           ... against the imposed stability margin {st_m}")
             else:
-                print(f"Consider activating the stability constraint. The maximum pole is {max(max(np.abs(cnt.pole(H))),max(np.abs(cnt.pole(G))))}  ")
+                print(f"Consider activating the stability constraint. The maximum poles is {max(max(np.abs(cnt.poles(H))),max(np.abs(cnt.poles(G))))}  ")
          
         return na_min, nb_min, nc_min, nd_min, nf_min, theta_min, G, H, NUM, DEN, Vn, Y_id
 
