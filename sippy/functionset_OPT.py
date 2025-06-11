@@ -5,16 +5,7 @@ Created on 2021
 
 @author: RBdC & MV
 """
-
-from __future__ import division, print_function
-
-import sys
-from builtins import range
-
 import numpy as np
-from past.utils import old_div
-
-import control.matlab as cnt
 
 from casadi import *
 from casadi.tools import *

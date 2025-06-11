@@ -4,13 +4,11 @@ Created on Sun Sep 10 2017
 
 @author: Giuseppe Armenise
 """
-from __future__ import division, print_function
+
 
 import sys
-from builtins import range
 
 import numpy as np
-from past.utils import old_div
 
 import control as cnt
 from tf2ss import forced_response
@@ -120,7 +118,7 @@ def white_noise_var(L, Var):
 # and thestandard deviation: ex [Ystd,Y]=rescale(Y)
 def rescale(y):
     ystd = np.std(y)
-    y_scaled = old_div(y, ystd)
+    y_scaled = y / ystd
     return ystd, y_scaled
 
 

@@ -4,13 +4,10 @@ Created on Sat Aug 12 2017
 
 @author: Giuseppe Armenise
 """
-from __future__ import absolute_import, division, print_function
-import control.matlab as cnt
 import sys
-from builtins import object
+import control.matlab as cnt
 
 from .functionset import *
-# from functionset import *
 
 
 def ARX_MISO_id(y, u, na, nb, theta):
@@ -51,7 +48,7 @@ def ARX_MISO_id(y, u, na, nb, theta):
         # model output
         y_id0 = np.dot(PHI,THETA)
         # estimated error norm
-        Vn = old_div((np.linalg.norm((y_id0 - y[val::]), 2) ** 2), (2 * N))
+        Vn = (np.linalg.norm((y_id0 - y[val::]), 2) ** 2) / (2 * N)
         # adding non-identified outputs
         y_id = np.hstack((y[:val], y_id0))*ystd    
         DEN = np.zeros((udim, val + 1))
@@ -117,7 +114,7 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.):
 
 
 # creating object ARX MIMO model
-class ARX_MIMO_model(object):
+class ARX_MIMO_model:
     def __init__(self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid):
         self.na = na
         self.nb = nb

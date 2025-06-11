@@ -4,13 +4,9 @@ Created on Wed Jul 26 2017
 
 @author: Giuseppe Armenise
 """
-from __future__ import absolute_import, division, print_function
-
 import sys
-from builtins import object
 import control.matlab as cnt
 from .functionset import *
-# from functionset import *
 
 
 def ARX_id(y, u, na, nb, theta):
@@ -28,7 +24,7 @@ def ARX_id(y, u, na, nb, theta):
     # model Output
     y_id0 = np.dot(PHI, THETA)
     # estimated error norm
-    Vn = old_div((np.linalg.norm((y_id0 - y[val::]), 2) ** 2), (2 * N))
+    Vn = (np.linalg.norm((y_id0 - y[val::]), 2) ** 2) / (2 * N)
     # adding non-identified outputs
     y_id = np.hstack((y[:val], y_id0))
     NUM = np.zeros(val)
@@ -85,7 +81,7 @@ def select_order_ARX(y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], delays=[0, 
 
 
 # creating object ARX model
-class ARX_model(object):
+class ARX_model:
     def __init__(self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid):
         self.na = na
         self.nb = nb

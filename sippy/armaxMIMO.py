@@ -4,13 +4,9 @@ Created on Sun Sep 10 2017
 
 @author: Giuseppe Armenise
 """
-from __future__ import absolute_import, division, print_function
-import control.matlab as cnt
 import sys
-from builtins import object
-
+import control.matlab as cnt
 from .functionset import *
-# from functionset import *
 
 
 def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
@@ -60,7 +56,7 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
             for i in range(N):
                 PHI[i, na + np.sum(nb[:]):na + np.sum(nb[:]) + nc] = eps[val + i - 1::-1][0:nc]
             THETA = np.dot(np.linalg.pinv(PHI), y[val::])
-            Vn = old_div((np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2), (2 * N))
+            Vn = (np.linalg.norm(y[val::] - np.dot(PHI, THETA), 2) ** 2) / (2 * N)
             THETA_new = THETA
             lambdak = 0.5
             while Vn > Vn_old:
@@ -68,11 +64,11 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
                                                                        THETA_old)
                 # Model Output
                 # y_id0 = np.dot(PHI,THETA)
-                Vn = old_div((np.linalg.norm(y[val::] - np.dot(PHI,THETA), 2) ** 2), (2 * N))
+                Vn = (np.linalg.norm(y[val::] - np.dot(PHI,THETA), 2) ** 2) / (2 * N)
                 if lambdak < np.finfo(np.float32).eps:
                     THETA = THETA_old
                     Vn = Vn_old
-                lambdak = old_div(lambdak, 2.)
+                lambdak = lambdak / 2.
             eps[val::] = y[val::] - np.dot(PHI, THETA)
             # adding non-identified outputs
             y_id = np.hstack((y[:val], np.dot(PHI,THETA)))*ystd  
@@ -152,7 +148,7 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1., max_iterations=100):
 
 
 # creating object ARMAX MIMO model
-class ARMAX_MIMO_model(object):
+class ARMAX_MIMO_model:
     def __init__(self, na, nb, nc, theta, ts, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn, Yid):
         self.na = na
         self.nb = nb

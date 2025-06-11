@@ -4,11 +4,9 @@ Created on Sun Oct 08 2017
 
 @author: Giuseppe Armenise
 """
-from __future__ import absolute_import, print_function
 import control.matlab as cnt
 import math
 from .functionset import *
-# from functionset import *
 
 
 

@@ -12,7 +12,7 @@ from numpy.testing import (
     )
 
 
-class TestCtor(object):
+class TestCtor:
     def test_int_range(self):
         na_range = 1
         nb_range = 2

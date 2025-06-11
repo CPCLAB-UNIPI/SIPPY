@@ -10,17 +10,11 @@ A Continuous Stirred Tank to be identified from input-output data
 
 """
 
-# import package
-from __future__ import division         # compatibility layer between Python 2 and Python 3
-from past.utils import old_div
 from sippy import functionset as fset
 from sippy import functionsetSIM as fsetSIM
-from sippy import functionset_OPT as fset_OPT
 from sippy import *
-#
-#
+
 import numpy as np
-import control.matlab as cnt
 import matplotlib.pyplot as plt
 
 # sampling time
@@ -28,7 +22,7 @@ ts = 1.         # [min]
 
 # time settings (t final, samples number, samples vector)
 tfin = 1000
-npts = int(old_div(tfin,ts)) + 1
+npts = int(tfin / ts) + 1
 Time = np.linspace(0, tfin, npts)
 
 # Data

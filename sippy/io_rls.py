@@ -4,14 +4,10 @@ Created on 2021
 
 @author: RBdC & MV
 """
-from __future__ import absolute_import, division, print_function
-
 import sys
-from builtins import object
 import control.matlab as cnt
 from .functionset import *
 from .functionset_OPT import *
-# from functionset import *
 
 
 def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
@@ -96,7 +92,7 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
             l_t[k] = 1.0
         
     # Error Norm
-    Vn = old_div((np.linalg.norm(y - Yp, 2) ** 2), (2 * (N-val)))
+    Vn = (np.linalg.norm(y - Yp, 2) ** 2) / (2 * (N-val))
     
     # Model Output
     y_id = Yp
@@ -202,7 +198,7 @@ def select_order_GEN(id_method, y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], 
 
 
 # creating object GEN model
-class GEN_model(object):
+class GEN_model:
     def __init__(self, na, nb, nc, nd, nf, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid):
         self.na = na
         self.nb = nb

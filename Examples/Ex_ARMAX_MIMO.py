@@ -7,10 +7,6 @@ example armax mimo
 case 3 outputs x 4 inputs
 
 """
-from __future__ import division
-
-from past.utils import old_div
-
 # Checking path to access other files
 try:
     from sippy import *
@@ -103,7 +99,7 @@ H_sample3 = cnt.tf(H3, DEN3, ts)
 
 # time
 tfin = 400
-npts = int(old_div(tfin, ts)) + 1
+npts = int(tfin / ts) + 1
 Time = np.linspace(0, tfin, npts)
 
 #INPUT#
@@ -242,7 +238,7 @@ plt.legend(['System', 'ARMAX-I', 'ARMAX-0', 'ARMAX-R'])
 
 # time
 tfin = 400
-npts = int(old_div(tfin, ts)) + 1
+npts = int(tfin / ts) + 1
 Time = np.linspace(0, tfin, npts)
 
 # (NEW) INPUTS

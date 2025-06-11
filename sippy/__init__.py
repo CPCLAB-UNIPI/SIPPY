@@ -6,10 +6,7 @@ Created on 2017
 
 @updates: Riccardo Bacci di Capaci, Marco Vaccari, Federico Pelagagge
 """
-from __future__ import print_function
-
 import sys
-from builtins import range
 
 import numpy as np
 

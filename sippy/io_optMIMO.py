@@ -4,15 +4,11 @@ Created on 2021
 
 @author: RBdC
 """
-from __future__ import absolute_import, division, print_function
 import control.matlab as cnt
 import sys
-from builtins import object
 
 from .functionset import *
 from .functionset_OPT import *
-
-# from functionset import *
 
 
 def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c):
@@ -79,7 +75,7 @@ def GEN_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m
         
              
         # estimated error norm
-        Vn = old_div((np.linalg.norm((y_id0 - y), 2) ** 2), (2 * ylength))
+        Vn = (np.linalg.norm((y_id0 - y), 2) ** 2) / (2 * ylength)
         
         # rescaling Yid
         y_id = y_id0*ystd
@@ -219,7 +215,7 @@ def GEN_MIMO_id(id_method, y, u, na, nb, nc, nd, nf, theta, tsample, max_iterati
 
 
 # creating object GEN MIMO model
-class GEN_MIMO_model(object):
+class GEN_MIMO_model:
     def __init__(self, na, nb, nc, nd, nf, theta, ts, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn, Yid):
         self.na = na 
         self.nb = nb

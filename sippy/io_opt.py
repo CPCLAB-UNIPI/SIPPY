@@ -4,14 +4,10 @@ Created on 2021
 
 @author: RBdC & MV
 """
-from __future__ import absolute_import, division, print_function
-
 import sys
-from builtins import object
 import control.matlab as cnt
 from .functionset import *
 from .functionset_OPT import *
-# from functionset import *
 
 
 def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_c):
@@ -54,7 +50,7 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
     THETA = np.array(x_opt[:n_coeff])[:,0]
    
     # estimated error norm
-    Vn = old_div((np.linalg.norm((y_id - y), 2) ** 2), (2 * ylength))
+    Vn = (np.linalg.norm((y_id - y), 2) ** 2) / (2 * ylength)
     
     # building TF coefficient vectors
     valH = max(nc, na + nd)
@@ -159,7 +155,7 @@ def select_order_GEN(id_method, y, u, tsample=1., na_ord=[0, 5], nb_ord=[1, 5], 
 
 
 # creating object GEN model
-class GEN_model(object):
+class GEN_model:
     def __init__(self, na, nb, nc, nd, nf, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid):
         self.na = na
         self.nb = nb

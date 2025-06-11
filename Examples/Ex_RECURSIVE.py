@@ -5,10 +5,6 @@ ARMAX Example
 
 @author: Giuseppe Armenise, revised by RBdC
 """
-
-from __future__ import division
-from past.utils import old_div
-
 # Checking path to access other files
 try:
     from sippy import *
@@ -29,7 +25,7 @@ from tf2ss import lsim
 # Define sampling time and Time vector
 sampling_time = 1.                                  # [s]
 end_time = 400                                      # [s]
-npts = int(old_div(end_time, sampling_time)) + 1
+npts = int(end_time / sampling_time) + 1
 Time = np.linspace(0, end_time, npts)
 
 # Define Generalize Binary Sequence as input signal 

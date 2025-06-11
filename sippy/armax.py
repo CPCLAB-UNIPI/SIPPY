@@ -4,16 +4,13 @@ Created on Fri Jul 28 2017
 
 @author: Giuseppe Armenise
 """
-from __future__ import absolute_import, division, print_function
 import control.matlab as cnt
-from builtins import object
 import warnings
 
 from .functionset import *
-# from functionset import *
 
 
-class Armax(object):
+class Armax:
     def __init__(self, na_bounds, nb_bounds, nc_bounds, delay_bounds, dt,
                  method="AIC", max_iterations=100):
         """Armax model class.

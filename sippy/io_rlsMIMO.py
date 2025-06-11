@@ -4,13 +4,10 @@ Created on 2021
 
 @author: RBdC
 """
-from __future__ import absolute_import, division, print_function
 import control.matlab as cnt
 import sys
-from builtins import object
 
 from .functionset import *
-# from functionset import *
 
 
 def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
@@ -114,7 +111,7 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
         
         
         # Error Norm
-        Vn = old_div((np.linalg.norm(y - Yp, 2) ** 2), (2 * (N-val)))
+        Vn = (np.linalg.norm(y - Yp, 2) ** 2) / (2 * (N-val))
         
         # Model Output
         y_id = Yp*ystd 
@@ -236,7 +233,7 @@ def GEN_MIMO_id(id_method, y, u, na, nb, nc, nd, nf, theta, tsample=1., max_iter
 
 
 # creating object GEN MIMO model
-class GEN_MIMO_model(object):
+class GEN_MIMO_model:
     def __init__(self, na, nb, nc, nd, nf, theta, ts, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn, Yid):
         self.na = na
         self.nb = nb
