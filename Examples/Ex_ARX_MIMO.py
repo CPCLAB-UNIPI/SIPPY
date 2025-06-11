@@ -218,4 +218,4 @@ plt.grid()
 plt.xlabel("Time")
 plt.legend(['System', 'ARX', 'FIR'])
 
-plt.show()
+plt.show(block=False)

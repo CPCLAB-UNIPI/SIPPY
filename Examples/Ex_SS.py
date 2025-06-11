@@ -78,6 +78,6 @@ for i in range(len(METHOD)):
     xid, yid = fsetSIM.SS_lsim_process_form(sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0)
     #
     plt.plot(Time, yid[0])
-    plt.show()
+    plt.show(block=False)
     lege.append(method) 
 plt.legend(lege) 

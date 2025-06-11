@@ -350,4 +350,4 @@ plt.grid()
 plt.xlabel("Time")
 plt.legend(['System', 'ARMAX-I', 'ARMAX-0', 'ARMAX-R'])
 
-plt.show()
+plt.show(block=False)

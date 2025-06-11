@@ -67,7 +67,7 @@ plt.xlabel("Time")
 plt.title(r"Time response y$_k$(u) = g$\cdot$u$_k$")
 plt.legend(['u(t)', 'y(t)'])
 plt.grid()
-plt.show()
+plt.show(block=False)
 
 # ### Noise response
 
@@ -79,7 +79,7 @@ plt.xlabel("Time")
 plt.title(r"Time response y$_k$(e) = h$\cdot$e$_k$")
 plt.legend(['e(t)', 'y(t)'])
 plt.grid()
-plt.show()
+plt.show(block=False)
 
 # ## Total output
 # $$Y_t = Y_1 + Y_2 = G.u + H.e$$
@@ -134,7 +134,7 @@ plt.ylabel("Input GBN")
 plt.xlabel("Time")
 plt.title("Input, identification data (Switch probability=0.08)")
 plt.grid()
-plt.show()
+plt.show(block=False)
 
 plt.figure(4)
 plt.plot(Time, Ytot)
@@ -146,7 +146,7 @@ plt.xlabel("Time")
 plt.ylabel("y(t)")
 plt.title("Output, (identification data)")
 plt.legend(['System', 'ARMAX', 'ARX', 'OE'])
-plt.show()
+plt.show(block=False)
 
 
 ##### VALIDATION of the identified system:
@@ -182,7 +182,7 @@ plt.ylabel("Input GBN")
 plt.xlabel("Time")
 plt.title("Input, validation data (Switch probability=0.07)")
 plt.grid()
-plt.show()
+plt.show(block=False)
 
 plt.figure(6)
 plt.plot(Time, Ytotvalid)
@@ -193,7 +193,7 @@ plt.xlabel("Time")
 plt.ylabel("y_tot")
 plt.legend(['System', 'ARMAX', 'ARX', 'OE'])
 plt.grid()
-plt.show()
+plt.show(block=False)
 
 #rmse = np.round(np.sqrt(np.mean((Ytotvalid - Yv_armaxi.T) ** 2)), 2)
 EV = 100*(np.round((1.0 - np.mean((Ytotvalid - Yv_armax) ** 2)/np.std(Ytotvalid)), 2))
