@@ -5,6 +5,7 @@ Created on 2021
 @author: RBdC & MV
 """
 import sys
+import numpy as np
 import control.matlab as cnt
 from .functionset import *
 from .functionset_OPT import *
@@ -57,13 +58,13 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
     valG = max(nb + theta, na + nf)   
      
     # G    
-    # numG (B)
+    NUM: float | np.ndarray
     if id_method == 'ARMA':
         NUM = 1.0     
     else: 
         NUM = np.zeros(valG)
         NUM[theta:nb + theta] = THETA[na:nb+na]
-    # denG (A*F)
+    DEN: float | np.ndarray
     A = cnt.tf(np.hstack((1, np.zeros((na)))), np.hstack((1, THETA[:na])),1)
     F = cnt.tf(np.hstack((1, np.zeros((nf)))), np.hstack((1, THETA[na+nb+nc+nd:na+nb+nc+nd+nf])),1)
     _, deng = cnt.tfdata(A*F) 
@@ -72,14 +73,14 @@ def GEN_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations, st_m, st_
     DEN[0:na+nf+1] = denG
     
     # H
-    # numH (C)
+    NUMH: float | np.ndarray
     if id_method == 'OE':
-        NUMH = 1
+        NUMH = 1.0
     else:
         NUMH = np.zeros(valH + 1)
-        NUMH[0] = 1.
+        NUMH[0] = 1.0
         NUMH[1:nc + 1] = THETA[na+nb:na+nb+nc]
-    # denH (A*D)
+    DENH: float | np.ndarray
     D = cnt.tf(np.hstack((1, np.zeros((nd)))), np.hstack((1, THETA[na+nb+nc:na+nb+nc+nd])),1)
     _, denh = cnt.tfdata(A*D)
     denH = np.array(denh[0])

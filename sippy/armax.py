@@ -6,7 +6,7 @@ Created on Fri Jul 28 2017
 """
 import control.matlab as cnt
 import warnings
-
+import numpy as np
 from .functionset import *
 
 
@@ -49,11 +49,11 @@ class Armax:
         :param max_iterations: maximum numbers of iterations to find the best fit
         :type max_iterations: int
         """
-        if not (isinstance(na_bounds, (int, np.ndarray, list, tuple)) and
-                isinstance(nb_bounds, (int, np.ndarray, list, tuple)) and
-                isinstance(nc_bounds, (int, np.ndarray, list, tuple)) and
-                isinstance(delay_bounds, (int, np.ndarray, list, tuple)) and
-                isinstance(dt, (int, float))):
+        if not (isinstance(na_bounds, (np.ndarray, list, tuple)) and
+                isinstance(nb_bounds, (np.ndarray, list, tuple)) and
+                isinstance(nc_bounds, (np.ndarray, list, tuple)) and
+                isinstance(delay_bounds, (np.ndarray, list, tuple)) and
+                isinstance(dt, (float))):
             raise ValueError("wrong arguments passed to define an armax model")
 
         for param in (na_bounds, nb_bounds, nc_bounds, delay_bounds):
@@ -69,10 +69,10 @@ class Armax:
         self.method = method
         self.max_iterations = max_iterations
 
-        self.na = None
-        self.nb = None
-        self.nc = None
-        self.delay = None
+        self.na: int
+        self.nb: int
+        self.nc: int
+        self.delay: int
 
         self.G = None
         self.H = None
@@ -247,7 +247,7 @@ class Armax:
             raise ValueError("model cannot be estimated based on a constant input signal")
 
         IC_old = np.inf
-        G_num_opt, G_den_opt, H_num_opt, H_den_opt = np.nan, np.nan, np.nan, np.nan
+        G_num_opt, G_den_opt, H_num_opt, H_den_opt = np.array([]), np.array([]), np.array([]), np.array([])
         for na in self.na_range:
             for nb in self.nb_range:
                 for nc in self.nc_range:

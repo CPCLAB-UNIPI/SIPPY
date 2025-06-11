@@ -5,6 +5,7 @@ Created on 2021
 @author: RBdC & MV
 """
 import sys
+import numpy as np
 import control.matlab as cnt
 from .functionset import *
 from .functionset_OPT import *
@@ -105,7 +106,7 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
     valG = max(nb + theta, na + nf)   
      
     # G    
-    # numG (B)
+    NUM: float | np.ndarray
     if id_method == 'ARMA':
         NUM = 1.0     
     else: 
@@ -125,9 +126,9 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
     DEN[0:na+nf+1] = denG
     
     # H
-    # numH (C)
+    NUMH: float | np.ndarray
     if id_method == 'OE':
-        NUMH = 1
+        NUMH = 1.0
     else:
         NUMH = np.zeros(valH + 1)
         NUMH[0] = 1.

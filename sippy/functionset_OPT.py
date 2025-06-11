@@ -7,8 +7,7 @@ Created on 2021
 """
 import numpy as np
 
-from casadi import *
-from casadi.tools import *
+from casadi import SX, DM, vertcat, mtimes, norm_inf, nlpsol
 
 
 ###### Defining the optimization problem
@@ -108,7 +107,7 @@ def opt_id(m, p, na, nb, nc, nd, nf, n_coeff, theta, n_tr, U, Y, FLAG, max_itera
         # building regressor
             if Nb != 0:
                 # inputs
-                vecU = []
+                vecU = DM()
                 for nb_i in range(m):
                     vecu = U[nb_i, :][k-nb[nb_i]-theta[nb_i]:k-theta[nb_i]][::-1]
                     vecU = vertcat(vecU,vecu)
@@ -233,10 +232,10 @@ def opt_id(m, p, na, nb, nc, nd, nf, n_coeff, theta, n_tr, U, Y, FLAG, max_itera
             g.append(norm_CompD)
     
     # constraint vector
-    g = vertcat(*g)
+    g_ = vertcat(*g)
     
     # Constraint bounds
-    ng = g.size1()
+    ng = g_.size1()
     g_lb = -1e-7*DM.ones(ng,1)
     g_ub = 1e-7*DM.ones(ng,1)
     
@@ -248,7 +247,7 @@ def opt_id(m, p, na, nb, nc, nd, nf, n_coeff, theta, n_tr, U, Y, FLAG, max_itera
         #     f_obj += 1e1*fmax(0,g_ub[-i-1:]-g[-i-1:])
 
     # NL optimization variables    
-    nlp = {'x':w_opt, 'f':f_obj, 'g':g}
+    nlp = {'x':w_opt, 'f':f_obj, 'g':g_}
 
     # Solver options
     #sol_opts = {'ipopt.max_iter':max_iterations}#, 'ipopt.tol':1e-10}#,'ipopt.print_level':0,'ipopt.sb':"yes",'print_time':0}

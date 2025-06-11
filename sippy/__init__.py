@@ -10,6 +10,8 @@ import sys
 
 import numpy as np
 
+from typing import Any
+
 ## SIPPY package: main file
 
 
@@ -95,6 +97,7 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
         
         ## INPUT-OUTPUT MODELS
         
+        model: Any
         # FIR or ARX   
         if id_method == 'FIR' or id_method == 'ARX':
             
@@ -246,8 +249,7 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
             
             else:
                 # error in writing the identification mode
-                print('Warning: the selected method for solving the ARMAX model is not correct.')
-                model = 'None'
+                raise ValueError('the selected method for solving the ARMAX model is not correct.')
                     
               
         # (OE) Output-Error
@@ -312,8 +314,7 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
             
             else:
                 # error in writing the identification mode
-                print('Warning: the selected method for solving the OE model is not correct.')
-                model = 'None'
+                raise ValueError('the selected method for solving the OE model is not correct.')
                 
                 
         
@@ -345,7 +346,7 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                     na = (ARMA_orders[0] * np.ones((ydim,), dtype=int)).tolist()
                     #nb = (ARMA_orders[1] * np.ones((ydim, udim), dtype=int)).tolist()
                     nb = np.zeros((ydim, udim), dtype=int).tolist()
-                    nc = ARMA_orders[1]
+                    nc = (ARMA_orders[1] * np.ones((ydim,), dtype=int)).tolist()
                     # nd = [0]*ydim
                     # nf = [0]*ydim
                     theta = (ARMA_orders[2] * np.ones((ydim, udim), dtype=int)).tolist()
@@ -669,23 +670,25 @@ def system_identification(y, u, id_method, centering = 'None', IC = 'None', \
                 model = io_opt.GEN_model(na, nb, nc, nd, nf, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
                 
             else: # error in writing the mode
-                print('Warning: the selected method for solving the ARMAX model is not correct.') 
-                model = 'None'
+                raise ValueError('the selected method for solving the ARMAX model is not correct.') 
                 
         # (EOE or EARMAX) Extended Output-Error and Extended ARMAX   
         elif id_method == 'EOE' or id_method == 'EARMAX':
             
             if OE_mod == 'EOE':
                 nc_ord = [0, 0]
-                
-            from . import io_ex_rls
-            #import io_ex_rlsMIMO
-            # id IO RLS MIMO (also SISO case)
-            na, nb, nc, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_ex_rls.select_order_GEN(id_method, y[0], u[0],
-                                                    tsample, nf_ord, nb_ord, nc_ord, delays, IC, max_iterations)
-            # recentering
-            Yid = data_recentering(Yid,y_rif,ylength)
-            model = io_ex_rls.GEN_model(na, nb, nc, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
+            try:
+                import importlib
+                io_ex_rls = importlib.import_module('sippy.io_ex_rls')
+                # id IO RLS MIMO (also SISO case)
+                na, nb, nc, theta, g_identif, h_identif, NUMERATOR, DENOMINATOR, Vn, Yid = io_ex_rls.select_order_GEN(
+                    id_method, y[0], u[0], tsample, nf_ord, nb_ord, nc_ord, delays, IC, max_iterations)
+                # recentering
+                Yid = data_recentering(Yid, y_rif, ylength)
+                model = io_ex_rls.GEN_model(na, nb, nc, theta, tsample, NUMERATOR, DENOMINATOR, g_identif, h_identif, Vn, Yid)
+            except ImportError:
+                print("Warning: io_ex_rls module not found. Skipping EOE/EARMAX identification.")
+                model = 'None'
             
   
         # INPUT-OUTPUT STRUCTURES OPTIMIZATION-BASED:

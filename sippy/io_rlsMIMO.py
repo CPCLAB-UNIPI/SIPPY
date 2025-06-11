@@ -5,8 +5,9 @@ Created on 2021
 @author: RBdC
 """
 import control.matlab as cnt
+from control import DM
 import sys
-
+import numpy as np
 from .functionset import *
 
 
@@ -73,7 +74,7 @@ def GEN_RLS_MISO_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
                 vecY = y[k-na:k][::-1]                 # Y vector
                 vecYp = Yp[k-nf:k][::-1]               # Yp vector
                 #
-                vecU = []
+                vecU = DM()
                 for nb_i in range(udim):               # U vector   
                     vecu = u[nb_i, :][k-nb[nb_i]-theta[nb_i]:k-theta[nb_i]][::-1]
                     vecU = np.hstack((vecU,vecu))
