@@ -1,18 +1,27 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Jul 28 2017
+"""Created on Fri Jul 28 2017
 
 @author: Giuseppe Armenise
 """
-import control.matlab as cnt
+
 import warnings
+
+import control.matlab as cnt
 import numpy as np
+
 from .functionset import *
 
 
 class Armax:
-    def __init__(self, na_bounds, nb_bounds, nc_bounds, delay_bounds, dt,
-                 method="AIC", max_iterations=100):
+    def __init__(
+        self,
+        na_bounds,
+        nb_bounds,
+        nc_bounds,
+        delay_bounds,
+        dt,
+        method="AIC",
+        max_iterations=100,
+    ):
         """Armax model class.
 
         The AutoRegressive-Moving-Average with eXogenous inputs model is computed based on a
@@ -49,18 +58,22 @@ class Armax:
         :param max_iterations: maximum numbers of iterations to find the best fit
         :type max_iterations: int
         """
-        if not (isinstance(na_bounds, (np.ndarray, list, tuple)) and
-                isinstance(nb_bounds, (np.ndarray, list, tuple)) and
-                isinstance(nc_bounds, (np.ndarray, list, tuple)) and
-                isinstance(delay_bounds, (np.ndarray, list, tuple)) and
-                isinstance(dt, (float))):
+        if not (
+            isinstance(na_bounds, (np.ndarray, list, tuple))
+            and isinstance(nb_bounds, (np.ndarray, list, tuple))
+            and isinstance(nc_bounds, (np.ndarray, list, tuple))
+            and isinstance(delay_bounds, (np.ndarray, list, tuple))
+            and isinstance(dt, (float))
+        ):
             raise ValueError("wrong arguments passed to define an armax model")
 
         for param in (na_bounds, nb_bounds, nc_bounds, delay_bounds):
             if isinstance(param, (list, tuple)):
                 if not all(isinstance(x, int) for x in param):
-                    raise ValueError("wrong arguments passed to define an armax model")
-        self.na_range = range(min(na_bounds), max(na_bounds)+1)
+                    raise ValueError(
+                        "wrong arguments passed to define an armax model"
+                    )
+        self.na_range = range(min(na_bounds), max(na_bounds) + 1)
         self.nb_range = range(min(nb_bounds), max(nb_bounds) + 1)
         self.nc_range = range(min(nc_bounds), max(nc_bounds) + 1)
         self.delay_range = range(min(delay_bounds), max(delay_bounds) + 1)
@@ -79,48 +92,36 @@ class Armax:
         self.Vn = None
         self.Yid = None
         self.max_reached = None
-        
 
     def __repr__(self):
         na_bounds = [min(self.na_range), max(self.na_range)]
         nb_bounds = [min(self.nb_range), max(self.nb_range)]
         nc_bounds = [min(self.nc_range), max(self.nc_range)]
         delay_bounds = [min(self.delay_range), max(self.delay_range)]
-        return "Armax({}, {}, {}, {}, {}, {}, {})".format(na_bounds, nb_bounds, nc_bounds,
-                                                          delay_bounds, self.dt, self.method,
-                                                          self.max_iterations)
+        return f"Armax({na_bounds}, {nb_bounds}, {nc_bounds}, {delay_bounds}, {self.dt}, {self.method}, {self.max_iterations})"
 
     def __str__(self):
-        return "Armax model:\n" \
-               "- Params:\n" \
-               "  na: {} ({}, {})\n" \
-               "  nb: {} ({}, {})\n" \
-               "  nc: {} ({}, {})\n" \
-               "  delay: {} ({}, {})\n" \
-               "  dt: {} \n" \
-               "  method: {} \n" \
-               "  max iterations: {} \n" \
-               "- Output:\n" \
-               "  G: {} \n" \
-               "  H: {} \n" \
-               "  Vn: {} \n" \
-               "  Model Output: {} \n" \
-               "  Max reached: {}".format(self.na, min(self.na_range), max(self.na_range),
-                                          self.nb, min(self.nb_range), max(self.nb_range),
-                                          self.nc, min(self.nc_range), max(self.nc_range),
-                                          self.delay, min(self.delay_range), max(self.delay_range),
-                                          self.dt,
-                                          self.method,
-                                          self.max_iterations,
-                                          self.G,
-                                          self.H,
-                                          self.Vn,
-                                          self.Yid,
-                                          self.max_reached)
+        return (
+            "Armax model:\n"
+            "- Params:\n"
+            f"  na: {self.na} ({min(self.na_range)}, {max(self.na_range)})\n"
+            f"  nb: {self.nb} ({min(self.nb_range)}, {max(self.nb_range)})\n"
+            f"  nc: {self.nc} ({min(self.nc_range)}, {max(self.nc_range)})\n"
+            f"  delay: {self.delay} ({min(self.delay_range)}, {max(self.delay_range)})\n"
+            f"  dt: {self.dt} \n"
+            f"  method: {self.method} \n"
+            f"  max iterations: {self.max_iterations} \n"
+            "- Output:\n"
+            f"  G: {self.G} \n"
+            f"  H: {self.H} \n"
+            f"  Vn: {self.Vn} \n"
+            f"  Model Output: {self.Yid} \n"
+            f"  Max reached: {self.max_reached}"
+        )
 
     @staticmethod
     def _identify(y, u, na, nb, nc, delay, max_iterations):
-        """ Identify
+        """Identify
 
         Given model order as parameter, the recursive algorithm looks for the best fit in less
         than max_iterations steps.
@@ -167,8 +168,8 @@ class Armax:
         # Fill X matrix used to perform least-square regression: beta_hat = (X_T.X)^(-1).X_T.y
         X = np.zeros((N, sum_order))
         for i in range(N):
-            X[i, 0:na] = -y[i + max_order - 1::-1][0:na]
-            X[i, na:na + nb] = u[max_order + i - 1::-1][delay:nb + delay]
+            X[i, 0:na] = -y[i + max_order - 1 :: -1][0:na]
+            X[i, na : na + nb] = u[max_order + i - 1 :: -1][delay : nb + delay]
 
         Vn, Vn_old = np.inf, np.inf
         beta_hat = np.zeros(sum_order)
@@ -183,7 +184,9 @@ class Armax:
             Vn_old = Vn
             iterations = iterations + 1
             for i in range(N):
-                X[i, na + nb:na + nb + nc] = noise_hat[max_order + i - 1::-1][0:nc]
+                X[i, na + nb : na + nb + nc] = noise_hat[
+                    max_order + i - 1 :: -1
+                ][0:nc]
             beta_hat = np.dot(np.linalg.pinv(X), y[max_order::])
             Vn = mean_square_error(y[max_order::], np.dot(X, beta_hat))
 
@@ -192,45 +195,46 @@ class Armax:
             beta_hat_new = beta_hat
             interval_length = 0.5
             while Vn > Vn_old:
-                beta_hat = np.dot(I_beta * interval_length, beta_hat_new) + \
-                        np.dot(I_beta * (1 - interval_length), beta_hat_old)
+                beta_hat = np.dot(
+                    I_beta * interval_length, beta_hat_new
+                ) + np.dot(I_beta * (1 - interval_length), beta_hat_old)
                 Vn = mean_square_error(y[max_order::], np.dot(X, beta_hat))
 
                 # Stop the binary search when the interval length is minor than smallest float
                 if interval_length < np.finfo(np.float32).eps:
                     beta_hat = beta_hat_old
                     Vn = Vn_old
-                interval_length = interval_length / 2.
+                interval_length = interval_length / 2.0
 
             # Update estimated noise based on best solution found from currently considered
             # noise.
             noise_hat[max_order::] = y[max_order::] - np.dot(X, beta_hat)
             # adding non-identified outputs
-            y_id = np.hstack((y[:max_order], np.dot(X,beta_hat)))
-            
+            y_id = np.hstack((y[:max_order], np.dot(X, beta_hat)))
+
         if iterations >= max_iterations:
             warnings.warn("[ARMAX_id] Reached maximum iterations.")
             max_reached = True
 
         G_num = np.zeros(max_order)
-        G_num[delay:nb + delay] = beta_hat[na:na + nb]
+        G_num[delay : nb + delay] = beta_hat[na : na + nb]
 
         G_den = np.zeros(max_order + 1)
-        G_den[0] = 1.
-        G_den[1:na + 1] = beta_hat[0:na]
+        G_den[0] = 1.0
+        G_den[1 : na + 1] = beta_hat[0:na]
 
         H_num = np.zeros(max_order + 1)
-        H_num[0] = 1.
-        H_num[1:nc + 1] = beta_hat[na + nb::]
+        H_num[0] = 1.0
+        H_num[1 : nc + 1] = beta_hat[na + nb : :]
 
         H_den = np.zeros(max_order + 1)
-        H_den[0] = 1.
-        H_den[1:na + 1] = beta_hat[0:na]
+        H_den[0] = 1.0
+        H_den[1 : na + 1] = beta_hat[0:na]
 
         return G_num, G_den, H_num, H_den, Vn, y_id, max_reached
 
     def find_best_estimate(self, y, u):
-        """ Find best estimate
+        """Find best estimate
 
         Find best ARMAX estimate, given measurements and input data.
 
@@ -243,34 +247,62 @@ class Armax:
         y_std, y = rescale(y)
         u_std, u = rescale(u)
 
-        if u_std == 0.:
-            raise ValueError("model cannot be estimated based on a constant input signal")
+        if u_std == 0.0:
+            raise ValueError(
+                "model cannot be estimated based on a constant input signal"
+            )
 
         IC_old = np.inf
-        G_num_opt, G_den_opt, H_num_opt, H_den_opt = np.array([]), np.array([]), np.array([]), np.array([])
+        G_num_opt, G_den_opt, H_num_opt, H_den_opt = (
+            np.array([]),
+            np.array([]),
+            np.array([]),
+            np.array([]),
+        )
         for na in self.na_range:
             for nb in self.nb_range:
                 for nc in self.nc_range:
                     for delay in self.delay_range:
-                        G_num, G_den, \
-                            H_num, H_den, \
-                            Vn, y_id, max_reached = Armax._identify(y, u, na, nb, nc, delay,
-                                                                    self.max_iterations)
+                        G_num, G_den, H_num, H_den, Vn, y_id, max_reached = (
+                            Armax._identify(
+                                y, u, na, nb, nc, delay, self.max_iterations
+                            )
+                        )
                         if max_reached is True:
-                            warnings.warn("[ARMAX ID] Max reached for:na: {} | nb: {} | nc: {} | "
-                                          "delay: {}".format(na, nb, nc, delay))
-                        IC = information_criterion(na + nb + delay,
-                                                   y.size - max(na, nb + delay, nc),
-                                                   Vn, self.method)
+                            warnings.warn(
+                                f"[ARMAX ID] Max reached for:na: {na} | nb: {nb} | nc: {nc} | "
+                                f"delay: {delay}"
+                            )
+                        IC = information_criterion(
+                            na + nb + delay,
+                            y.size - max(na, nb + delay, nc),
+                            Vn,
+                            self.method,
+                        )
                         if IC < IC_old:
-                            self.na, self.nb, self.nc, self.delay, IC_old = na, nb, nc, delay, IC
-                            G_num_opt, G_den_opt, H_num_opt, H_den_opt = G_num, G_den, H_num, H_den
-                            self.Vn, self.Yid, self.max_reached = Vn, np.atleast_2d(y_id) * y_std, max_reached  
+                            self.na, self.nb, self.nc, self.delay, IC_old = (
+                                na,
+                                nb,
+                                nc,
+                                delay,
+                                IC,
+                            )
+                            G_num_opt, G_den_opt, H_num_opt, H_den_opt = (
+                                G_num,
+                                G_den,
+                                H_num,
+                                H_den,
+                            )
+                            self.Vn, self.Yid, self.max_reached = (
+                                Vn,
+                                np.atleast_2d(y_id) * y_std,
+                                max_reached,
+                            )
 
-        G_num_opt[self.delay:self.nb + self.delay] = \
-            G_num_opt[self.delay:self.nb + self.delay] * y_std / u_std
+        G_num_opt[self.delay : self.nb + self.delay] = (
+            G_num_opt[self.delay : self.nb + self.delay] * y_std / u_std
+        )
 
         self.G = cnt.tf(G_num_opt, G_den_opt, self.dt)
         self.H = cnt.tf(H_num_opt, H_den_opt, self.dt)
         print(self)
-

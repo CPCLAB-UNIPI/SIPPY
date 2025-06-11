@@ -1,37 +1,38 @@
-# -*- coding: utf-8 -*-
-"""
-Created
+"""Created
 
 @author: Giuseppe Armenise, revised by RBdC
 example armax mimo
 case 3 outputs x 4 inputs
 
 """
+
 # Checking path to access other files
 try:
     from sippy import *
 except ImportError:
-    import sys, os
+    import os
+    import sys
 
     sys.path.append(os.pardir)
     from sippy import *
 
-import numpy as np
 import control.matlab as cnt
-from sippy import functionset as fset
+import numpy as np
 from tf2ss import lsim
+
+from sippy import functionset as fset
 
 # 4*3 MIMO system
 # generating transfer functions in z-operator
-var_list = [50., 100., 1.]
-ts = 1.
+var_list = [50.0, 100.0, 1.0]
+ts = 1.0
 
-NUM11 = [4, 3.3, 0., 0.]
-NUM12 = [10, 0., 0.]
+NUM11 = [4, 3.3, 0.0, 0.0]
+NUM12 = [10, 0.0, 0.0]
 NUM13 = [7.0, 5.5, 2.2]
-NUM14 = [-0.9, -0.11, 0., 0.]
-DEN1 = [1., -0.3, -0.25, -0.021, 0., 0.]  #
-H1 = [1., 0., 0., 0., 0., 0.]
+NUM14 = [-0.9, -0.11, 0.0, 0.0]
+DEN1 = [1.0, -0.3, -0.25, -0.021, 0.0, 0.0]  #
+H1 = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 na1 = 3
 nb11 = 2
 nb12 = 1
@@ -42,12 +43,12 @@ th12 = 2
 th13 = 2
 th14 = 1
 #
-DEN2 = [1., -0.4, 0., 0., 0.]
+DEN2 = [1.0, -0.4, 0.0, 0.0, 0.0]
 NUM21 = [-85, -57.5, -27.7]
 NUM22 = [71, 12.3]
-NUM23 = [-0.1, 0., 0., 0.]
-NUM24 = [0.994, 0., 0., 0.]
-H2 = [1., 0., 0., 0., 0.]
+NUM23 = [-0.1, 0.0, 0.0, 0.0]
+NUM24 = [0.994, 0.0, 0.0, 0.0]
+H2 = [1.0, 0.0, 0.0, 0.0, 0.0]
 na2 = 1
 nb21 = 3
 nb22 = 2
@@ -58,12 +59,12 @@ th22 = 2
 th23 = 0
 th24 = 0
 #
-DEN3 = [1., -0.1, -0.3, 0., 0.]
-NUM31 = [0.2, 0., 0., 0.]
-NUM32 = [0.821, 0.432, 0.]
-NUM33 = [0.1, 0., 0., 0.]
+DEN3 = [1.0, -0.1, -0.3, 0.0, 0.0]
+NUM31 = [0.2, 0.0, 0.0, 0.0]
+NUM32 = [0.821, 0.432, 0.0]
+NUM33 = [0.1, 0.0, 0.0, 0.0]
 NUM34 = [0.891, 0.223]
-H3 = [1., 0., 0., 0., 0.]
+H3 = [1.0, 0.0, 0.0, 0.0, 0.0]
 na3 = 2
 nb31 = 1
 nb32 = 2
@@ -99,13 +100,13 @@ tfin = 400
 npts = int(tfin / ts) + 1
 Time = np.linspace(0, tfin, npts)
 
-#INPUT#
+# INPUT#
 Usim = np.zeros((4, npts))
 Usim_noise = np.zeros((4, npts))
-[Usim[0, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [-0.33, 0.1])
-[Usim[1, :],_,_] = fset.GBN_seq(npts, 0.03)
-[Usim[2, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [2.3, 5.7])
-[Usim[3, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [8., 11.5])
+[Usim[0, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[-0.33, 0.1])
+[Usim[1, :], _, _] = fset.GBN_seq(npts, 0.03)
+[Usim[2, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[2.3, 5.7])
+[Usim[3, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[8.0, 11.5])
 
 # Adding noise
 err_inputH = np.zeros((4, npts))
@@ -143,26 +144,38 @@ Ytot[2, :] = Ytot3.squeeze()
 
 ## identification parameters
 ordersna = [na1, na2, na3]
-ordersnb = [[nb11, nb12, nb13, nb14], [nb21, nb22, nb23, nb24], [nb31, nb32, nb33, nb34]]
-theta_list = [[th11, th12, th13, th14], [th21, th22, th23, th24], [th31, th32, th33, th34]]
+ordersnb = [
+    [nb11, nb12, nb13, nb14],
+    [nb21, nb22, nb23, nb24],
+    [nb31, nb32, nb33, nb34],
+]
+theta_list = [
+    [th11, th12, th13, th14],
+    [th21, th22, th23, th24],
+    [th31, th32, th33, th34],
+]
 
 # IDENTIFICATION STAGE
 
 # ARX
-Id_ARX = system_identification(Ytot, Usim, 'ARX', ARX_orders=[ordersna, ordersnb, theta_list])  #
+Id_ARX = system_identification(
+    Ytot, Usim, "ARX", ARX_orders=[ordersna, ordersnb, theta_list]
+)  #
 
 # FIR
-Id_FIR = system_identification(Ytot, Usim, 'FIR', FIR_orders=[ordersnb, theta_list])  #
+Id_FIR = system_identification(
+    Ytot, Usim, "FIR", FIR_orders=[ordersnb, theta_list]
+)  #
 
 # output of the identified model
 Yout_ARX = Id_ARX.Yid
 Yout_FIR = Id_FIR.Yid
 
 ######plot
-#  
+#
 import matplotlib.pyplot as plt
 
-plt.close('all')
+plt.close("all")
 plt.figure(0)
 plt.subplot(4, 1, 1)
 plt.plot(Time, Usim[0, :])
@@ -192,30 +205,30 @@ plt.grid()
 plt.figure(1)
 plt.subplot(3, 1, 1)
 plt.plot(Time, Ytot1)
-plt.plot(Time, Yout_ARX[0,:])
-plt.plot(Time, Yout_FIR[0,:])
+plt.plot(Time, Yout_ARX[0, :])
+plt.plot(Time, Yout_FIR[0, :])
 plt.ylabel("y$_1$,out")
 plt.grid()
 plt.xlabel("Time")
 plt.title("identification data")
-plt.legend(['System', 'ARX', 'FIR'])
+plt.legend(["System", "ARX", "FIR"])
 
 plt.subplot(3, 1, 2)
 plt.plot(Time, Ytot2)
-plt.plot(Time, Yout_ARX[1,:])
-plt.plot(Time, Yout_FIR[1,:])
+plt.plot(Time, Yout_ARX[1, :])
+plt.plot(Time, Yout_FIR[1, :])
 plt.ylabel("y$_2$,out")
 plt.grid()
 plt.xlabel("Time")
-plt.legend(['System', 'ARX', 'FIR'])
+plt.legend(["System", "ARX", "FIR"])
 
 plt.subplot(3, 1, 3)
 plt.plot(Time, Ytot3)
-plt.plot(Time, Yout_ARX[2,:])
-plt.plot(Time, Yout_FIR[2,:])
+plt.plot(Time, Yout_ARX[2, :])
+plt.plot(Time, Yout_FIR[2, :])
 plt.ylabel("y$_3$,out")
 plt.grid()
 plt.xlabel("Time")
-plt.legend(['System', 'ARX', 'FIR'])
+plt.legend(["System", "ARX", "FIR"])
 
 plt.show(block=False)
