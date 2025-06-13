@@ -1,0 +1,43 @@
+name: docs
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install extra Python dependencies
+        run: |
+          uv sync --extra docs
+
+      - name: Execute notebooks
+        run: |
+          make execute-notebooks
+
+      - name: Build docs
+        run: |
+          make build
+
+      - name: Deploy docs
+        uses: mhausenblas/mkdocs-deploy-gh-pages@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.DOCS_TOKEN }}
+          REQUIREMENTS: docs/requirements.txt
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
