@@ -1,0 +1,41 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write  # For trusted publishing
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Set up Python
+      run: uv python install 3.12
+
+    - name: Create virtual environment
+      run: uv sync
+
+    - name: Build package
+      run: uv build
+
+    - name: Check package
+      run: |
+        uv tool run twine check dist/*
+
+    - name: Publish to PyPI
+      run: uv publish
+
+    - name: Minimize uv cache
+      run: uv cache prune --ci
