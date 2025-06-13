@@ -11,9 +11,9 @@ A Continuous Stirred Tank to be identified from input-output data
 import matplotlib.pyplot as plt
 import numpy as np
 
-from sippy import functionset as fset
-from sippy import functionsetSIM as fsetSIM
-from sippy import system_identification
+from sippy_unipi import functionset as fset
+from sippy_unipi import functionsetSIM as fsetSIM
+from sippy_unipi import system_identification
 
 # sampling time
 ts = 1.0  # [min]

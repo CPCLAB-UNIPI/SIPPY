@@ -5,20 +5,20 @@
 
 # Checking path to access other files
 try:
-    from sippy import system_identification
+    from sippy_unipi import system_identification
 except ImportError:
     import os
     import sys
 
     sys.path.append(os.pardir)
-    from sippy import system_identification
+    from sippy_unipi import system_identification
 
 import control.matlab as cnt
 import matplotlib.pyplot as plt
 import numpy as np
 from tf2ss import lsim
 
-from sippy import functionset as fset
+from sippy_unipi import functionset as fset
 
 ## TEST RECURSIVE IDENTIFICATION METHODS
 

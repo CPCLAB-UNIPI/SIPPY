@@ -5,7 +5,7 @@ __author__ = "A. De Bortoli"
 import numpy as np
 from numpy.testing import assert_equal, assert_raises
 
-from sippy.armax import Armax
+from sippy_unipi.armax import Armax
 
 
 class TestCtor:
