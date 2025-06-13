@@ -1,41 +1,38 @@
-# -*- coding: utf-8 -*-
-"""
-Created
+"""Created
 
 @author: Giuseppe Armenise
 example armax mimo
 case 3 outputs x 4 inputs
 
 """
-from __future__ import division
-
-from past.utils import old_div
 
 # Checking path to access other files
 try:
-    from sippy import *
+    from sippy import system_identification
 except ImportError:
-    import sys, os
+    import os
+    import sys
 
     sys.path.append(os.pardir)
-    from sippy import *
-
-import numpy as np
+    from sippy import system_identification
 import control.matlab as cnt
-from sippy import functionset as fset
+import matplotlib.pyplot as plt
+import numpy as np
 from tf2ss import lsim
+
+from sippy import functionset as fset
 
 # 4*3 MIMO system
 # generating transfer functions in z-operator.
-var_list = [50., 100., 1.]
-ts = 1.
+var_list = [50.0, 100.0, 1.0]
+ts = 1.0
 
-NUM11 = [4, 3.3, 0., 0.]
-NUM12 = [10, 0., 0.]
+NUM11 = [4, 3.3, 0.0, 0.0]
+NUM12 = [10, 0.0, 0.0]
 NUM13 = [7.0, 5.5, 2.2]
-NUM14 = [-0.9, -0.11, 0., 0.]
-DEN1 = [1., -0.3, -0.25, -0.021, 0., 0.]  #
-H1 = [1., 0.85, 0.32, 0., 0., 0.]
+NUM14 = [-0.9, -0.11, 0.0, 0.0]
+DEN1 = [1.0, -0.3, -0.25, -0.021, 0.0, 0.0]  #
+H1 = [1.0, 0.85, 0.32, 0.0, 0.0, 0.0]
 na1 = 3
 nb11 = 2
 nb12 = 1
@@ -47,12 +44,12 @@ th13 = 2
 th14 = 1
 nc1 = 2
 #
-DEN2 = [1., -0.4, 0., 0., 0.]
+DEN2 = [1.0, -0.4, 0.0, 0.0, 0.0]
 NUM21 = [-85, -57.5, -27.7]
 NUM22 = [71, 12.3]
-NUM23 = [-0.1, 0., 0., 0.]
-NUM24 = [0.994, 0., 0., 0.]
-H2 = [1., 0.4, 0.05, 0., 0.]
+NUM23 = [-0.1, 0.0, 0.0, 0.0]
+NUM24 = [0.994, 0.0, 0.0, 0.0]
+H2 = [1.0, 0.4, 0.05, 0.0, 0.0]
 na2 = 1
 nb21 = 3
 nb22 = 2
@@ -64,12 +61,12 @@ th23 = 0
 th24 = 0
 nc2 = 2
 #
-DEN3 = [1., -0.1, -0.3, 0., 0.]
-NUM31 = [0.2, 0., 0., 0.]
-NUM32 = [0.821, 0.432, 0.]
-NUM33 = [0.1, 0., 0., 0.]
+DEN3 = [1.0, -0.1, -0.3, 0.0, 0.0]
+NUM31 = [0.2, 0.0, 0.0, 0.0]
+NUM32 = [0.821, 0.432, 0.0]
+NUM33 = [0.1, 0.0, 0.0, 0.0]
 NUM34 = [0.891, 0.223]
-H3 = [1., 0.7, 0.485, 0.22, 0.]
+H3 = [1.0, 0.7, 0.485, 0.22, 0.0]
 na3 = 2
 nb31 = 1
 nb32 = 2
@@ -103,16 +100,16 @@ H_sample3 = cnt.tf(H3, DEN3, ts)
 
 # time
 tfin = 400
-npts = int(old_div(tfin, ts)) + 1
+npts = int(tfin / ts) + 1
 Time = np.linspace(0, tfin, npts)
 
-#INPUT#
+# INPUT#
 Usim = np.zeros((4, npts))
 Usim_noise = np.zeros((4, npts))
-[Usim[0, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [-0.33, 0.1])
-[Usim[1, :],_,_] = fset.GBN_seq(npts, 0.03)
-[Usim[2, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [2.3, 5.7])
-[Usim[3, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [8., 11.5])
+[Usim[0, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[-0.33, 0.1])
+[Usim[1, :], _, _] = fset.GBN_seq(npts, 0.03)
+[Usim[2, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[2.3, 5.7])
+[Usim[3, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[8.0, 11.5])
 
 # Adding noise
 err_inputH = np.zeros((4, npts))
@@ -151,21 +148,49 @@ Ytot[2, :] = (Ytot3 + err_outputH3).squeeze()
 
 ##identification parameters
 ordersna = [na1, na2, na3]
-ordersnb = [[nb11, nb12, nb13, nb14], [nb21, nb22, nb23, nb24], [nb31, nb32, nb33, nb34]]
+ordersnb = [
+    [nb11, nb12, nb13, nb14],
+    [nb21, nb22, nb23, nb24],
+    [nb31, nb32, nb33, nb34],
+]
 ordersnc = [nc1, nc2, nc3]
-theta_list = [[th11, th12, th13, th14], [th21, th22, th23, th24], [th31, th32, th33, th34]]
+theta_list = [
+    [th11, th12, th13, th14],
+    [th21, th22, th23, th24],
+    [th31, th32, th33, th34],
+]
 
 # IDENTIFICATION STAGE
 # TESTING ARMAX models
 # iterative LLS
-Id_ARMAXi = system_identification(Ytot, Usim, 'ARMAX', ARMAX_orders=[ordersna, ordersnb, ordersnc, theta_list], 
-                                  max_iterations=20, centering = 'MeanVal')  #
+Id_ARMAXi = system_identification(
+    Ytot,
+    Usim,
+    "ARMAX",
+    ARMAX_orders=[ordersna, ordersnb, ordersnc, theta_list],
+    max_iterations=20,
+    centering="MeanVal",
+)  #
 # optimization-based
-Id_ARMAXo = system_identification(Ytot, Usim, 'ARMAX', ARMAX_orders=[ordersna, ordersnb, ordersnc, theta_list], 
-                                  ARMAX_mod = 'OPT', max_iterations=20, centering = 'None')  #
+Id_ARMAXo = system_identification(
+    Ytot,
+    Usim,
+    "ARMAX",
+    ARMAX_orders=[ordersna, ordersnb, ordersnc, theta_list],
+    ARMAX_mod="OPT",
+    max_iterations=20,
+    centering="None",
+)  #
 # recursive LLS
-Id_ARMAXr = system_identification(Ytot, Usim, 'ARMAX', ARMAX_orders=[ordersna, ordersnb, ordersnc, theta_list], 
-                                  ARMAX_mod = 'RLLS', max_iterations=20, centering = 'InitVal')  #
+Id_ARMAXr = system_identification(
+    Ytot,
+    Usim,
+    "ARMAX",
+    ARMAX_orders=[ordersna, ordersnb, ordersnc, theta_list],
+    ARMAX_mod="RLLS",
+    max_iterations=20,
+    centering="InitVal",
+)  #
 
 # output of the identified model
 Yout_ARMAXi = Id_ARMAXi.Yid
@@ -173,11 +198,10 @@ Yout_ARMAXo = Id_ARMAXo.Yid
 Yout_ARMAXr = Id_ARMAXr.Yid
 
 ######plots
-#   
-import matplotlib.pyplot as plt
+#
 
 # U
-plt.close('all')
+plt.close("all")
 plt.figure(0)
 plt.subplot(4, 1, 1)
 plt.plot(Time, Usim[0, :])
@@ -208,50 +232,50 @@ plt.grid()
 plt.figure(1)
 plt.subplot(3, 1, 1)
 plt.plot(Time, Ytot[0, :])
-plt.plot(Time, Yout_ARMAXi[0,:])
-plt.plot(Time, Yout_ARMAXo[0,:])
-plt.plot(Time, Yout_ARMAXr[0,:])
+plt.plot(Time, Yout_ARMAXi[0, :])
+plt.plot(Time, Yout_ARMAXo[0, :])
+plt.plot(Time, Yout_ARMAXr[0, :])
 plt.ylabel("y$_1$,out")
 plt.grid()
 plt.xlabel("Time")
 plt.title("Identification data")
-plt.legend(['System', 'ARMAX-I', 'ARMAX-0', 'ARMAX-R'])
+plt.legend(["System", "ARMAX-I", "ARMAX-0", "ARMAX-R"])
 
 plt.subplot(3, 1, 2)
 plt.plot(Time, Ytot[1, :])
-plt.plot(Time, Yout_ARMAXi[1,:])
-plt.plot(Time, Yout_ARMAXo[1,:])
-plt.plot(Time, Yout_ARMAXr[1,:])
+plt.plot(Time, Yout_ARMAXi[1, :])
+plt.plot(Time, Yout_ARMAXo[1, :])
+plt.plot(Time, Yout_ARMAXr[1, :])
 plt.ylabel("y$_2$,out")
 plt.grid()
 plt.xlabel("Time")
-plt.legend(['System', 'ARMAX-I', 'ARMAX-0', 'ARMAX-R'])
+plt.legend(["System", "ARMAX-I", "ARMAX-0", "ARMAX-R"])
 
 plt.subplot(3, 1, 3)
 plt.plot(Time, Ytot[2, :])
-plt.plot(Time, Yout_ARMAXi[2,:])
-plt.plot(Time, Yout_ARMAXo[2,:])
-plt.plot(Time, Yout_ARMAXr[2,:])
+plt.plot(Time, Yout_ARMAXi[2, :])
+plt.plot(Time, Yout_ARMAXo[2, :])
+plt.plot(Time, Yout_ARMAXr[2, :])
 plt.ylabel("y$_3$,out")
 plt.grid()
 plt.xlabel("Time")
-plt.legend(['System', 'ARMAX-I', 'ARMAX-0', 'ARMAX-R'])
+plt.legend(["System", "ARMAX-I", "ARMAX-0", "ARMAX-R"])
 
 
-### VALIDATION STAGE 
+### VALIDATION STAGE
 
 # time
 tfin = 400
-npts = int(old_div(tfin, ts)) + 1
+npts = int(tfin / ts) + 1
 Time = np.linspace(0, tfin, npts)
 
 # (NEW) INPUTS
 U_valid = np.zeros((4, npts))
 Usim_noise = np.zeros((4, npts))
-[U_valid[0, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [0.33, 0.7])
-[U_valid[1, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [-2., -1.])
-[U_valid[2, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [1.3, 2.7])
-[U_valid[3, :],_,_] = fset.GBN_seq(npts, 0.03, Range = [1., 5.2])
+[U_valid[0, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[0.33, 0.7])
+[U_valid[1, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[-2.0, -1.0])
+[U_valid[2, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[1.3, 2.7])
+[U_valid[3, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[1.0, 5.2])
 # Noise
 err_inputH = np.zeros((4, npts))
 err_inputH = fset.white_noise_var(npts, var_list)
@@ -286,13 +310,17 @@ Ytot_v[2, :] = (Ytot3 + err_outputH3).squeeze()
 # ## Compute time responses for identified systems with new inputs
 
 # ARMAX - ILLS
-Yv_armaxi = fset.validation(Id_ARMAXi,U_valid,Ytot_v,Time, centering = 'MeanVal')
+Yv_armaxi = fset.validation(
+    Id_ARMAXi, U_valid, Ytot_v, Time, centering="MeanVal"
+)
 
 # ARMAX - OPT
-Yv_armaxo = fset.validation(Id_ARMAXo,U_valid,Ytot_v,Time)
+Yv_armaxo = fset.validation(Id_ARMAXo, U_valid, Ytot_v, Time)
 
-# ARMAX - RLLS 
-Yv_armaxr = fset.validation(Id_ARMAXr,U_valid,Ytot_v,Time, centering = 'InitVal')
+# ARMAX - RLLS
+Yv_armaxr = fset.validation(
+    Id_ARMAXr, U_valid, Ytot_v, Time, centering="InitVal"
+)
 
 # U
 plt.figure(3)
@@ -325,33 +353,33 @@ plt.grid()
 plt.figure(3)
 plt.subplot(3, 1, 1)
 plt.plot(Time, Ytot_v[0, :])
-plt.plot(Time, Yv_armaxi[0,:])
-plt.plot(Time, Yv_armaxo[0,:])
-plt.plot(Time, Yv_armaxr[0,:])
+plt.plot(Time, Yv_armaxi[0, :])
+plt.plot(Time, Yv_armaxo[0, :])
+plt.plot(Time, Yv_armaxr[0, :])
 plt.ylabel("y_1,out")
 plt.grid()
 plt.xlabel("Time")
 plt.title("Validation data")
-plt.legend(['System', 'ARMAX-I', 'ARMAX-0', 'ARMAX-R'])
+plt.legend(["System", "ARMAX-I", "ARMAX-0", "ARMAX-R"])
 
 plt.subplot(3, 1, 2)
 plt.plot(Time, Ytot_v[1, :])
-plt.plot(Time, Yv_armaxi[1,:])
-plt.plot(Time, Yv_armaxo[1,:])
-plt.plot(Time, Yv_armaxr[1,:])
+plt.plot(Time, Yv_armaxi[1, :])
+plt.plot(Time, Yv_armaxo[1, :])
+plt.plot(Time, Yv_armaxr[1, :])
 plt.ylabel("y_2,out")
 plt.grid()
 plt.xlabel("Time")
-plt.legend(['System', 'ARMAX-I', 'ARMAX-0', 'ARMAX-R'])
+plt.legend(["System", "ARMAX-I", "ARMAX-0", "ARMAX-R"])
 
 plt.subplot(3, 1, 3)
 plt.plot(Time, Ytot_v[2, :])
-plt.plot(Time, Yv_armaxi[2,:])
-plt.plot(Time, Yv_armaxo[2,:])
-plt.plot(Time, Yv_armaxr[2,:])
+plt.plot(Time, Yv_armaxi[2, :])
+plt.plot(Time, Yv_armaxo[2, :])
+plt.plot(Time, Yv_armaxr[2, :])
 plt.ylabel("y_3,out")
 plt.grid()
 plt.xlabel("Time")
-plt.legend(['System', 'ARMAX-I', 'ARMAX-0', 'ARMAX-R'])
+plt.legend(["System", "ARMAX-I", "ARMAX-0", "ARMAX-R"])
 
-plt.show()
+plt.show(block=False)
