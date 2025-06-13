@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tf2ss import lsim
 
-from sippy import functionset as fset
-from sippy import system_identification
+from sippy_unipi import functionset as fset
+from sippy_unipi import system_identification
 
 ## TEST IDENTIFICATION METHODS for ARMAX model
 
