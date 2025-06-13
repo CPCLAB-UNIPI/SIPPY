@@ -3,7 +3,7 @@ name: Bump version
 on:
   workflow_run:
     workflows: [CI]
-    branches: [main]
+    branches: [master, main]
     types:
       - completed
 
