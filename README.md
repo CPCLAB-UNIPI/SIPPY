@@ -41,6 +41,14 @@ cd SIPPY
 pip install -e .
 ```
 
+We recommend using uv (<https://docs.astral.sh/uv/>) to install the package.
+
+```bash
+uv sync
+```
+
+## Structure
+
 SIPPY is distributed as package, with following notable items in the structure:
 
 ```plaintext
