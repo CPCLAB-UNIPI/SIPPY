@@ -25,23 +25,37 @@ RUN apt-get update && \
     gdb \
     tree \
     zsh \
+    python3-dev \
+    python3-pytest \
     && rm -rf /var/lib/apt/lists/*
-
-# Install UV for modern Python dependency management
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    /home/vscode/.cargo/bin/uv tool install --global jupyterlab && \
-    export PATH="/home/vscode/.cargo/bin:$PATH" && \
-    /home/vscode/.cargo/bin/uv pip install --system slycot control harold
 
 # Create a non root user vscode, set zsh as the default shell, and add to sudo group
 RUN useradd -m -s /bin/zsh vscode && echo "vscode ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
+# Install UV for modern Python dependency management
+USER root
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mkdir -p /home/vscode/.local/bin /home/vscode/.local/share/uv && \
+    cp /root/.local/bin/* /home/vscode/.local/bin/ && \
+    chown -R vscode:vscode /home/vscode/.local
+
 # Switch to the vscode user
+USER vscode
+
+# Add uv to PATH in .zshrc and install packages
+RUN echo 'export PATH="/home/vscode/.local/bin:$PATH"' >> /home/vscode/.zshrc && \
+    export PATH="/home/vscode/.local/bin:$PATH" && \
+    /home/vscode/.local/bin/uv tool install jupyterlab
+    
+USER root
+RUN /root/.local/bin/uv pip install --system slycot control harold
+    
 USER vscode
 
 # Install Oh My Zsh and set the theme to "arrow"
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
-    sed -i 's/ZSH_THEME=".*"/ZSH_THEME="arrow"/' /home/vscode/.zshrc
+    sed -i 's/ZSH_THEME=".*"/ZSH_THEME="arrow"/' /home/vscode/.zshrc && \
+    echo 'export PATH="/home/vscode/.local/bin:$PATH"' >> /home/vscode/.zshrc
 
 # Set the working directory
 WORKDIR /workspace

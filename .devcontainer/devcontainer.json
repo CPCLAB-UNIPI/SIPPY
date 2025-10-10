@@ -15,5 +15,5 @@
   },
   "remoteUser": "vscode",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "uv sync && uv run pytest --version"
+  "postCreateCommand": "export PATH=\"/home/vscode/.cargo/bin:$PATH\" && uv sync && uv run pytest --version"
 }

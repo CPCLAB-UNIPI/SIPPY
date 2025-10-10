@@ -1,6 +1,8 @@
 services:
   pydev:
-    image: pyctrl:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
     env_file:
       - .env
     volumes:
