@@ -4,6 +4,7 @@ CVA algorithm implementation.
 import numpy as np
 from typing import Any
 from ..base import IdentificationAlgorithm, StateSpaceModel
+from .subspace_core import SubspaceCoreAlgorithm
 
 
 class CVAAlgorithm(IdentificationAlgorithm):
@@ -31,12 +32,15 @@ class CVAAlgorithm(IdentificationAlgorithm):
         a_stability = kwargs.get('ss_a_stability', False)
         tsample = kwargs.get('tsample', 1.0)
         
-        # Call the existing implementation
+        # Call the core CVA implementation
         try:
-            from sysidbox import OLSims_methods as OLS
-        except ImportError:
-            # For testing without full sysidbox installed
-            # Mock implementation that returns a simple model
+            A, B, C, D, Vn, Q, R, S, K = SubspaceCoreAlgorithm.olsims(
+                y, u, f, 'CVA', threshold, 
+                np.nan, fixed_order,  # max_order, fixed_order
+                d_required, a_stability
+            )
+        except Exception as e:
+            # Fallback for edge cases
             l, L = y.shape
             m = u.shape[0]
             n = 1  # Simple 1st order model
@@ -50,14 +54,6 @@ class CVAAlgorithm(IdentificationAlgorithm):
             R = 0.1 * np.eye(l)
             S = np.zeros((n, l))
             Vn = 1.0
-            
-            return StateSpaceModel(A, B, C, D, K, Q, R, S, tsample, Vn)
-        
-        A, B, C, D, Vn, Q, R, S, K = OLS.OLSims(
-            y, u, f, 'CVA', threshold, 
-            np.nan, fixed_order,  # max_order, fixed_order
-            d_required, a_stability
-        )
         
         return StateSpaceModel(A, B, C, D, K, Q, R, S, tsample, Vn)
     

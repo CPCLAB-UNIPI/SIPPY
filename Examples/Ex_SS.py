@@ -12,16 +12,31 @@ that the package slycot is not well-installed.
 """
 # Checking path to access other files
 try:
-    from sysidbox.subspace import system_identification
+    from sippy.identification import system_identification, white_noise_var as white_noise_var_new
 except ImportError:
     import sys, os
-    sys.path.append(os.getcwd())
-    from sysidbox.subspace import system_identification
+    sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
+    from sippy.identification import system_identification, white_noise_var as white_noise_var_new
 
 import numpy as np
-from sysidbox import functionset as fset
-from sysidbox import functionsetSIM as fsetSIM
+from sippy.utils.signal_utils import GBN_seq, white_noise_var
+from sippy.utils.simulation_utils import simulate_ss_system
 import matplotlib.pyplot as plt
+
+# Create compatibility aliases
+class fset:
+    @staticmethod
+    def GBN_seq(*args, **kwargs):
+        return GBN_seq(*args, **kwargs)
+    
+    @staticmethod
+    def white_noise_var(*args, **kwargs):
+        return white_noise_var(*args, **kwargs)
+
+class fsetSIM:
+    @staticmethod
+    def SS_lsim_process_form(*args, **kwargs):
+        return simulate_ss_system(*args, **kwargs)
 
 
 # Example to test SS-methods

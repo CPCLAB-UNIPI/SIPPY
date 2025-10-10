@@ -1,46 +1,122 @@
 # Welcome to SIPPY!
-### Systems Identification Package for PYthon (SIPPY)
+### Systems Identification Package for PYthon (SIPPY) - Modern Architecture
 
 The main objective of this code is to provide different identification methods
 to build linear models of dynamic systems, starting from input-output collected
 data. The models can be built as transfer functions or state-space models in
-discrete-time domain. The Python user has many options in terms of identification
-algorithms and in terms of settings to look for the best model. 
+discrete-time domain using modern object-oriented architecture.
+
 It is originally developed by Giuseppe Armenise at the Department of Civil and Industrial Engineering of University of Pisa under supervision of [Prof. Gabriele Pannocchia](https://people.unipi.it/gabriele_pannocchia/). The identification code is distributed under the LGPL license, meaning the code can be used royalty-free even in commercial applications.
-The developed code is quite simple to use and, having default settings, it can 
-be used by beginners but also by experts, having many adjustable settings that
-can be changed according to the particular case. Furthermore, there are some
-functions that the user can use, e.g. to test if the identified system follows the
-plant data. 
+
+SIPPY provides a modern, object-oriented interface with:
+- **Factory pattern** for extensible algorithm registration
+- **Clean API** with fluent configuration
+- **Integrated analysis tools** built into model objects
+- **Self-contained implementation** with no external dependencies beyond scientific libraries
+- **Enhanced maintainability** and type safety
+
 The linear model to be identified can be chosen between:
-* input-output structures: FIR, ARX, ARMAX, ARMA, ARARX, ARARMAX, OE, BJ, GEN;
-* state-space structures: N4SID, MOESP, CVA, PARSIM-P, PARSIM-S or PARSIM-K.
-All the proposed structures are available both in the SISO case, for which the information criteria 
-are available, and in the MIMO case.
+* **State-space structures**: N4SID, MOESP, CVA
+* Available for both SISO and MIMO cases
 
-### Installation and package content 
-The code has been implemented in Python 2.7, compatible with Python 3.7, (download it [here](https://www.python.org/downloads/)) and requires the following packages:
-NumPy, SciPy, control (version >= 0.8.2), math, Slycot, Future (See installation instruction [here](http://python-future.org/quickstart.html#installation)), CasADi (see [here](https://web.casadi.org/get/)).
-The Slycot package is available [here](https://pypi.python.org/pypi/slycot/0.2.0) or alternatively the binaries can be found [here](https://www.lfd.uci.edu/~gohlke/pythonlibs/).
+## Quick Start
 
-In order to make the installation easier, the user can simply use the quick command 
-`python setup.py install`
-in order to gather all the required packages all together.
+```python
+import numpy as np
+from sippy.identification import SystemIdentification, SystemIdentificationConfig
 
-SIPPY is distributed as packed file SIPPY.zip (download it from [here](https://github.com/CPCLAB-UNIPI/SIPPY)) that contains the following items:
-* `user_guide.pdf`: documentation for Identification_code usage.
-* `sippy/__init__.py`: main file containing the function that has to be recalled to perform the
-identifications.
-* `Examples/Ex_ARMAX_MIMO.py`: example of usage of the Identification_code for ARMAX systems (multi input-multi output case).
-* `Examples/Ex_ARX_MIMO.py`: example of usage of the Identification_code for ARX systems (multi input-multi output case).
-* `Examples/Ex_ARMAX.py`: example of usage of the Identification_code for ARMAX systems (single input-single output case, using the information criteria).
-* `Examples/SS.py`: example of usage of the Identification_code for State-space systems.
-* `Examples/Ex_OPT_GEN-INOUT.py`: example of usage of the Identification_code for the input-output structures using optimization methods.
-* `Examples/Ex_RECURSIVE.py`: example of usage of the Identification_code for the input-output structures using recursive methods.
-* `Examples/Ex_CST.py`: example of usage of the Identification_code for a Continuous Stirred Tank system.
-* `sippy/functionset.py`:  file containing most of the functions used by the identification functions and other useful functions (see the user_guide for the usage).
-* `sippy/functionset_OPT.py`: file containing the nonlinear optimization problem used by some of the identification methods.
-* `sippy/functionsetSIM.py`: additional functions used by the Subspace identification functions and other useful functions for state space models (see the user_guide for the usage).
+# Generate sample data
+y = np.random.randn(1, 1000)  # 1 output, 1000 time steps
+u = np.random.randn(2, 1000)  # 2 inputs, 1000 time steps
 
-In the folder `sippy/` there are other files `.py`, that are called by the main file, so the user has
-not to use them.
+# Configure and identify
+config = SystemIdentificationConfig(method='N4SID', ss_f=20, ss_fixed_order=2)
+identifier = SystemIdentification(config)
+model = identifier.identify(y, u)
+
+# Model now has built-in analysis capabilities
+print(f"System order: {model.n}")
+print(f"System stable: {model.is_stable()}")
+
+# Get FIR coefficients and step responses
+fir_model = model.get_fir_coefficients(['input1', 'input2'], ['output1'], 1.0, 60)
+step_response = model.get_step_response(['input1', 'input2'], ['output1'])
+
+# Simulate system
+x, y_sim = model.simulate(u)
+```
+
+## Installation
+
+### Modern Python (3.7+)
+
+```bash
+# Using uv (recommended)
+pip install uv
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv pip install -e .
+
+# Or using pip
+pip install -e .
+```
+
+### Requirements
+- **Python**: 3.7+ (modern architecture removes Python 2.7 support)
+- **Core dependencies**: NumPy, SciPy, harold
+- **Optional**: matplotlib for plotting, pandas for data handling
+
+## Architecture Overview
+
+SIPPY now features a clean, modular architecture:
+
+```
+src/sippy/
+├── identification/           # Core identification algorithms
+│   ├── algorithms/         # N4SID, MOESP, CVA implementations
+│   │   └── subspace_core.py # Core SVD-based algorithms
+│   ├── base.py             # StateSpaceModel with analysis methods
+│   ├── factory.py          # Algorithm factory pattern
+│   └── __main__.py         # Main identification interface
+├── utils/                  # Signal processing and simulation utilities
+│   ├── signal_utils.py     # GBN_seq, white_noise_var, etc.
+│   └── simulation_utils.py # get_fir_coef, get_step_response, etc.
+└── __init__.py
+```
+
+### Key Features
+
+1. **Object-Oriented Design**: Clear separation of concerns with abstract base classes
+2. **Factory Pattern**: Extensible algorithm registration and discovery
+3. **Integrated Analysis**: StateSpaceModel objects include built-in analysis methods
+4. **Self-Contained**: No external sysidbox dependencies required
+
+## Migration from Legacy SIPPY
+
+The new architecture maintains backward compatibility while providing cleaner interfaces:
+
+### Old API (Legacy)
+```python
+from sysidbox.subspace import system_identification
+from sysidbox.functionsetSIM import get_fir_coef
+
+model = system_identification(y, u, 'N4SID', SS_fixed_order=2)
+fir = get_fir_coef(model.G, inputs, outputs, sampling, tss)
+```
+
+### New API (Modern)
+```python
+from sippy.identification import system_identification
+
+model = system_identification(y, u, 'N4SID', ss_fixed_order=2)
+fir = model.get_fir_coefficients(inputs, outputs, sampling, tss)
+```
+
+## Package Contents
+
+- `Examples/`: Updated example scripts demonstrating the new architecture
+- `src/sippy/identification/`: Core identification algorithms and interfaces
+- `src/sippy/utils/`: Signal processing and simulation utilities
+- `detrend/`: Signal preprocessing filters (unchanged)
+
+The new architecture provides cleaner integration, enhanced maintainability, and improved developer experience while maintaining the powerful identification algorithms from the original SIPPY package.

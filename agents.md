@@ -1,41 +1,37 @@
 # SIPPY Codebase Notes for Agents
 
 ## Repository Layout
-- `src/sippy/`: new modular architecture with object-oriented identification algorithms.
-- `sysidbox/`: legacy core identification algorithms and utilities (maintained for backward compatibility).
+- `src/sippy/`: modern modular architecture with object-oriented identification algorithms.
+- `src/sippy/utils/`: signal processing and simulation utilities (FIR analysis, noise generation).
+- `src/sippy/identification/algorithms/`: concrete subspace algorithm implementations (N4SID, MOESP, CVA).
 - `detrend/`: signal preprocessing filters exposed via a factory pattern.
 - `Examples/`: end-to-end scripts and notebooks consuming the library.
 - `data/`: sample datasets used by the examples and tests.
 
 ## Core Identification Flow
 
-### New Architecture (Preferred)
 1. Preprocess raw signals with `detrend.DetrendingFilter` to remove trends, interpolate bad slices, and store results in the shared `FilterData` singleton.
 2. Convert filtered data into numpy arrays and use `src.sippy.identification.SystemIdentification` with fluent API for modern object-oriented approach.
 3. Choose from registered algorithms (N4SID, MOESP, CVA) via `AlgorithmFactory` with configuration through `SystemIdentificationConfig`.
-4. Work with the returned `StateSpaceModel` wrapper which exposes matrices, covariance estimates, and helper methods.
-5. Use `sysidbox.functionsetSIM` helpers for downstream analysis and visualization.
-
-### Legacy Architecture (Backward Compatible)
-1. Preprocess raw signals with `detrend.DetrendingFilter` to remove trends, interpolate bad slices, and store results in the shared `FilterData` singleton.
-2. Convert filtered data into numpy arrays and call `sysidbox.subspace.system_identification` with the desired subspace method (N4SID, MOESP, or CVA) and configuration.
-3. Work with the returned `SS_model` wrapper, which exposes the state-space matrices, covariance estimates, and helper gains.
-4. Use `sysidbox.functionsetSIM` helpers (`get_fir_coef`, `get_step_response`, `get_model_uncertainty`, etc.) for downstream analysis and visualization.
+4. Work with the returned `StateSpaceModel` wrapper which exposes matrices, covariance estimates, and helper methods including:
+   - `model.get_fir_coefficients()` for FIR coefficient extraction
+   - `model.get_step_response()` for step response analysis
+   - `model.get_model_uncertainty()` for confidence interval analysis
+   - `model.simulate()` for system simulation
 
 ## Notable Modules
 
-### New Architecture
+### Core Architecture
 - `src/sippy/identification/__init__.py`: Public API exports and main interface.
-- `src/sippy/identification/base.py`: Abstract base classes (`IdentificationAlgorithm`, `StateSpaceModel`).
+- `src/sippy/identification/base.py`: Abstract base classes (`IdentificationAlgorithm`, `StateSpaceModel`) with integrated analysis methods.
 - `src/sippy/identification/factory.py`: Algorithm factory pattern for extensible algorithm registration.
-- `src/sippy/identification/algorithms/`: Concrete implementations (N4SID, MOESP, CVA).
+- `src/sippy/identification/algorithms/`: Concrete implementations (N4SID, MOESP, CVA) with native algorithm implementations.
+- `src/sippy/identification/algorithms/subspace_core.py`: Core subspace identification algorithms (SVD-based implementations).
 - `src/sippy/identification/tests/`: Comprehensive pytest test suite with integration tests.
 
-### Legacy Architecture
-- `sysidbox/functionset.py`: low-level signal utilities (noise generation, scaling, validation metrics).
-- `sysidbox/functionsetSIM.py`: simulation routines, FIR extraction, uncertainty analysis, and dead-time estimation.
-- `sysidbox/OLSims_methods.py`: SVD-based subspace identification implementation plus the `SS_model` container.
-- `sysidbox/tests/test_armax.py`: Legacy test focusing on ARMAX compatibility.
+### Utilities
+- `src/sippy/utils/signal_utils.py`: Signal generation utilities (`GBN_seq`, `white_noise_var`) and analysis functions.
+- `src/sippy/utils/simulation_utils.py`: Simulation and analysis utilities (`get_fir_coef`, `get_step_response`, `get_model_uncertainty`, `simulate_ss_system`).
 
 ### Signal Processing
 - `detrend/high_pass_filter.py`, `difference_filter.py`, `zero_mean_filter.py`, `none_filter.py`: concrete filter strategies created by `DetrendingFilter`.
@@ -54,7 +50,6 @@
 ### Testing
 - `pytest` is the primary testing framework with comprehensive test coverage:
   - `src/sippy/identification/tests/`: new architecture tests (algorithms, factory, integration)
-  - `sysidbox/tests/`: legacy API compatibility tests
   - `.pytest_cache/`: pytest cache directory
 - Run tests with: `uv run pytest` or `pytest` (if uv activates environment)
 
@@ -67,3 +62,13 @@
 - `example_new_architecture.py`: working demonstration of new API.
 - `REFACTORING_SUMMARY.md`: detailed documentation of the architectural transformation.
 - `uv.lock`: lockfile for reproducible dependency versions.
+
+## API Migration Guide
+
+### From Legacy to New Architecture
+- `from sysidbox.subspace import system_identification` → `from sippy.identification import system_identification`
+- `from sysidbox.functionsetSIM import get_fir_coef` → `model.get_fir_coefficients()` method or `from sippy.utils import get_fir_coef`
+- `from sysidbox.functionset import GBN_seq` → `from sippy.utils import GBN_seq`
+- `sysidbox.OLSims_methods.OLSims()` → Built into new algorithm implementations via `SubspaceCoreAlgorithm.olsims()`
+
+The new architecture is self-contained with no external sysidbox dependencies, providing cleaner integration and enhanced maintainability.

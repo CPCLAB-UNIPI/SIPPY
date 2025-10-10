@@ -91,6 +91,100 @@ class StateSpaceModel:
             return -np.real(eigenvals) / np.abs(eigenvals)
         except:
             return np.array([])
+    
+    def get_fir_coefficients(self, inputs: list, outputs: list, 
+                           sampling: float, tss: float) -> dict:
+        """
+        Get FIR coefficients for the model.
+        
+        Parameters:
+        -----------
+        inputs : list
+            List of input variable names
+        outputs : list  
+            List of output variable names
+        sampling : float
+            Sampling rate in seconds
+        tss : float
+            Time to steady state in minutes
+            
+        Returns:
+        --------
+        fir_model : dict
+            Nested dictionary of FIR coefficients
+        """
+        from ..utils.simulation_utils import get_fir_coef
+        return get_fir_coef(self, inputs, outputs, sampling, tss)
+    
+    def get_step_response(self, inputs: list, outputs: list) -> dict:
+        """
+        Get step response for the model.
+        
+        Parameters:
+        -----------
+        inputs : list
+            List of input variable names
+        outputs : list
+            List of output variable names
+            
+        Returns:
+        --------
+        step_response : dict
+            Nested dictionary of step responses
+        """
+        from ..utils.simulation_utils import get_step_response
+        fir_model = self.get_fir_coefficients(inputs, outputs, 1.0, 60)
+        return get_step_response(fir_model)
+    
+    def get_model_uncertainty(self, input_data: np.ndarray, output_data: np.ndarray,
+                            input_name: str, output_name: str) -> tuple:
+        """
+        Get model uncertainty analysis.
+        
+        Parameters:
+        -----------
+        input_data : np.ndarray
+            Input signal data
+        output_data : np.ndarray
+            Output signal data
+        input_name : str
+            Input variable name
+        output_name : str
+            Output variable name
+            
+        Returns:
+        --------
+        tuple : (freqs, model_bode_mag, ci95, ci68, snr)
+            Frequency response and confidence intervals
+        """
+        from ..utils.simulation_utils import get_model_uncertainty
+        
+        # Get FIR coefficients for this input-output pair
+        fir_model = self.get_fir_coefficients([input_name], [output_name], 1.0, 60)
+        model = fir_model[output_name][input_name]
+        
+        return get_model_uncertainty(input_data, output_data, model)
+    
+    def simulate(self, u: np.ndarray, x0: np.ndarray = None) -> tuple:
+        """
+        Simulate the state-space model.
+        
+        Parameters:
+        -----------
+        u : np.ndarray
+            Input signals (inputs x time_steps)
+        x0 : np.ndarray, optional
+            Initial state
+            
+        Returns:
+        --------
+        x : np.ndarray
+            State trajectory
+        y : np.ndarray
+            Output signals
+        """
+        from ..utils.simulation_utils import simulate_ss_system
+        return simulate_ss_system(self.A, self.B, self.C, self.D, u, x0)
 
 
 class SystemIdentificationConfig:

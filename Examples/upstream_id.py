@@ -16,9 +16,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import sys, os
-sys.path.append(os.getcwd())
-from sysidbox.subspace import system_identification
-from sysidbox.functionsetSIM import get_model_uncertainty, get_fir_coef, get_step_response
+sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
+from sippy.identification import system_identification, get_model_uncertainty, get_fir_coef, get_step_response
 from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
 from detrend.detrending_filter import DetrendingFilter
 # %matplotlib widget
