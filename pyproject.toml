@@ -1,0 +1,21 @@
+[project]
+name = "sippy"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "James Joseph", email = "jamestjsp@outlook.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "control>=0.10.2",
+    "harold>=1.0.3",
+    "jupyterlab>=4.4.9",
+    "pandas>=2.3.3",
+    "pytest>=8.4.2",
+    "slycot>=0.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
