@@ -7,4 +7,6 @@ services:
       - ..:/workspace
     ports:
       - "8888:8888"
+    environment:
+      - PATH=/home/vscode/.cargo/bin:$PATH
     command: sleep infinity

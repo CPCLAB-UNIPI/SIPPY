@@ -27,8 +27,11 @@ RUN apt-get update && \
     zsh \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Packages using pip for Python 3.12
-RUN pip3 install --no-cache-dir slycot control harold jupyterlab
+# Install UV for modern Python dependency management
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /home/vscode/.cargo/bin/uv tool install --global jupyterlab && \
+    export PATH="/home/vscode/.cargo/bin:$PATH" && \
+    /home/vscode/.cargo/bin/uv pip install --system slycot control harold
 
 # Create a non root user vscode, set zsh as the default shell, and add to sudo group
 RUN useradd -m -s /bin/zsh vscode && echo "vscode ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers

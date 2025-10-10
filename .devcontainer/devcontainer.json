@@ -15,5 +15,5 @@
   },
   "remoteUser": "vscode",
   "workspaceFolder": "/workspace",
-  "postCreateCommand": "pip install -r requirements.txt"
+  "postCreateCommand": "uv sync && uv run pytest --version"
 }
