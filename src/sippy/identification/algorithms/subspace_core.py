@@ -24,18 +24,18 @@ from ...utils.simulation_utils import (
 # Import compiled utilities for performance
 try:
     from ...utils.compiled_utils import (
+        NUMBA_AVAILABLE,
+        Z_dot_PIort_compiled,
         information_criterion_compiled,
         rescale_compiled,
         subspace_weighted_svd_compiled,
-        Z_dot_PIort_compiled,
-        NUMBA_AVAILABLE,
     )
 except ImportError:
+    NUMBA_AVAILABLE = False
+    Z_dot_PIort_compiled = None
     information_criterion_compiled = None
     rescale_compiled = None
     subspace_weighted_svd_compiled = None
-    Z_dot_PIort_compiled = None
-    NUMBA_AVAILABLE = False
 
 
 class SubspaceCoreAlgorithm:
@@ -180,8 +180,14 @@ class SubspaceCoreAlgorithm:
             Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
 
         X_fd = np.dot(np.linalg.pinv(Ob), O_i)
-        Sxterm = impile(X_fd[:, 1:N], y[:, f : f + N - 1])
-        Dxterm = impile(X_fd[:, 0 : N - 1], u[:, f : f + N - 1])
+        # Ensure contiguous memory for optimal performance with compiled functions
+        X_fd_slice1 = np.ascontiguousarray(X_fd[:, 1:N])
+        y_slice = np.ascontiguousarray(y[:, f : f + N - 1])
+        Sxterm = impile(X_fd_slice1, y_slice)
+
+        X_fd_slice2 = np.ascontiguousarray(X_fd[:, 0 : N - 1])
+        u_slice = np.ascontiguousarray(u[:, f : f + N - 1])
+        Dxterm = impile(X_fd_slice2, u_slice)
 
         if D_required:
             M = np.dot(Sxterm, np.linalg.pinv(Dxterm))
@@ -234,19 +240,27 @@ class SubspaceCoreAlgorithm:
                 np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n)))
             )
 
-            if np.linalg.det(u[:, f : f + N - 1]) != 0:
+            # Ensure contiguous memory for sliced arrays
+            u_slice_det = np.ascontiguousarray(u[:, f : f + N - 1])
+            if np.linalg.det(u_slice_det) != 0:
+                X_fd_next = np.ascontiguousarray(X_fd[:, 1:N])
+                X_fd_curr = np.ascontiguousarray(X_fd[:, 0 : N - 1])
                 B_new = np.dot(
-                    X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1]),
-                    np.linalg.pinv(u[:, f : f + N - 1]),
+                    X_fd_next - np.dot(M[0:n, 0:n], X_fd_curr),
+                    np.linalg.pinv(u_slice_det),
                 )
                 M[0:n, n::] = B_new
             else:
                 warnings.warn("Cannot compute B matrix due to singular input data")
 
+        # Ensure contiguous memory for residual calculation
+        X_fd_next = np.ascontiguousarray(X_fd[:, 1:N])
+        X_fd_curr = np.ascontiguousarray(X_fd[:, 0 : N - 1])
+        u_slice_res = np.ascontiguousarray(u[:, f : f + N - 1])
         res = (
-            X_fd[:, 1:N]
-            - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1])
-            - np.dot(M[0:n, n::], u[:, f : f + N - 1])
+            X_fd_next
+            - np.dot(M[0:n, 0:n], X_fd_curr)
+            - np.dot(M[0:n, n::], u_slice_res)
         )
         return M, res, Forced_A
 
