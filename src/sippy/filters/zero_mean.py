@@ -29,12 +29,14 @@ class ZeroMeanFilter(IFilter):
         """
         super().__init__(config)
 
-    def apply_filter(self,
-                    data: pd.DataFrame,
-                    tss: Optional[float] = None,
-                    multiplier: Optional[float] = None,
-                    slices: Optional[Dict[str, Any]] = None,
-                    **kwargs) -> pd.DataFrame:
+    def apply_filter(
+        self,
+        data: pd.DataFrame,
+        tss: Optional[float] = None,
+        multiplier: Optional[float] = None,
+        slices: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Apply zero-mean filter to input data.
 
@@ -106,8 +108,8 @@ class ZeroMeanFilter(IFilter):
             Filter information
         """
         return {
-            'type': 'ZeroMeanFilter',
-            'description': 'Zero-mean filter that removes DC offset from signals',
-            'suitable_for': 'Centering data around zero before analysis',
-            'effect': 'Subtracts mean value from each column'
+            "type": "ZeroMeanFilter",
+            "description": "Zero-mean filter that removes DC offset from signals",
+            "suitable_for": "Centering data around zero before analysis",
+            "effect": "Subtracts mean value from each column",
         }

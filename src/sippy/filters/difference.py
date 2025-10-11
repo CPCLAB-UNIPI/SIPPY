@@ -49,12 +49,14 @@ class DifferenceFilter(IFilter):
             raise ValueError(f"Difference order must be 1 or 2, got {order}")
         self._order = order
 
-    def apply_filter(self,
-                    data: pd.DataFrame,
-                    tss: Optional[float] = None,
-                    multiplier: Optional[float] = None,
-                    slices: Optional[Dict[str, Any]] = None,
-                    **kwargs) -> pd.DataFrame:
+    def apply_filter(
+        self,
+        data: pd.DataFrame,
+        tss: Optional[float] = None,
+        multiplier: Optional[float] = None,
+        slices: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Apply difference filter to input data.
 
@@ -90,9 +92,9 @@ class DifferenceFilter(IFilter):
         # Apply difference based on order
         try:
             if self._order == 1:
-                differentiated = processed_data.diff().fillna(method='backfill')
+                differentiated = processed_data.diff().fillna(method="backfill")
             elif self._order == 2:
-                differentiated = processed_data.diff().diff().fillna(method='backfill')
+                differentiated = processed_data.diff().diff().fillna(method="backfill")
             else:
                 raise ValueError(f"Difference order must be 1 or 2, got {self._order}")
         except Exception as e:
@@ -101,7 +103,9 @@ class DifferenceFilter(IFilter):
         # Store results for backward compatibility
         self.data_manager.add_data("input", data, type="original")
         self.data_manager.add_data("trend", data.copy(), type="original_data")
-        self.data_manager.add_data("output", differentiated, type=f"order_{self._order}_difference")
+        self.data_manager.add_data(
+            "output", differentiated, type=f"order_{self._order}_difference"
+        )
 
         return differentiated
 
@@ -115,8 +119,8 @@ class DifferenceFilter(IFilter):
             Filter parameters and information
         """
         return {
-            'type': 'DifferenceFilter',
-            'order': self._order,
-            'description': f'{self._order}-order discrete difference filter',
-            'suitable_for': 'Removing trends and making time series stationary'
+            "type": "DifferenceFilter",
+            "order": self._order,
+            "description": f"{self._order}-order discrete difference filter",
+            "suitable_for": "Removing trends and making time series stationary",
         }

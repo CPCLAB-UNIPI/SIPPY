@@ -1,6 +1,7 @@
 """
 OE (Output Error) identification algorithm.
 """
+
 import warnings
 
 import numpy as np
@@ -10,8 +11,9 @@ from ..base import IdentificationAlgorithm, StateSpaceModel
 
 try:
     import harold
+
     # Check if harold has the required components
-    if hasattr(harold, 'StateSpace'):
+    if hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -60,9 +62,9 @@ class OEAlgorithm(IdentificationAlgorithm):
         bool
             True if parameters are valid
         """
-        nb = kwargs.get('nb', 2)
-        nf = kwargs.get('nf', 2)
-        nk = kwargs.get('nk', 1)
+        nb = kwargs.get("nb", 2)
+        nf = kwargs.get("nf", 2)
+        nk = kwargs.get("nk", 1)
 
         if nb <= 0:
             raise ValueError("Numerator order (nb) must be positive")
@@ -94,9 +96,9 @@ class OEAlgorithm(IdentificationAlgorithm):
         y = data.get_output_array()
 
         # Extract configuration parameters (OE specific)
-        nb = getattr(config, 'nb', 2)
-        nf = getattr(config, 'nf', 2)
-        nk = getattr(config, 'nk', 1)
+        nb = getattr(config, "nb", 2)
+        nf = getattr(config, "nf", 2)
+        nk = getattr(config, "nk", 1)
 
         # Validate parameters
         self.validate_parameters(nb=nb, nf=nf, nk=nk)
@@ -112,14 +114,16 @@ class OEAlgorithm(IdentificationAlgorithm):
         if ny == 1:
             # SISO case
             theta, residuals, rank, s = lstsq(Phi, y_matrix.T, rcond=None)
-            B_coeffs = theta[:nb * nu].reshape(ny, nb * nu)
-            F_coeffs = theta[nb * nu:].reshape(ny, nf)
+            B_coeffs = theta[: nb * nu].reshape(ny, nb * nu)
+            F_coeffs = theta[nb * nu :].reshape(ny, nf)
         else:
             # MIMO case - need to solve for each output separately
             theta_list = []
             residuals_list = []
             for i in range(ny):
-                theta_i, residuals_i, rank_i, s_i = lstsq(Phi, y_matrix[i, :], rcond=None)
+                theta_i, residuals_i, rank_i, s_i = lstsq(
+                    Phi, y_matrix[i, :], rcond=None
+                )
                 theta_list.append(theta_i)
                 residuals_list.append(residuals_i)
 
@@ -130,15 +134,23 @@ class OEAlgorithm(IdentificationAlgorithm):
 
             for i in range(ny):
                 theta_i = theta_list[i]
-                B_coeffs[i, :] = theta_i[:nb * nu]
-                F_coeffs[i, :] = theta_i[nb * nu:nb * nu + nf] if len(theta_i) >= nb * nu + nf else theta_i[nb * nu:]
+                B_coeffs[i, :] = theta_i[: nb * nu]
+                F_coeffs[i, :] = (
+                    theta_i[nb * nu : nb * nu + nf]
+                    if len(theta_i) >= nb * nu + nf
+                    else theta_i[nb * nu :]
+                )
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
-            model = self._create_state_space_from_oe(B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time)
+            model = self._create_state_space_from_oe(
+                B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time
+            )
         else:
             # Fallback when harold is not available
-            model = self._create_mock_model(B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time)
+            model = self._create_mock_model(
+                B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time
+            )
 
         return model
 
@@ -172,7 +184,9 @@ class OEAlgorithm(IdentificationAlgorithm):
         N_eff = N - max_lag
 
         if N_eff <= 0:
-            raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+            raise ValueError(
+                f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+            )
 
         # Initialize regression matrix
         n_params = nb * nu + nf * ny  # B + F coefficients (F is per output)
@@ -198,7 +212,7 @@ class OEAlgorithm(IdentificationAlgorithm):
                     Phi[:, col_idx] = -y[j, output_delay : output_delay + N_eff]
 
         # Output matrix
-        y_matrix = y[:, max_lag : N]
+        y_matrix = y[:, max_lag:N]
 
         return Phi, y_matrix
 
@@ -250,10 +264,16 @@ class OEAlgorithm(IdentificationAlgorithm):
         # C matrix - output coupling
         C = np.zeros((ny, n_states))
         if ny == 1:  # SISO case
-            C[0, :] = np.concatenate(([0.0] * (nf - 1), [1.0])) if nf > 0 else np.array([])
+            C[0, :] = (
+                np.concatenate(([0.0] * (nf - 1), [1.0])) if nf > 0 else np.array([])
+            )
         else:  # MIMO case
             for i in range(ny):
-                C[i, :] = np.concatenate(([0.0] * (nf - 1), [1.0])) if nf > 0 else np.array([])
+                C[i, :] = (
+                    np.concatenate(([0.0] * (nf - 1), [1.0]))
+                    if nf > 0
+                    else np.array([])
+                )
 
         # D matrix - direct feedthrough
         D = np.zeros((ny, nu))
@@ -271,7 +291,7 @@ class OEAlgorithm(IdentificationAlgorithm):
             R=np.eye(ss_model.C.shape[0]),
             S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )
 
     def _create_mock_model(self, B_coeffs, F_coeffs, nb, nf, nk, ny, nu, Ts):
@@ -318,7 +338,7 @@ class OEAlgorithm(IdentificationAlgorithm):
             if coeffs_flat.shape[0] >= n_states:
                 B[:, 0] = coeffs_flat[:n_states]
             else:
-                B[:coeffs_flat.shape[0], 0] = coeffs_flat
+                B[: coeffs_flat.shape[0], 0] = coeffs_flat
         else:  # MIMO case - average over outputs
             for j in range(nu):
                 if B_coeffs.shape[1] >= j + 1:
@@ -326,7 +346,7 @@ class OEAlgorithm(IdentificationAlgorithm):
                     if temp_coeffs.shape[0] >= n_states:
                         B[:, j] = temp_coeffs[:n_states]
                     else:
-                        B[:temp_coeffs.shape[0], j] = temp_coeffs
+                        B[: temp_coeffs.shape[0], j] = temp_coeffs
 
         # Output matrix
         C = np.zeros((ny, n_states))
@@ -340,7 +360,12 @@ class OEAlgorithm(IdentificationAlgorithm):
         D = np.zeros((ny, nu))
 
         # Validate matrix dimensions
-        if A.shape != (n_states, n_states) or B.shape != (n_states, nu) or C.shape != (ny, n_states) or D.shape != (ny, nu):
+        if (
+            A.shape != (n_states, n_states)
+            or B.shape != (n_states, nu)
+            or C.shape != (ny, n_states)
+            or D.shape != (ny, nu)
+        ):
             raise ValueError("Matrix dimension mismatch in state-space model creation")
 
         return StateSpaceModel(
@@ -353,5 +378,5 @@ class OEAlgorithm(IdentificationAlgorithm):
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )

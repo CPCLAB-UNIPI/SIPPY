@@ -1,6 +1,7 @@
 """
 Factory pattern for system identification algorithms.
 """
+
 from typing import Dict, Type
 
 from .base import IdentificationAlgorithm
@@ -13,7 +14,9 @@ class AlgorithmFactory:
     _initialized = False
 
     @classmethod
-    def register(cls, name: str, algorithm_class: Type[IdentificationAlgorithm]) -> None:
+    def register(
+        cls, name: str, algorithm_class: Type[IdentificationAlgorithm]
+    ) -> None:
         """Register an algorithm class with the factory."""
         cls._algorithms[name.upper()] = algorithm_class
 
@@ -24,7 +27,10 @@ class AlgorithmFactory:
             try:
                 # Import algorithms module to trigger registration
                 import importlib
-                importlib.import_module('.algorithms', package=__name__.rsplit('.', 1)[0])
+
+                importlib.import_module(
+                    ".algorithms", package=__name__.rsplit(".", 1)[0]
+                )
                 cls._initialized = True
             except ImportError:
                 cls._initialized = True  # Mark as initialized anyway
@@ -35,7 +41,9 @@ class AlgorithmFactory:
         cls._ensure_initialized()
         name_upper = name.upper()
         if name_upper not in cls._algorithms:
-            raise ValueError(f"Unknown algorithm: {name}. Available: {list(cls._algorithms.keys())}")
+            raise ValueError(
+                f"Unknown algorithm: {name}. Available: {list(cls._algorithms.keys())}"
+            )
 
         return cls._algorithms[name_upper](**kwargs)
 

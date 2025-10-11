@@ -18,12 +18,14 @@ class FilterConfig:
     Provides type-safe configuration with validation and sensible defaults.
     """
 
-    def __init__(self,
-                 cutoff: Optional[float] = None,
-                 order: Optional[int] = None,
-                 tss: Optional[float] = None,
-                 multiplier: float = 3.0,
-                 slices: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        cutoff: Optional[float] = None,
+        order: Optional[int] = None,
+        tss: Optional[float] = None,
+        multiplier: float = 3.0,
+        slices: Optional[Dict[str, Any]] = None,
+    ):
         """
         Initialize filter configuration.
 
@@ -66,7 +68,9 @@ class FilterDataManager:
         self._data: Dict[str, Union[pd.DataFrame, np.ndarray]] = {}
         self._metadata: Dict[str, Any] = {}
 
-    def add_data(self, key: str, data: Union[pd.DataFrame, np.ndarray], **metadata: Any) -> None:
+    def add_data(
+        self, key: str, data: Union[pd.DataFrame, np.ndarray], **metadata: Any
+    ) -> None:
         """
         Store data with optional metadata.
 
@@ -161,12 +165,14 @@ class IFilter(ABC):
         self.data_manager = FilterDataManager()
 
     @abstractmethod
-    def apply_filter(self,
-                    data: pd.DataFrame,
-                    tss: Optional[float] = None,
-                    multiplier: Optional[float] = None,
-                    slices: Optional[Dict[str, Any]] = None,
-                    **kwargs) -> pd.DataFrame:
+    def apply_filter(
+        self,
+        data: pd.DataFrame,
+        tss: Optional[float] = None,
+        multiplier: Optional[float] = None,
+        slices: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Apply the filter to input data.
 
@@ -217,11 +223,13 @@ class IFilter(ABC):
         if data.empty:
             raise ValueError("Input DataFrame cannot be empty")
 
-    def _process_slices(self,
-                       data: pd.DataFrame,
-                       slices: Dict[str, Any]) -> pd.DataFrame:
+    def _process_slices(
+        self, data: pd.DataFrame, slices: Dict[str, Any]
+    ) -> pd.DataFrame:
         """Delegate slice processing to the shared utility for consistency."""
-        processed, _ = process_slices(data, slices, bad_strategy="ffill", interpolate_method="linear")
+        processed, _ = process_slices(
+            data, slices, bad_strategy="ffill", interpolate_method="linear"
+        )
         return processed
 
     def _calculate_sampling_time(self, data: pd.DataFrame) -> float:
@@ -245,7 +253,9 @@ class IFilter(ABC):
         """
         try:
             if len(data) < 2:
-                raise ValueError("Cannot determine sampling time from single data point")
+                raise ValueError(
+                    "Cannot determine sampling time from single data point"
+                )
 
             ts = pd.Timedelta(data.index[1] - data.index[0]).total_seconds()
             if ts <= 0:

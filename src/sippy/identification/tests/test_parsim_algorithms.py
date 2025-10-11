@@ -1,6 +1,7 @@
 """
 Tests for PARSIM algorithm implementations.
 """
+
 import numpy as np
 import pytest
 
@@ -13,13 +14,15 @@ class TestPARSIMKAlgorithm:
     def test_parsim_k_registration(self):
         """Test that PARSIM-K algorithm is registered."""
         from sippy.identification.factory import AlgorithmFactory
-        assert AlgorithmFactory.is_registered('PARSIM-K')
+
+        assert AlgorithmFactory.is_registered("PARSIM-K")
 
     def test_parsim_k_creation(self):
         """Test creating PARSIM-K algorithm."""
         from sippy.identification.algorithms.parsim_k import PARSIMKAlgorithm
+
         algo = PARSIMKAlgorithm()
-        assert algo.name == 'PARSIMKAlgorithm'
+        assert algo.name == "PARSIMKAlgorithm"
 
     @pytest.fixture
     def sample_data(self):
@@ -30,7 +33,12 @@ class TestPARSIMKAlgorithm:
         # Simple linear system response
         y = np.zeros((1, n_points))
         for i in range(1, n_points):
-            y[0, i] = 0.8 * y[0, i-1] + 0.5 * u[0, i-1] + 0.3 * u[1, i-1] + 0.1 * np.random.randn()
+            y[0, i] = (
+                0.8 * y[0, i - 1]
+                + 0.5 * u[0, i - 1]
+                + 0.3 * u[1, i - 1]
+                + 0.1 * np.random.randn()
+            )
         return y, u
 
     def test_parsim_k_identification(self, sample_data):
@@ -41,12 +49,12 @@ class TestPARSIMKAlgorithm:
         algo = PARSIMKAlgorithm()
 
         config = {
-            'ss_f': 10,
-            'ss_p': 10,
-            'ss_threshold': 0.1,
-            'ss_fixed_order': 2,
-            'ss_d_required': False,
-            'ss_pk_b_reval': False
+            "ss_f": 10,
+            "ss_p": 10,
+            "ss_threshold": 0.1,
+            "ss_fixed_order": 2,
+            "ss_d_required": False,
+            "ss_pk_b_reval": False,
         }
 
         model = algo.identify(y, u, **config)
@@ -55,12 +63,13 @@ class TestPARSIMKAlgorithm:
         assert model.A.shape[0] == model.A.shape[1]  # Square A matrix
         assert model.B.shape[0] == model.A.shape[0]  # B rows match A rows
         assert model.C.shape[1] == model.A.shape[0]  # C columns match A columns
-        assert model.D.shape[0] == y.shape[0]        # D rows match outputs
-        assert model.D.shape[1] == u.shape[0]        # D columns match inputs
+        assert model.D.shape[0] == y.shape[0]  # D rows match outputs
+        assert model.D.shape[1] == u.shape[0]  # D columns match inputs
 
     def test_parsim_k_parameter_validation(self):
         """Test PARSIM-K parameter validation."""
         from sippy.identification.algorithms.parsim_k import PARSIMKAlgorithm
+
         algo = PARSIMKAlgorithm()
 
         with pytest.raises(ValueError, match="Missing required parameter"):
@@ -76,13 +85,15 @@ class TestPARSIMSAlgorithm:
     def test_parsim_s_registration(self):
         """Test that PARSIM-S algorithm is registered."""
         from sippy.identification.factory import AlgorithmFactory
-        assert AlgorithmFactory.is_registered('PARSIM-S')
+
+        assert AlgorithmFactory.is_registered("PARSIM-S")
 
     def test_parsim_s_creation(self):
         """Test creating PARSIM-S algorithm."""
         from sippy.identification.algorithms.parsim_s import PARSIMSAlgorithm
+
         algo = PARSIMSAlgorithm()
-        assert algo.name == 'PARSIMSAlgorithm'
+        assert algo.name == "PARSIMSAlgorithm"
 
     @pytest.fixture
     def sample_data(self):
@@ -93,7 +104,12 @@ class TestPARSIMSAlgorithm:
         # Simple linear system response
         y = np.zeros((1, n_points))
         for i in range(1, n_points):
-            y[0, i] = 0.8 * y[0, i-1] + 0.5 * u[0, i-1] + 0.3 * u[1, i-1] + 0.1 * np.random.randn()
+            y[0, i] = (
+                0.8 * y[0, i - 1]
+                + 0.5 * u[0, i - 1]
+                + 0.3 * u[1, i - 1]
+                + 0.1 * np.random.randn()
+            )
         return y, u
 
     def test_parsim_s_identification(self, sample_data):
@@ -104,11 +120,11 @@ class TestPARSIMSAlgorithm:
         algo = PARSIMSAlgorithm()
 
         config = {
-            'ss_f': 10,
-            'ss_p': 10,
-            'ss_threshold': 0.1,
-            'ss_fixed_order': 2,
-            'ss_d_required': False
+            "ss_f": 10,
+            "ss_p": 10,
+            "ss_threshold": 0.1,
+            "ss_fixed_order": 2,
+            "ss_d_required": False,
         }
 
         model = algo.identify(y, u, **config)
@@ -117,8 +133,8 @@ class TestPARSIMSAlgorithm:
         assert model.A.shape[0] == model.A.shape[1]  # Square A matrix
         assert model.B.shape[0] == model.A.shape[0]  # B rows match A rows
         assert model.C.shape[1] == model.A.shape[0]  # C columns match A columns
-        assert model.D.shape[0] == y.shape[0]        # D rows match outputs
-        assert model.D.shape[1] == u.shape[0]        # D columns match inputs
+        assert model.D.shape[0] == y.shape[0]  # D rows match outputs
+        assert model.D.shape[1] == u.shape[0]  # D columns match inputs
 
 
 class TestPARSIMPAlgorithm:
@@ -127,13 +143,15 @@ class TestPARSIMPAlgorithm:
     def test_parsim_p_registration(self):
         """Test that PARSIM-P algorithm is registered."""
         from sippy.identification.factory import AlgorithmFactory
-        assert AlgorithmFactory.is_registered('PARSIM-P')
+
+        assert AlgorithmFactory.is_registered("PARSIM-P")
 
     def test_parsim_p_creation(self):
         """Test creating PARSIM-P algorithm."""
         from sippy.identification.algorithms.parsim_p import PARSIMPAlgorithm
+
         algo = PARSIMPAlgorithm()
-        assert algo.name == 'PARSIMPAlgorithm'
+        assert algo.name == "PARSIMPAlgorithm"
 
     @pytest.fixture
     def sample_data(self):
@@ -144,7 +162,12 @@ class TestPARSIMPAlgorithm:
         # Simple linear system response
         y = np.zeros((1, n_points))
         for i in range(1, n_points):
-            y[0, i] = 0.8 * y[0, i-1] + 0.5 * u[0, i-1] + 0.3 * u[1, i-1] + 0.1 * np.random.randn()
+            y[0, i] = (
+                0.8 * y[0, i - 1]
+                + 0.5 * u[0, i - 1]
+                + 0.3 * u[1, i - 1]
+                + 0.1 * np.random.randn()
+            )
         return y, u
 
     def test_parsim_p_identification(self, sample_data):
@@ -155,11 +178,11 @@ class TestPARSIMPAlgorithm:
         algo = PARSIMPAlgorithm()
 
         config = {
-            'ss_f': 10,
-            'ss_p': 10,
-            'ss_threshold': 0.1,
-            'ss_fixed_order': 2,
-            'ss_d_required': False
+            "ss_f": 10,
+            "ss_p": 10,
+            "ss_threshold": 0.1,
+            "ss_fixed_order": 2,
+            "ss_d_required": False,
         }
 
         model = algo.identify(y, u, **config)
@@ -168,5 +191,5 @@ class TestPARSIMPAlgorithm:
         assert model.A.shape[0] == model.A.shape[1]  # Square A matrix
         assert model.B.shape[0] == model.A.shape[0]  # B rows match A rows
         assert model.C.shape[1] == model.A.shape[0]  # C columns match A columns
-        assert model.D.shape[0] == y.shape[0]        # D rows match outputs
-        assert model.D.shape[1] == u.shape[0]        # D columns match inputs
+        assert model.D.shape[0] == y.shape[0]  # D rows match outputs
+        assert model.D.shape[1] == u.shape[0]  # D columns match inputs

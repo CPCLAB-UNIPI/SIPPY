@@ -1,6 +1,7 @@
 """
 Test cases for ARX identification algorithm implementation.
 """
+
 from unittest.mock import patch
 
 import numpy as np
@@ -25,25 +26,17 @@ class TestARXAlgorithm:
         # Create a simple ARX system: y(k) = 0.5*y(k-1) + 0.8*u(k-1) + noise
         y_clean = np.zeros(self.n_samples)
         for k in range(1, self.n_samples):
-            y_clean[k] = 0.5 * y_clean[k-1] + 0.8 * self.u[k-1]
+            y_clean[k] = 0.5 * y_clean[k - 1] + 0.8 * self.u[k - 1]
         self.y = y_clean + 0.1 * np.random.randn(self.n_samples)
 
         # Create DataFrame for IDData
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u': self.u,
-            'y': self.y
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame({"u": self.u, "y": self.y}, index=time_index)
 
         # Configure data
-        self.data = IDData(
-            data=data_df,
-            inputs=['u'],
-            outputs=['y'],
-            tsample=1.0
-        )
+        self.data = IDData(data=data_df, inputs=["u"], outputs=["y"], tsample=1.0)
 
-        self.config = SystemIdentificationConfig(method='ARX')
+        self.config = SystemIdentificationConfig(method="ARX")
         # Set ARX-specific parameters
         self.config.na = 1  # AR order
         self.config.nb = 1  # X order
@@ -55,13 +48,13 @@ class TestARXAlgorithm:
         assert algorithm is not None
         assert isinstance(algorithm, IdentificationAlgorithm)
 
-    @patch('sippy.identification.algorithms.arx.HAROLD_AVAILABLE', True)
+    @patch("sippy.identification.algorithms.arx.HAROLD_AVAILABLE", True)
     def test_arx_basic_identification(self):
         """Test basic ARX identification functionality."""
         algorithm = ARXAlgorithm()
 
         # Test that algorithm can be called
-        with patch('sippy.identification.algorithms.arx.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.arx.harold") as mock_harold:
             # Mock the harold state space creation
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.eye(2)
@@ -95,12 +88,12 @@ class TestARXAlgorithm:
 
         # Test different orders
         for na, nb in [(1, 1), (2, 2), (3, 1)]:
-            config = SystemIdentificationConfig(method='ARX')
+            config = SystemIdentificationConfig(method="ARX")
             config.na = na
             config.nb = nb
             config.nk = 1
 
-            with patch('sippy.identification.algorithms.arx.harold') as mock_harold:
+            with patch("sippy.identification.algorithms.arx.harold") as mock_harold:
                 mock_tf = mock_harold.TransferFunction.return_value
                 mock_tf.NumberOfInputs = 1
                 mock_tf.NumberOfOutputs = 1
@@ -116,28 +109,23 @@ class TestARXAlgorithm:
         u = np.random.randn(2, self.n_samples)
         y = np.random.randn(2, self.n_samples)
 
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u1': u[0, :],
-            'u2': u[1, :],
-            'y1': y[0, :],
-            'y2': y[1, :]
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame(
+            {"u1": u[0, :], "u2": u[1, :], "y1": y[0, :], "y2": y[1, :]},
+            index=time_index,
+        )
 
         data = IDData(
-            data=data_df,
-            inputs=['u1', 'u2'],
-            outputs=['y1', 'y2'],
-            tsample=1.0
+            data=data_df, inputs=["u1", "u2"], outputs=["y1", "y2"], tsample=1.0
         )
-        config = SystemIdentificationConfig(method='ARX')
+        config = SystemIdentificationConfig(method="ARX")
         config.na = 1
         config.nb = 1
         config.nk = 1
 
         algorithm = ARXAlgorithm()
 
-        with patch('sippy.identification.algorithms.arx.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.arx.harold") as mock_harold:
             mock_tf = mock_harold.TransferFunction.return_value
             mock_tf.NumberOfInputs = 2
             mock_tf.NumberOfOutputs = 2
@@ -150,7 +138,7 @@ class TestARXAlgorithm:
         """Test ARX algorithm graceful degradation without harold."""
         algorithm = ARXAlgorithm()
 
-        with patch('sippy.identification.algorithms.arx.HAROLD_AVAILABLE', False):
+        with patch("sippy.identification.algorithms.arx.HAROLD_AVAILABLE", False):
             with pytest.warns(UserWarning, match="harold library not available"):
                 result = algorithm.identify(self.data, self.config)
                 # Should return a mock model when harold is not available
@@ -162,7 +150,7 @@ class TestARXAlgorithm:
         algorithm = ARXAlgorithm()
 
         # Test with invalid orders
-        invalid_config = SystemIdentificationConfig(method='ARX')
+        invalid_config = SystemIdentificationConfig(method="ARX")
         invalid_config.na = 0  # Invalid na
 
         with pytest.raises(ValueError, match="AR order \\(na\\) must be positive"):
@@ -174,24 +162,27 @@ class TestARXAlgorithm:
 
         # Test with mismatched input/output dimensions - should work fine in our case
         # since IDData handles this internally
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        invalid_data_df = pd.DataFrame({
-            'u1': np.random.randn(self.n_samples),
-            'u2': np.random.randn(self.n_samples),
-            'y1': np.random.randn(self.n_samples),
-            'y2': np.random.randn(self.n_samples),
-            'y3': np.random.randn(self.n_samples)  # Extra output
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        invalid_data_df = pd.DataFrame(
+            {
+                "u1": np.random.randn(self.n_samples),
+                "u2": np.random.randn(self.n_samples),
+                "y1": np.random.randn(self.n_samples),
+                "y2": np.random.randn(self.n_samples),
+                "y3": np.random.randn(self.n_samples),  # Extra output
+            },
+            index=time_index,
+        )
 
         invalid_data = IDData(
             data=invalid_data_df,
-            inputs=['u1', 'u2'],
-            outputs=['y1', 'y2', 'y3'],  # Different number of outputs
-            tsample=1.0
+            inputs=["u1", "u2"],
+            outputs=["y1", "y2", "y3"],  # Different number of outputs
+            tsample=1.0,
         )
 
         # This should work since our algorithm should handle MIMO
-        with patch('sippy.identification.algorithms.arx.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.arx.harold") as mock_harold:
             mock_tf = mock_harold.TransferFunction.return_value
             mock_tf.NumberOfInputs = 2
             mock_tf.NumberOfOutputs = 3

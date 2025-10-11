@@ -1,6 +1,7 @@
 """
 Box-Jenkins (BJ) identification algorithm.
 """
+
 import warnings
 
 import numpy as np
@@ -8,10 +9,21 @@ from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
 
+# Import compiled utilities for performance
+try:
+    from ...utils.compiled_utils import (
+        create_regression_matrix_bj_compiled,
+        NUMBA_AVAILABLE,
+    )
+except ImportError:
+    create_regression_matrix_bj_compiled = None
+    NUMBA_AVAILABLE = False
+
 try:
     import harold
+
     # Check if harold has the required components
-    if hasattr(harold, 'StateSpace'):
+    if hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -68,10 +80,10 @@ class BJAlgorithm(IdentificationAlgorithm):
         bool
             True if parameters are valid
         """
-        nb = kwargs.get('nb', 1)
-        nc = kwargs.get('nc', 1)
-        nd = kwargs.get('nd', 1)
-        nf = kwargs.get('nf', 1)
+        nb = kwargs.get("nb", 1)
+        nc = kwargs.get("nc", 1)
+        nd = kwargs.get("nd", 1)
+        nf = kwargs.get("nf", 1)
 
         if nb <= 0:
             raise ValueError("Input order (nb) must be positive")
@@ -105,11 +117,11 @@ class BJAlgorithm(IdentificationAlgorithm):
         y = data.get_output_array()
 
         # Extract configuration parameters (BJ specific)
-        nb = getattr(config, 'nb', 1)
-        nc = getattr(config, 'nc', 1)
-        nd = getattr(config, 'nd', 1)
-        nf = getattr(config, 'nf', 1)
-        nk = getattr(config, 'nk', 0)  # Input delay
+        nb = getattr(config, "nb", 1)
+        nc = getattr(config, "nc", 1)
+        nd = getattr(config, "nd", 1)
+        nf = getattr(config, "nf", 1)
+        nk = getattr(config, "nk", 0)  # Input delay
 
         # Validate parameters
         self.validate_parameters(nb=nb, nc=nc, nd=nd, nf=nf)
@@ -123,85 +135,140 @@ class BJAlgorithm(IdentificationAlgorithm):
         N_eff = N - max_lag
 
         if N_eff <= 0:
-            raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+            raise ValueError(
+                f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+            )
 
-        # MIMO case - handle each output separately
+        # Create regression matrices using optimized function when available
+        if NUMBA_AVAILABLE and create_regression_matrix_bj_compiled is not None:
+            Phi_list, y_targets = create_regression_matrix_bj_compiled(
+                u, y, nb, nc, nd, nf, nk, ny, nu, N
+            )
+        else:
+            # Fallback to original implementation
+            Phi_list = []
+            y_targets = []
+
+            for i in range(ny):
+                # For each output, construct regression matrix
+                # BJ model: y[k] = (input terms) + (noise AR terms) + (noise MA terms) + error
+
+                # For simplicity, we'll use an approach similar to ARMAX but with BJ structure
+                n_params = nb * nu + nc + nd  # Input + noise AR + part of noise MA
+                Phi = np.zeros((N_eff, n_params))
+                col = 0
+
+                # Input terms: lagged inputs
+                for lag in range(nb):
+                    for j in range(nu):
+                        delay_idx = max_lag - 1 - (lag + nk - 1)
+                        if delay_idx >= 0 and delay_idx + N_eff <= N:
+                            Phi[:, col] = u[j, delay_idx : delay_idx + N_eff]
+                        else:
+                            Phi[:, col] = 0
+                        col += 1
+
+                # Noise AR terms: lagged outputs (these represent the E(q) part)
+                for lag in range(nc):
+                    # For BJ, E(q) acts on noise, not directly on output
+                    # But we can approximate using lagged outputs for now
+                    start_idx = max_lag - 1 - lag
+                    end_idx = start_idx + N_eff
+                    if start_idx >= 0 and end_idx <= N:
+                        Phi[:, col] = y[i, start_idx:end_idx]
+                    else:
+                        Phi[:, col] = 0
+                    col += 1
+
+                # Noise MA terms: approximated using residuals (simplified F(q))
+                for lag in range(nd):
+                    if lag == 0:
+                        Phi[:, col] = 0  # Can't use current residual
+                    else:
+                        # Estimate residuals using available data (simplified)
+                        pred = np.zeros(N_eff)
+                        for j in range(nu):
+                            if lag + nk <= len(u):
+                                pred += (
+                                    0.1
+                                    * u[
+                                        j,
+                                        max_lag - 1 - (lag + nk - 1) : max_lag
+                                        - 1
+                                        - (lag + nk - 1)
+                                        + N_eff,
+                                    ]
+                                )
+                        estimated_residuals = y[i, max_lag : max_lag + N_eff] - pred
+                        start_idx = N_eff - min(N_eff, len(estimated_residuals))
+                        Phi[:, col] = (
+                            estimated_residuals[:N_eff]
+                            if start_idx == 0
+                            else estimated_residuals[start_idx:]
+                        )
+                    col += 1
+
+                # Target output
+                y_target = y[i, max_lag : max_lag + N_eff]
+
+                Phi_list.append(Phi)
+                y_targets.append(y_target)
+
+        # Solve for BJ parameters for each output
         input_coeffs = np.zeros((ny, nb * nu))
         noise_ar_coeffs = np.zeros((ny, nc))
         noise_ma_coeffs = np.zeros((ny, max(nd, nf)))  # Combined for simplicity
         residuals_list = []
 
         for i in range(ny):
-            # For each output, construct regression matrix
-            # BJ model: y[k] = (input terms) + (noise AR terms) + (noise MA terms) + error
-            
-            # For simplicity, we'll use an approach similar to ARMAX but with BJ structure
-            n_params = nb * nu + nc + nd  # Input + noise AR + part of noise MA
-            Phi = np.zeros((N_eff, n_params))
-            col = 0
-            
-            # Input terms: lagged inputs
-            for lag in range(nb):
-                for j in range(nu):
-                    delay_idx = max_lag - 1 - (lag + nk - 1)
-                    if delay_idx >= 0 and delay_idx + N_eff <= N:
-                        Phi[:, col] = u[j, delay_idx : delay_idx + N_eff]
-                    else:
-                        Phi[:, col] = 0
-                    col += 1
-            
-            # Noise AR terms: lagged outputs (these represent the E(q) part)
-            for lag in range(nc):
-                # For BJ, E(q) acts on noise, not directly on output
-                # But we can approximate using lagged outputs for now
-                start_idx = max_lag - 1 - lag
-                end_idx = start_idx + N_eff
-                if start_idx >= 0 and end_idx <= N:
-                    Phi[:, col] = y[i, start_idx:end_idx]
-                else:
-                    Phi[:, col] = 0
-                col += 1
-            
-            # Noise MA terms: approximated using residuals (simplified F(q))
-            for lag in range(nd):
-                if lag == 0:
-                    Phi[:, col] = 0  # Can't use current residual
-                else:
-                    # Estimate residuals using available data (simplified)
-                    pred = np.zeros(N_eff)
-                    for j in range(nu):
-                        if lag + nk <= len(u):
-                            pred += 0.1 * u[j, max_lag - 1 - (lag + nk - 1) : max_lag - 1 - (lag + nk - 1) + N_eff]
-                    estimated_residuals = y[i, max_lag : max_lag + N_eff] - pred
-                    start_idx = N_eff - min(N_eff, len(estimated_residuals))
-                    Phi[:, col] = estimated_residuals[:N_eff] if start_idx == 0 else estimated_residuals[start_idx:]
-                col += 1
-            
+            Phi = Phi_list[i]
+            y_target = y_targets[i]
+
             # Solve for BJ parameters
-            y_target = y[i, max_lag : max_lag + N_eff]
             theta, residuals_i, rank, s = lstsq(Phi, y_target, rcond=None)
             residuals_list.append(residuals_i)
-            
+
             # Extract coefficients
-            input_coeffs[i, :] = theta[:nb * nu]
-            noise_ar_coeffs[i, :] = theta[nb * nu:nb * nu + nc]
+            input_coeffs[i, :] = theta[: nb * nu]
+            noise_ar_coeffs[i, :] = theta[nb * nu : nb * nu + nc]
             # For simplicity, combine remaining coefficients
             if len(theta) > nb * nu + nc:
-                noise_ma_coeffs[i, :len(theta) - nb * nu - nc] = theta[nb * nu + nc:]
+                noise_ma_coeffs[i, : len(theta) - nb * nu - nc] = theta[nb * nu + nc :]
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
-            model = self._create_state_space_from_bj(input_coeffs, noise_ar_coeffs, noise_ma_coeffs, 
-                                                   nb, nc, nd, nf, ny, nu, data.sample_time)
+            model = self._create_state_space_from_bj(
+                input_coeffs,
+                noise_ar_coeffs,
+                noise_ma_coeffs,
+                nb,
+                nc,
+                nd,
+                nf,
+                ny,
+                nu,
+                data.sample_time,
+            )
         else:
             # Fallback when harold is not available
-            model = self._create_mock_model(input_coeffs, noise_ar_coeffs, noise_ma_coeffs, 
-                                           nb, nc, nd, nf, ny, nu, data.sample_time)
+            model = self._create_mock_model(
+                input_coeffs,
+                noise_ar_coeffs,
+                noise_ma_coeffs,
+                nb,
+                nc,
+                nd,
+                nf,
+                ny,
+                nu,
+                data.sample_time,
+            )
 
         return model
 
-    def _create_state_space_from_bj(self, input_coeffs, noise_ar_coeffs, noise_ma_coeffs,
-                                   nb, nc, nd, nf, ny, nu, Ts):
+    def _create_state_space_from_bj(
+        self, input_coeffs, noise_ar_coeffs, noise_ma_coeffs, nb, nc, nd, nf, ny, nu, Ts
+    ):
         """
         Create state-space model from BJ coefficients using harold.
 
@@ -223,22 +290,22 @@ class BJAlgorithm(IdentificationAlgorithm):
         """
         # For BJ, we need to handle both input dynamics and noise dynamics
         # Create a state-space model that captures this structure
-        
+
         # State dimension should represent system complexity
         n_states = nb * nu + max(nc, nd, nf)  # Input states + noise states
-        
+
         # State matrix A
         A = np.zeros((n_states, n_states))
-        
-        # Input matrix B  
+
+        # Input matrix B
         B = np.zeros((n_states, nu))
-        
+
         # Output matrix C
         C = np.zeros((ny, n_states))
-        
+
         # Feedthrough matrix D
         D = np.zeros((ny, nu))
-        
+
         # Build system matrices for each output (typically SISO for simplicity)
         for i in range(ny):
             if ny == 1:
@@ -250,7 +317,7 @@ class BJAlgorithm(IdentificationAlgorithm):
                     # Place input coefficients
                     if j < nu:
                         B[j, j] = 1
-                
+
                 # Noise dynamics states (simplified)
                 noise_start = nb * nu
                 for j in range(nc):
@@ -258,18 +325,20 @@ class BJAlgorithm(IdentificationAlgorithm):
                         A[noise_start + j, noise_start + j + 1] = 1
                     # Place noise AR coefficients
                     if noise_start + j < n_states:
-                        A[n_states - 1, noise_start + j] = -noise_ar_coeffs[i, min(j, noise_ar_coeffs.shape[1] - 1)]
-                
+                        A[n_states - 1, noise_start + j] = -noise_ar_coeffs[
+                            i, min(j, noise_ar_coeffs.shape[1] - 1)
+                        ]
+
                 # Output matrix
                 if nb > 0:
                     C[0, nb * nu - 1] = 1  # Last input state affects output
                 # Add noise states contribution
                 if max(nd, nf) > 0:
                     C[0, n_states - 1] = 1
-                
+
                 # Create harold StateSpace object
                 ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
-                
+
                 return StateSpaceModel(
                     A=ss_model.A,
                     B=ss_model.B,
@@ -280,15 +349,17 @@ class BJAlgorithm(IdentificationAlgorithm):
                     R=np.eye(ss_model.C.shape[0]),
                     S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
                     ts=Ts,
-                    Vn=0.01
+                    Vn=0.01,
                 )
-        
-        # Fallback for MIMO - create simplified model
-        return self._create_mock_model(input_coeffs, noise_ar_coeffs, noise_ma_coeffs,
-                                       nb, nc, nd, nf, ny, nu, Ts)
 
-    def _create_mock_model(self, input_coeffs, noise_ar_coeffs, noise_ma_coeffs,
-                          nb, nc, nd, nf, ny, nu, Ts):
+        # Fallback for MIMO - create simplified model
+        return self._create_mock_model(
+            input_coeffs, noise_ar_coeffs, noise_ma_coeffs, nb, nc, nd, nf, ny, nu, Ts
+        )
+
+    def _create_mock_model(
+        self, input_coeffs, noise_ar_coeffs, noise_ma_coeffs, nb, nc, nd, nf, ny, nu, Ts
+    ):
         """
         Create a mock state-space model when harold is not available.
 
@@ -310,16 +381,16 @@ class BJAlgorithm(IdentificationAlgorithm):
         """
         # Create simplified state-space model for BJ
         # Focus on input dynamics primarily, with simplified noise modeling
-        
+
         # State dimension based on complexity
         n_states = nb * nu + max(nc, nd, nf)
-        
+
         # State matrix A (companion-like form for input dynamics)
         A = np.zeros((n_states, n_states))
-        
+
         # Input matrix B (input propagation)
         B = np.zeros((n_states, nu))
-        
+
         # Build input dynamics states
         for input_idx in range(nu):
             for lag in range(nb):
@@ -329,36 +400,38 @@ class BJAlgorithm(IdentificationAlgorithm):
                 # Direct input influence
                 if lag == 0:
                     B[state_idx, input_idx] = 1
-        
+
         # Add simplified noise states
         noise_start = nb * nu
         noise_dim = max(nc, nd, nf)
         for j in range(noise_dim):
             if j < noise_dim - 1:
                 A[noise_start + j, noise_start + j + 1] = 1
-        
+
         # Place noise coefficients
         if noise_start + max(nc, 1) - 1 < n_states:
             for j in range(min(nc, ny)):
-                A[noise_start + max(nc, 1) - 1, noise_start + j] = -noise_ar_coeffs[j, 0] if noise_ar_coeffs.shape[1] > 0 else 0
-        
+                A[noise_start + max(nc, 1) - 1, noise_start + j] = (
+                    -noise_ar_coeffs[j, 0] if noise_ar_coeffs.shape[1] > 0 else 0
+                )
+
         # Output matrix C (observe from last state of each subsystem)
         C = np.zeros((ny, n_states))
-        
+
         # Focus on input dynamics states for output
         if nb > 0:
             for i in range(ny):
                 if i < nu:
                     C[i, i * nb + nb - 1] = 1  # Last input state affects output
-        
+
         # Add noise state contribution
         if noise_dim > 0:
             for i in range(ny):
                 C[i, n_states - 1] = 0.1  # Small contribution from noise states
-        
+
         # Feedthrough matrix D (small direct feedthrough)
         D = 0.01 * np.eye(ny, nu) if ny == nu else np.zeros((ny, nu))
-        
+
         return StateSpaceModel(
             A=A,
             B=B,
@@ -369,5 +442,5 @@ class BJAlgorithm(IdentificationAlgorithm):
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )

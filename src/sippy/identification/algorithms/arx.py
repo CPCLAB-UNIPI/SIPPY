@@ -1,6 +1,7 @@
 """
 ARX (AutoRegressive with eXogenous inputs) identification algorithm.
 """
+
 import warnings
 
 import numpy as np
@@ -12,7 +13,7 @@ from ..base import IdentificationAlgorithm, StateSpaceModel
 try:
     from ...utils.compiled_utils import (
         create_regression_matrix_arx_compiled,
-        NUMBA_AVAILABLE
+        NUMBA_AVAILABLE,
     )
 except ImportError:
     create_regression_matrix_arx_compiled = None
@@ -21,8 +22,9 @@ except ImportError:
 # Import harold for test mocking and availability checking
 try:
     import harold
+
     HAROLD_IMPORTED = True
-    if hasattr(harold, 'StateSpace'):
+    if hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -70,9 +72,9 @@ class ARXAlgorithm(IdentificationAlgorithm):
         bool
             True if parameters are valid
         """
-        na = kwargs.get('na', 1)
-        nb = kwargs.get('nb', 1)
-        nk = kwargs.get('nk', 1)
+        na = kwargs.get("na", 1)
+        nb = kwargs.get("nb", 1)
+        nk = kwargs.get("nk", 1)
 
         if na <= 0:
             raise ValueError("AR order (na) must be positive")
@@ -104,9 +106,9 @@ class ARXAlgorithm(IdentificationAlgorithm):
         y = data.get_output_array()
 
         # Extract configuration parameters (ARX specific)
-        na = getattr(config, 'na', 1)
-        nb = getattr(config, 'nb', 1)
-        nk = getattr(config, 'nk', 1)
+        na = getattr(config, "na", 1)
+        nb = getattr(config, "nb", 1)
+        nk = getattr(config, "nk", 1)
 
         # Validate parameters
         self.validate_parameters(na=na, nb=nb, nk=nk)
@@ -120,7 +122,9 @@ class ARXAlgorithm(IdentificationAlgorithm):
         N_eff = N - max_lag
 
         if N_eff <= 0:
-            raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+            raise ValueError(
+                f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+            )
 
         # Create regression matrix (for SISO case only)
         Phi, y_matrix = self._create_regression_matrix(u, y, na, nb, nk, ny, nu, N)
@@ -131,27 +135,29 @@ class ARXAlgorithm(IdentificationAlgorithm):
             theta, residuals, rank, s = lstsq(Phi, y_matrix.T.flatten(), rcond=None)
             # Reshape theta for SISO
             A_coeffs = theta[:na].reshape(1, na)  # ny=1, na
-            B_coeffs = theta[na:].reshape(1, nb)  # ny=1, nb 
+            B_coeffs = theta[na:].reshape(1, nb)  # ny=1, nb
         else:
             # MIMO case - simplifed and correct approach
             A_coeffs = np.zeros((ny, na))
             B_coeffs = np.zeros((ny, nb * nu))
             residuals_list = []
-            
+
             for i in range(ny):
                 # For output i, we need na*ny AR coeffs + nb*nu input coeffs
                 # Construct regression matrix for output i
                 n_params_i = na * ny + nb * nu
                 Phi_i = np.zeros((N_eff, n_params_i))
                 col = 0
-                
+
                 # AR part: all lagged outputs affect this output
                 for lag in range(na):
                     for j in range(ny):
-                        Phi_i[:, col] = y[j, max_lag - 1 - lag : max_lag - 1 - lag + N_eff]
+                        Phi_i[:, col] = y[
+                            j, max_lag - 1 - lag : max_lag - 1 - lag + N_eff
+                        ]
                         col += 1
-                
-                # Input part: all lagged inputs affect this output  
+
+                # Input part: all lagged inputs affect this output
                 for lag in range(nb):
                     for j in range(nu):
                         delay_idx = max_lag - 1 - (lag + nk - 1)
@@ -160,33 +166,47 @@ class ARXAlgorithm(IdentificationAlgorithm):
                         else:
                             Phi_i[:, col] = 0
                         col += 1
-                
+
                 # Solve for output i
-                theta_i, residuals_i, rank_i, s_i = lstsq(Phi_i, y_matrix[i, :], rcond=None)
+                theta_i, residuals_i, rank_i, s_i = lstsq(
+                    Phi_i, y_matrix[i, :], rcond=None
+                )
                 residuals_list.append(residuals_i)
-                
+
                 # Extract AR coefficients for output i (only those corresponding to its own lags)
                 for lag in range(na):
                     idx = lag * ny + i  # Coefficient for y[i] at this lag
                     A_coeffs[i, lag] = theta_i[idx]
-                
+
                 # Extract input coefficients for output i
-                B_coeffs[i, :] = theta_i[na * ny:]
-            
-            residuals = np.concatenate(residuals_list) if all(r is not None and r.size > 0 for r in residuals_list) else []
+                B_coeffs[i, :] = theta_i[na * ny :]
+
+            residuals = (
+                np.concatenate(residuals_list)
+                if all(r is not None and r.size > 0 for r in residuals_list)
+                else []
+            )
 
         # Create state-space representation
         if HAROLD_AVAILABLE and harold is not None:
-            model = self._create_transfer_function(A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time)
+            model = self._create_transfer_function(
+                A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time
+            )
         else:
             # Warn about harold availability only when needed
             if harold is None:
-                warnings.warn("harold library not available. ARX algorithm will be limited.")
+                warnings.warn(
+                    "harold library not available. ARX algorithm will be limited."
+                )
             else:
-                warnings.warn("harold library not available. ARX algorithm will be limited.")
-            
+                warnings.warn(
+                    "harold library not available. ARX algorithm will be limited."
+                )
+
             # Fallback when harold is not available
-            model = self._create_mock_model(A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time)
+            model = self._create_mock_model(
+                A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time
+            )
 
         return model
 
@@ -224,10 +244,12 @@ class ARXAlgorithm(IdentificationAlgorithm):
             N_eff = N - max_lag
 
             if N_eff <= 0:
-                raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+                raise ValueError(
+                    f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+                )
 
             # Output matrix - trimmed for effective length
-            y_matrix = y[:, max_lag : N]
+            y_matrix = y[:, max_lag:N]
             # Return dummy Phi since we construct per-output matrices in identify()
             Phi = np.zeros((N_eff, 1))  # Not used in MIMO case
 
@@ -266,7 +288,7 @@ class ARXAlgorithm(IdentificationAlgorithm):
             tf = harold.TransferFunction(num_coeffs, den_coeffs, dt=Ts)
 
             # Convert to state-space
-            ss_model = harold.undiscretize(tf, method='backward euler')
+            ss_model = harold.undiscretize(tf, method="backward euler")
         else:
             # For MIMO case, create a simple state-space representation
             # using companion form for each output
@@ -280,16 +302,22 @@ class ARXAlgorithm(IdentificationAlgorithm):
             for i in range(ny):  # For each output
                 # A matrix (companion form)
                 if na > 1:
-                    A[i*na:(i+1)*na-1, i*na+1:(i+1)*na] = np.eye(na-1)
+                    A[i * na : (i + 1) * na - 1, i * na + 1 : (i + 1) * na] = np.eye(
+                        na - 1
+                    )
                 if na > 0:
-                    A[(i+1)*na-1, i*na:(i+1)*na] = -A_coeffs[i, :]
+                    A[(i + 1) * na - 1, i * na : (i + 1) * na] = -A_coeffs[i, :]
 
                 # B matrix
                 if nu > 0:
-                    B[(i+1)*na-1, :] = B_coeffs[i, :].reshape(-1, nu)[:nu] if nb == 1 else B_coeffs[i, :nu]
+                    B[(i + 1) * na - 1, :] = (
+                        B_coeffs[i, :].reshape(-1, nu)[:nu]
+                        if nb == 1
+                        else B_coeffs[i, :nu]
+                    )
 
                 # C matrix
-                C[i, (i+1)*na-1] = 1
+                C[i, (i + 1) * na - 1] = 1
 
             # Create harold StateSpace object
             ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
@@ -304,7 +332,7 @@ class ARXAlgorithm(IdentificationAlgorithm):
             R=np.eye(ss_model.C.shape[0]),
             S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )
 
     def _create_mock_model(self, A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts):
@@ -354,13 +382,15 @@ class ARXAlgorithm(IdentificationAlgorithm):
                 for i in range(ny):
                     # B_coeffs[i, :] shape = [nb * nu]
                     # Take the first nu which represent direct feedthrough (k=nk position)
-                    direct_coeffs = B_coeffs[i, :nu] if B_coeffs.shape[1] >= nu else B_coeffs[i, :]
+                    direct_coeffs = (
+                        B_coeffs[i, :nu] if B_coeffs.shape[1] >= nu else B_coeffs[i, :]
+                    )
                     B[-ny + i, :] = direct_coeffs[:nu]
             else:
                 # Fallback case
                 B_flat = B_coeffs.flatten()
                 if len(B_flat) >= nu * ny:
-                    B[-ny:, :] = B_flat[:nu * ny].reshape(ny, nu)
+                    B[-ny:, :] = B_flat[: nu * ny].reshape(ny, nu)
 
         # Output matrix C
         C = np.zeros((ny, n_states))
@@ -379,5 +409,5 @@ class ARXAlgorithm(IdentificationAlgorithm):
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )

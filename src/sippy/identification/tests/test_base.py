@@ -1,6 +1,7 @@
 """
 Tests for base classes.
 """
+
 import numpy as np
 import pytest
 
@@ -21,13 +22,20 @@ class TestIdentificationAlgorithm:
 
     def test_concrete_implementation(self):
         """Test that a concrete implementation works."""
+
         class TestAlgorithm(IdentificationAlgorithm):
             def identify(self, y, u, **kwargs):
                 return StateSpaceModel(
-                    A=np.eye(2), B=np.zeros((2, 1)),
-                    C=np.zeros((1, 2)), D=np.zeros((1, 1)),
-                    K=np.zeros((2, 1)), Q=np.eye(2),
-                    R=1.0, S=np.zeros((2, 1)), ts=1.0, Vn=1.0
+                    A=np.eye(2),
+                    B=np.zeros((2, 1)),
+                    C=np.zeros((1, 2)),
+                    D=np.zeros((1, 1)),
+                    K=np.zeros((2, 1)),
+                    Q=np.eye(2),
+                    R=1.0,
+                    S=np.zeros((2, 1)),
+                    ts=1.0,
+                    Vn=1.0,
                 )
 
             def validate_parameters(self, **kwargs):
@@ -75,18 +83,32 @@ class TestStateSpaceModel:
         # Stable system
         A_stable = np.array([[0.9, 0.1], [-0.1, 0.8]])
         model_stable = StateSpaceModel(
-            A_stable, np.zeros((2, 1)), np.zeros((1, 2)),
-            np.zeros((1, 1)), np.zeros((2, 1)),
-            np.eye(2), 0.1, np.zeros((2, 1)), 1.0, 0.5
+            A_stable,
+            np.zeros((2, 1)),
+            np.zeros((1, 2)),
+            np.zeros((1, 1)),
+            np.zeros((2, 1)),
+            np.eye(2),
+            0.1,
+            np.zeros((2, 1)),
+            1.0,
+            0.5,
         )
         assert model_stable.is_stable()
 
         # Unstable system
         A_unstable = np.array([[1.1, 0.0], [0.0, 1.2]])
         model_unstable = StateSpaceModel(
-            A_unstable, np.zeros((2, 1)), np.zeros((1, 2)),
-            np.zeros((1, 1)), np.zeros((2, 1)),
-            np.eye(2), 0.1, np.zeros((2, 1)), 1.0, 0.5
+            A_unstable,
+            np.zeros((2, 1)),
+            np.zeros((1, 2)),
+            np.zeros((1, 1)),
+            np.zeros((2, 1)),
+            np.eye(2),
+            0.1,
+            np.zeros((2, 1)),
+            1.0,
+            0.5,
         )
         assert not model_unstable.is_stable()
 
@@ -94,9 +116,16 @@ class TestStateSpaceModel:
         """Test natural frequency calculation."""
         A = np.array([[0.9, -0.5], [0.5, 0.9]])  # Complex conjugate pair
         model = StateSpaceModel(
-            A, np.zeros((2, 1)), np.zeros((1, 2)),
-            np.zeros((1, 1)), np.zeros((2, 1)),
-            np.eye(2), 0.1, np.zeros((2, 1)), 1.0, 0.5
+            A,
+            np.zeros((2, 1)),
+            np.zeros((1, 2)),
+            np.zeros((1, 1)),
+            np.zeros((2, 1)),
+            np.eye(2),
+            0.1,
+            np.zeros((2, 1)),
+            1.0,
+            0.5,
         )
         freqs = model.get_natural_frequencies()
         assert len(freqs) == 2
@@ -109,8 +138,8 @@ class TestSystemIdentificationConfig:
     def test_default_config(self):
         """Test default configuration."""
         config = SystemIdentificationConfig()
-        assert config.method == 'N4SID'
-        assert config.centering == 'None'
+        assert config.method == "N4SID"
+        assert config.centering == "None"
         assert config.ss_f == 20
         assert config.ss_threshold == 0.1
         assert not config.ss_d_required
@@ -119,15 +148,15 @@ class TestSystemIdentificationConfig:
     def test_custom_config(self):
         """Test custom configuration."""
         config = SystemIdentificationConfig(
-            method='CVA',
-            centering='MeanVal',
+            method="CVA",
+            centering="MeanVal",
             ss_f=15,
             ss_threshold=0.05,
             ss_d_required=True,
-            ss_a_stability=True
+            ss_a_stability=True,
         )
-        assert config.method == 'CVA'
-        assert config.centering == 'MeanVal'
+        assert config.method == "CVA"
+        assert config.centering == "MeanVal"
         assert config.ss_f == 15
         assert config.ss_threshold == 0.05
         assert config.ss_d_required

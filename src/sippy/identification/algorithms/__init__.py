@@ -1,6 +1,7 @@
 """
 Concrete algorithm implementations.
 """
+
 try:
     # Register all algorithms with the factory
     from ..factory import AlgorithmFactory
@@ -19,20 +20,20 @@ try:
     from .parsim_p import PARSIMPAlgorithm
     from .parsim_s import PARSIMSAlgorithm
 
-    AlgorithmFactory.register('N4SID', N4SIDAlgorithm)
-    AlgorithmFactory.register('MOESP', MOESPAlgorithm)
-    AlgorithmFactory.register('CVA', CVAAlgorithm)
-    AlgorithmFactory.register('PARSIM-K', PARSIMKAlgorithm)
-    AlgorithmFactory.register('PARSIM-S', PARSIMSAlgorithm)
-    AlgorithmFactory.register('PARSIM-P', PARSIMPAlgorithm)
-    AlgorithmFactory.register('ARX', ARXAlgorithm)
-    AlgorithmFactory.register('ARARX', ARARXAlgorithm)
-    AlgorithmFactory.register('ARARMAX', ARARMAXAlgorithm)
-    AlgorithmFactory.register('FIR', FIRAlgorithm)
-    AlgorithmFactory.register('ARMAX', ARMAXAlgorithm)
-    AlgorithmFactory.register('OE', OEAlgorithm)
-    AlgorithmFactory.register('ARMA', ARMAAlgorithm)
-    AlgorithmFactory.register('BJ', BJAlgorithm)
+    AlgorithmFactory.register("N4SID", N4SIDAlgorithm)
+    AlgorithmFactory.register("MOESP", MOESPAlgorithm)
+    AlgorithmFactory.register("CVA", CVAAlgorithm)
+    AlgorithmFactory.register("PARSIM-K", PARSIMKAlgorithm)
+    AlgorithmFactory.register("PARSIM-S", PARSIMSAlgorithm)
+    AlgorithmFactory.register("PARSIM-P", PARSIMPAlgorithm)
+    AlgorithmFactory.register("ARX", ARXAlgorithm)
+    AlgorithmFactory.register("ARARX", ARARXAlgorithm)
+    AlgorithmFactory.register("ARARMAX", ARARMAXAlgorithm)
+    AlgorithmFactory.register("FIR", FIRAlgorithm)
+    AlgorithmFactory.register("ARMAX", ARMAXAlgorithm)
+    AlgorithmFactory.register("OE", OEAlgorithm)
+    AlgorithmFactory.register("ARMA", ARMAAlgorithm)
+    AlgorithmFactory.register("BJ", BJAlgorithm)
 except ImportError:
     # In case sysidbox is not available, we still have the base classes ready
     N4SIDAlgorithm = None

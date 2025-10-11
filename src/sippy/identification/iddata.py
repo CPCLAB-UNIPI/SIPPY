@@ -56,12 +56,18 @@ class IDData:
         Time stamps for each data point
     """
 
-    def __init__(self, data: pd.DataFrame, inputs: List[str], outputs: List[str],
-                 tsample: Optional[float] = None, time_index: Optional[str] = None,
-                 slices: Optional[Dict[str, Any]] = None,
-                 bad_strategy: str = 'ffill',
-                 interpolate_method: str = 'linear',
-                 store_mask: bool = True):
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        inputs: List[str],
+        outputs: List[str],
+        tsample: Optional[float] = None,
+        time_index: Optional[str] = None,
+        slices: Optional[Dict[str, Any]] = None,
+        bad_strategy: str = "ffill",
+        interpolate_method: str = "linear",
+        store_mask: bool = True,
+    ):
         """
         Initialize IDData object.
 
@@ -89,8 +95,12 @@ class IDData:
                 from sippy.utils.slices import (
                     process_slices,  # Local import to avoid cycles
                 )
+
                 combined, mask = process_slices(
-                    combined, slices, bad_strategy=bad_strategy, interpolate_method=interpolate_method
+                    combined,
+                    slices,
+                    bad_strategy=bad_strategy,
+                    interpolate_method=interpolate_method,
                 )
                 if store_mask:
                     self.bad_mask = mask
@@ -136,16 +146,18 @@ class IDData:
             if len(time_diffs) > 0:
                 median_diff = np.median(time_diffs)
                 # Convert to seconds - handle both pandas and numpy versions
-                if hasattr(median_diff, 'total_seconds'):
+                if hasattr(median_diff, "total_seconds"):
                     return median_diff.total_seconds()
                 else:
                     # For numpy.timedelta64
-                    return median_diff.astype('timedelta64[s]').astype(float)
+                    return median_diff.astype("timedelta64[s]").astype(float)
 
         # Fallback: assume unit sample time
         return 1.0
 
-    def _get_time_stamps(self, data: pd.DataFrame, time_index: Optional[str]) -> Union[pd.DatetimeIndex, np.ndarray]:
+    def _get_time_stamps(
+        self, data: pd.DataFrame, time_index: Optional[str]
+    ) -> Union[pd.DatetimeIndex, np.ndarray]:
         """
         Get time stamps from DataFrame.
 
@@ -221,7 +233,7 @@ class IDData:
         else:
             return np.array(self.time_stamps)
 
-    def split_data(self, train_ratio: float = 0.8) -> Tuple['IDData', 'IDData']:
+    def split_data(self, train_ratio: float = 0.8) -> Tuple["IDData", "IDData"]:
         """
         Split data into training and test sets.
 
@@ -244,8 +256,12 @@ class IDData:
         test_data = combined.iloc[n_train:]
 
         # Create new IDData objects
-        train_iddata = IDData(train_data, self.input_names, self.output_names, self.sample_time)
-        test_iddata = IDData(test_data, self.input_names, self.output_names, self.sample_time)
+        train_iddata = IDData(
+            train_data, self.input_names, self.output_names, self.sample_time
+        )
+        test_iddata = IDData(
+            test_data, self.input_names, self.output_names, self.sample_time
+        )
 
         # Propagate mask if available
         if self.bad_mask is not None:
@@ -254,7 +270,7 @@ class IDData:
 
         return train_iddata, test_iddata
 
-    def resample(self, new_period: str) -> 'IDData':
+    def resample(self, new_period: str) -> "IDData":
         """
         Resample data to a new time period.
 
@@ -278,7 +294,9 @@ class IDData:
         # Calculate new sample time
         new_tsample = pd.Timedelta(new_period).total_seconds()
 
-        resampled_id = IDData(resampled_data, self.input_names, self.output_names, new_tsample)
+        resampled_id = IDData(
+            resampled_data, self.input_names, self.output_names, new_tsample
+        )
 
         # Resample mask with max (any affected in bin)
         if self.bad_mask is not None:
@@ -291,7 +309,7 @@ class IDData:
 
         return resampled_id
 
-    def remove_mean(self) -> 'IDData':
+    def remove_mean(self) -> "IDData":
         """
         Remove mean from input and output data.
 
@@ -312,7 +330,9 @@ class IDData:
         combined_data = pd.concat([input_centered, output_centered], axis=1)
 
         # Create new IDData object
-        centered_iddata = IDData(combined_data, self.input_names, self.output_names, self.sample_time)
+        centered_iddata = IDData(
+            combined_data, self.input_names, self.output_names, self.sample_time
+        )
         if self.bad_mask is not None:
             centered_iddata.bad_mask = self.bad_mask.copy()
 
@@ -334,25 +354,27 @@ class IDData:
         # Plot inputs
         for i, input_name in enumerate(self.input_names):
             axes[i, 0].plot(self.time_stamps, self.input_data[input_name])
-            axes[i, 0].set_ylabel(f'{input_name}\n(input)')
+            axes[i, 0].set_ylabel(f"{input_name}\n(input)")
             axes[i, 0].grid(True)
 
         # Plot outputs
         for j, output_name in enumerate(self.output_names):
             ax_idx = self.n_inputs + j
             axes[ax_idx, 0].plot(self.time_stamps, self.output_data[output_name])
-            axes[ax_idx, 0].set_ylabel(f'{output_name}\n(output)')
+            axes[ax_idx, 0].set_ylabel(f"{output_name}\n(output)")
             axes[ax_idx, 0].grid(True)
 
-        axes[-1, 0].set_xlabel('Time')
+        axes[-1, 0].set_xlabel("Time")
         plt.tight_layout()
         plt.show()
 
     def __repr__(self) -> str:
         """String representation of IDData object."""
-        return (f"IDData object with {self.n_samples} samples, "
-                f"{self.n_inputs} inputs, {self.n_outputs} outputs, "
-                f"sample time = {self.sample_time} seconds")
+        return (
+            f"IDData object with {self.n_samples} samples, "
+            f"{self.n_inputs} inputs, {self.n_outputs} outputs, "
+            f"sample time = {self.sample_time} seconds"
+        )
 
     def __str__(self) -> str:
         """Detailed string representation."""
@@ -361,25 +383,37 @@ class IDData:
             f"  Number of samples: {self.n_samples}",
             f"  Number of inputs: {self.n_inputs} ({', '.join(self.input_names)})",
             f"  Number of outputs: {self.n_outputs} ({', '.join(self.output_names)})",
-            f"  Sample time: {self.sample_time} seconds"
+            f"  Sample time: {self.sample_time} seconds",
         ]
-        return '\n'.join(info)
+        return "\n".join(info)
 
     # -------- Slice-aware helpers --------
-    def handle_slices(self,
-                      slices: Optional[Dict[str, Any]] = None,
-                      bad_strategy: str = 'ffill',
-                      interpolate_method: str = 'linear') -> 'IDData':
+    def handle_slices(
+        self,
+        slices: Optional[Dict[str, Any]] = None,
+        bad_strategy: str = "ffill",
+        interpolate_method: str = "linear",
+    ) -> "IDData":
         """
         Return a new IDData with slices applied.
         """
         combined = pd.concat([self.input_data, self.output_data], axis=1)
         if not slices:
-            return IDData(combined, self.input_names, self.output_names, self.sample_time)
+            return IDData(
+                combined, self.input_names, self.output_names, self.sample_time
+            )
 
         from sippy.utils.slices import process_slices
-        processed, mask = process_slices(combined, slices, bad_strategy=bad_strategy, interpolate_method=interpolate_method)
-        new_obj = IDData(processed, self.input_names, self.output_names, self.sample_time)
+
+        processed, mask = process_slices(
+            combined,
+            slices,
+            bad_strategy=bad_strategy,
+            interpolate_method=interpolate_method,
+        )
+        new_obj = IDData(
+            processed, self.input_names, self.output_names, self.sample_time
+        )
         new_obj.bad_mask = mask
         return new_obj
 
@@ -387,39 +421,54 @@ class IDData:
         """Return the boolean mask of affected samples (False if none)."""
         if self.bad_mask is not None:
             return self.bad_mask.copy()
-        return pd.DataFrame(False, index=self.input_data.index, columns=self.input_names + self.output_names)
+        return pd.DataFrame(
+            False,
+            index=self.input_data.index,
+            columns=self.input_names + self.output_names,
+        )
 
-    def drop_masked(self, any_col: bool = True) -> 'IDData':
+    def drop_masked(self, any_col: bool = True) -> "IDData":
         """
         Drop rows affected by slices based on the stored mask.
         any_col=True drops rows where any selected column was affected.
         """
         if self.bad_mask is None:
-            return IDData(pd.concat([self.input_data, self.output_data], axis=1), self.input_names, self.output_names, self.sample_time)
+            return IDData(
+                pd.concat([self.input_data, self.output_data], axis=1),
+                self.input_names,
+                self.output_names,
+                self.sample_time,
+            )
 
         mask_subset = self.bad_mask[self.input_names + self.output_names]
         selector = mask_subset.any(axis=1) if any_col else mask_subset.all(axis=1)
         kept = ~selector
         combined = pd.concat([self.input_data, self.output_data], axis=1)[kept]
-        new_obj = IDData(combined, self.input_names, self.output_names, self.sample_time)
+        new_obj = IDData(
+            combined, self.input_names, self.output_names, self.sample_time
+        )
         new_obj.bad_mask = mask_subset[kept]
         return new_obj
 
     @classmethod
-    def from_filter(cls,
-                    filter_obj: Any,
-                    dataset: str = 'output',
-                    inputs: Optional[List[str]] = None,
-                    outputs: Optional[List[str]] = None,
-                    tsample: Optional[float] = None,
-                    slices: Optional[Dict[str, Any]] = None,
-                    bad_strategy: str = 'ffill',
-                    interpolate_method: str = 'linear') -> 'IDData':
+    def from_filter(
+        cls,
+        filter_obj: Any,
+        dataset: str = "output",
+        inputs: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
+        tsample: Optional[float] = None,
+        slices: Optional[Dict[str, Any]] = None,
+        bad_strategy: str = "ffill",
+        interpolate_method: str = "linear",
+    ) -> "IDData":
         """
         Build IDData from a filter object's data_manager.
         """
-        if not hasattr(filter_obj, 'data_manager'):
-            raise ValueError("filter_obj must expose a data_manager with stored DataFrames")
+        if not hasattr(filter_obj, "data_manager"):
+            raise ValueError(
+                "filter_obj must expose a data_manager with stored DataFrames"
+            )
         df = filter_obj.data_manager.get_data(dataset)
         if df is None or not isinstance(df, pd.DataFrame):
             raise ValueError(f"Dataset '{dataset}' not found in filter data_manager")
@@ -430,9 +479,16 @@ class IDData:
             meta = filter_obj.data_manager.get_metadata(dataset)
             cols = list(df.columns)
             if inputs is None:
-                inputs = meta.get('inputs') or cols[:-1]
+                inputs = meta.get("inputs") or cols[:-1]
             if outputs is None:
-                outputs = meta.get('outputs') or cols[-1:]
+                outputs = meta.get("outputs") or cols[-1:]
 
-        return cls(df, inputs, outputs, tsample=tsample, slices=slices,
-                   bad_strategy=bad_strategy, interpolate_method=interpolate_method)
+        return cls(
+            df,
+            inputs,
+            outputs,
+            tsample=tsample,
+            slices=slices,
+            bad_strategy=bad_strategy,
+            interpolate_method=interpolate_method,
+        )

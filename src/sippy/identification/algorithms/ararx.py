@@ -1,6 +1,7 @@
 """
 ARARX (Auto-Regressive Auto-Regressive X) identification algorithm.
 """
+
 import warnings
 
 import numpy as np
@@ -10,8 +11,9 @@ from ..base import IdentificationAlgorithm, StateSpaceModel
 
 try:
     import harold
+
     # Check if harold has the required components
-    if hasattr(harold, 'StateSpace'):
+    if hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -65,11 +67,11 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         bool
             True if parameters are valid
         """
-        nb = kwargs.get('nb', 1)
-        nc = kwargs.get('nc', 1)
-        nd = kwargs.get('nd', 1)
-        nf = kwargs.get('nf', 1)
-        nk = kwargs.get('nk', 0)
+        nb = kwargs.get("nb", 1)
+        nc = kwargs.get("nc", 1)
+        nd = kwargs.get("nd", 1)
+        nf = kwargs.get("nf", 1)
+        nk = kwargs.get("nk", 0)
 
         if nb <= 0:
             raise ValueError("Input order (nb) must be positive")
@@ -106,25 +108,31 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         if iddata is not None:
             u = iddata.get_input_array()
             y = iddata.get_output_array()
-            ts = getattr(iddata, 'sample_time', 1.0) if hasattr(iddata, 'sample_time') else 1.0
-        elif hasattr(y, 'get_input_array'):  # y is actually IDData (backward compatibility)
+            ts = (
+                getattr(iddata, "sample_time", 1.0)
+                if hasattr(iddata, "sample_time")
+                else 1.0
+            )
+        elif hasattr(
+            y, "get_input_array"
+        ):  # y is actually IDData (backward compatibility)
             u = y.get_input_array()
             y = y.get_output_array()
-            ts = getattr(y, 'sample_time', 1.0) if hasattr(y, 'sample_time') else 1.0
+            ts = getattr(y, "sample_time", 1.0) if hasattr(y, "sample_time") else 1.0
         else:
-            ts = kwargs.get('ts', 1.0)
+            ts = kwargs.get("ts", 1.0)
 
         # Extract configuration parameters from kwargs
-        nb = kwargs.get('nb', 1)
-        nc = kwargs.get('nc', 1)
-        nd = kwargs.get('nd', 1)
-        nf = kwargs.get('nf', 1)
-        nk = kwargs.get('nk', 0)
-        na = kwargs.get('na', 0)  # ARARX has na=0
+        nb = kwargs.get("nb", 1)
+        nc = kwargs.get("nc", 1)
+        nd = kwargs.get("nd", 1)
+        nf = kwargs.get("nf", 1)
+        nk = kwargs.get("nk", 0)
+        na = kwargs.get("na", 0)  # ARARX has na=0
 
         # Validate parameters
         self.validate_parameters(nb=nb, nc=nc, nd=nd, nf=nf, nk=nk)
-        
+
         # y and u are already available from either positional args or IDData extraction
 
         # Get data dimensions
@@ -140,7 +148,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         # Check if we have enough data for parameter estimation
         n_params = (nb + nd + nf) + nc  # Total number of parameters
         if N_eff <= 0 or N <= n_params:
-            raise ValueError(f"Not enough data. Need at least {max_lag + 1} samples and more than {n_params} total data points, got {N}")
+            raise ValueError(
+                f"Not enough data. Need at least {max_lag + 1} samples and more than {n_params} total data points, got {N}"
+            )
 
         # Initialize coefficient storage for MIMO case
         if nu > 1 or ny > 1:
@@ -161,7 +171,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                 n_params = (nb + nd + nf) + nc  # Input part + noise AR part
                 Phi = np.zeros((N_eff, n_params))
                 col = 0
-                
+
                 # Input part: B(q)/D(q)F(q)u[k-nk]
                 # For simplicity, use delayed inputs and outputs as regressors
                 # B(q) terms: delayed inputs
@@ -169,7 +179,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                     input_idx = max_lag - nk - lag
                     Phi[:, col] = u[j, input_idx : input_idx + N_eff]
                     col += 1
-                
+
                 # D(q) terms: delayed outputs
                 for lag in range(nd):
                     output_idx = max_lag - 1 - lag
@@ -178,7 +188,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                     else:
                         Phi[:, col] = 0
                     col += 1
-                
+
                 # F(q) terms: additional filtered inputs (simplified as delayed inputs)
                 for lag in range(nf):
                     input_idx = max_lag - nk - lag
@@ -187,16 +197,18 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                     else:
                         Phi[:, col] = 0
                     col += 1
-                
+
                 # Noise AR part: C(q) terms
                 # We'll use iterative approach for noise terms
                 if nc > 0:
                     # Initial estimate without noise correlation
-                    Phi_input = Phi[:, :(nb + nd + nf)]
-                    theta_input, _, _, _ = lstsq(Phi_input, y[i, max_lag : max_lag + N_eff], rcond=None)
+                    Phi_input = Phi[:, : (nb + nd + nf)]
+                    theta_input, _, _, _ = lstsq(
+                        Phi_input, y[i, max_lag : max_lag + N_eff], rcond=None
+                    )
                     y_pred = Phi_input @ theta_input
                     residuals = y[i, max_lag : max_lag + N_eff] - y_pred
-                    
+
                     # Add noise correlation terms
                     for lag in range(nc):
                         if lag == 0:
@@ -205,38 +217,48 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                         else:
                             noise_idx = max_lag - 1 - lag
                             if noise_idx >= 0:
-                                Phi[:, col] = y[i, noise_idx : noise_idx + N_eff] - y_pred[:N_eff]
+                                Phi[:, col] = (
+                                    y[i, noise_idx : noise_idx + N_eff] - y_pred[:N_eff]
+                                )
                             else:
                                 Phi[:, col] = 0
                         col += 1
                 else:
                     # No noise correlation
                     pass
-                
+
                 # Solve for ARARX parameters
-                theta, residuals_i, rank, s = lstsq(Phi, y[i, max_lag : max_lag + N_eff], rcond=None)
+                theta, residuals_i, rank, s = lstsq(
+                    Phi, y[i, max_lag : max_lag + N_eff], rcond=None
+                )
                 residuals_list.append(residuals_i)
-                
+
                 # Extract input and noise coefficients
                 if nu == 1 and ny == 1:
                     # SISO case
-                    B_coeffs[i, :] = theta[:nb + nd + nf]
+                    B_coeffs[i, :] = theta[: nb + nd + nf]
                     if nc > 0:
-                        C_coeffs[i, :] = theta[nb + nd + nf:]
+                        C_coeffs[i, :] = theta[nb + nd + nf :]
                 else:
                     # MIMO case - handle differently
                     pass
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
-            model = self._create_state_space_from_ararx(B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, ts)
+            model = self._create_state_space_from_ararx(
+                B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, ts
+            )
         else:
             # Fallback when harold is not available
-            model = self._create_mock_model(B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, ts)
+            model = self._create_mock_model(
+                B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, ts
+            )
 
         return model
 
-    def _create_state_space_from_ararx(self, B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, Ts):
+    def _create_state_space_from_ararx(
+        self, B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, Ts
+    ):
         """
         Create state-space model from ARARX coefficients using harold.
 
@@ -261,36 +283,40 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         # For ARARX, create a transfer function representation
         # A(q) y(k) = B(q)/D(q)F(q)u[k-nk] + C(q)e[k]
         # With na=0, we have: y(k) = B(q)/D(q)F(q)u[k-nk] + C(q)e[k]
-        
+
         n_states = max(nb, nc, nd, nf)
-        
+
         # Create state-space matrices (companion form)
         A = np.zeros((n_states, n_states))
         B = np.zeros((n_states, nu))
         C = np.zeros((ny, n_states))
         D = np.zeros((ny, nu))
-        
+
         # Build companion form
         if ny == 1 and nu == 1:
             # SISO case
             # State matrix (companion form for input dynamics)
             if n_states > 1:
-                A[:n_states-1, 1:n_states] = np.eye(n_states-1)
-            
+                A[: n_states - 1, 1:n_states] = np.eye(n_states - 1)
+
             # Last row reflects the system dynamics (simplified)
-            A[n_states-1, :] = -B_coeffs[0, :n_states] if n_states <= len(B_coeffs[0]) else 0
-            
+            A[n_states - 1, :] = (
+                -B_coeffs[0, :n_states] if n_states <= len(B_coeffs[0]) else 0
+            )
+
             # Input matrix
-            B[:min(n_states, len(B_coeffs[0])), 0] = B_coeffs[0, :min(n_states, len(B_coeffs[0]))]
-            
+            B[: min(n_states, len(B_coeffs[0])), 0] = B_coeffs[
+                0, : min(n_states, len(B_coeffs[0]))
+            ]
+
             # Output matrix (last state is the output)
             C[0, -1] = 1
-            
+
             # Noise effects handled through C_coeffs
             if nc > 0:
                 # For ARARX, noise affects the system dynamics
                 B_noise = np.zeros((n_states, ny))
-                B_noise[:min(nc, n_states), 0] = C_coeffs[0, :min(nc, n_states)]
+                B_noise[: min(nc, n_states), 0] = C_coeffs[0, : min(nc, n_states)]
                 # In a full implementation, this would be handled more sophisticatedly
         else:
             # MIMO case - simplified implementation
@@ -303,9 +329,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         # Then convert to StateSpace
         tf_model = harold.TransferFunction(num=[1], den=[1, 1], dt=Ts)
         tf_model.NumberOfInputs = nu
-        tf_model.NumberOfOutputs = ny  
+        tf_model.NumberOfOutputs = ny
         tf_model.SamplingPeriod = Ts
-        
+
         # Create harold StateSpace object
         ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
 
@@ -319,7 +345,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             R=np.eye(ss_model.C.shape[0]),
             S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )
 
     def _create_mock_model(self, B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, Ts):
@@ -346,34 +372,34 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         """
         # Create simple companion form state-space representation
         n_states = max(nb, nc, nd, nf)
-        
+
         # State matrix A (companion form)
         A = np.zeros((n_states, n_states))
         if n_states > 1:
-            A[:n_states-1, 1:n_states] = np.eye(n_states-1)
-        
+            A[: n_states - 1, 1:n_states] = np.eye(n_states - 1)
+
         # Set last row based on coefficients (simplified)
         if ny == 1 and nu == 1:
             # Use the first n_states coefficients for the state matrix
             if len(B_coeffs[0]) >= n_states:
-                A[n_states-1, :n_states] = -B_coeffs[0, :n_states]
+                A[n_states - 1, :n_states] = -B_coeffs[0, :n_states]
             else:
-                A[n_states-1, :len(B_coeffs[0])] = -B_coeffs[0, :len(B_coeffs[0])]
+                A[n_states - 1, : len(B_coeffs[0])] = -B_coeffs[0, : len(B_coeffs[0])]
         else:
             # MIMO simplified implementation
-            A[n_states-1, 0] = -0.5  # Placeholder
+            A[n_states - 1, 0] = -0.5  # Placeholder
 
-        # Input matrix B  
+        # Input matrix B
         B = np.zeros((n_states, nu))
         if ny == 1 and nu == 1:
             # Use the first n_states coefficients for the input matrix
             if len(B_coeffs[0]) >= n_states:
                 B[:n_states, 0] = B_coeffs[0, :n_states]
             else:
-                B[:len(B_coeffs[0]), 0] = B_coeffs[0, :len(B_coeffs[0])]
+                B[: len(B_coeffs[0]), 0] = B_coeffs[0, : len(B_coeffs[0])]
                 # Fill remaining states if needed
                 if len(B_coeffs[0]) > 0:
-                    B[len(B_coeffs[0]):n_states, 0] = B_coeffs[0, 0]
+                    B[len(B_coeffs[0]) : n_states, 0] = B_coeffs[0, 0]
         else:
             # MIMO simplified implementation
             B[0, 0] = 1.0  # Placeholder
@@ -401,5 +427,5 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
-            Vn=Vn
+            Vn=Vn,
         )

@@ -1,6 +1,7 @@
 """
 FIR (Finite Impulse Response) identification algorithm.
 """
+
 import warnings
 
 import numpy as np
@@ -8,10 +9,21 @@ from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
 
+# Import compiled utilities for performance
+try:
+    from ...utils.compiled_utils import (
+        create_regression_matrix_fir_compiled,
+        NUMBA_AVAILABLE,
+    )
+except ImportError:
+    create_regression_matrix_fir_compiled = None
+    NUMBA_AVAILABLE = False
+
 try:
     import harold
+
     # Check if harold has the required components
-    if hasattr(harold, 'StateSpace'):
+    if hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -59,8 +71,8 @@ class FIRAlgorithm(IdentificationAlgorithm):
         bool
             True if parameters are valid
         """
-        nb = kwargs.get('nb', 1)
-        nk = kwargs.get('nk', 1)
+        nb = kwargs.get("nb", 1)
+        nk = kwargs.get("nk", 1)
 
         if nb <= 0:
             raise ValueError("Number of FIR coefficients must be positive")
@@ -90,8 +102,8 @@ class FIRAlgorithm(IdentificationAlgorithm):
         y = data.get_output_array()
 
         # Extract configuration parameters (FIR specific)
-        nb = getattr(config, 'nb', 1)
-        nk = getattr(config, 'nk', 1)
+        nb = getattr(config, "nb", 1)
+        nk = getattr(config, "nk", 1)
 
         # Validate parameters
         self.validate_parameters(nb=nb, nk=nk)
@@ -104,7 +116,9 @@ class FIRAlgorithm(IdentificationAlgorithm):
         N_eff = N - nb - nk + 1
 
         if N_eff <= 0:
-            raise ValueError(f"Not enough data points. Need at least {nb + nk} samples, got {N}")
+            raise ValueError(
+                f"Not enough data points. Need at least {nb + nk} samples, got {N}"
+            )
 
         # MIMO case - construct output-specific regression matrices
         fir_coeffs = np.zeros((ny, nb * nu))
@@ -114,36 +128,47 @@ class FIRAlgorithm(IdentificationAlgorithm):
             # For output i, construct regression matrix for this output
             Phi_i = np.zeros((N_eff, nb * nu))
             col = 0
-            
-            # Input part: all lagged inputs affect this output  
+
+            # Input part: all lagged inputs affect this output
             for lag in range(nb):
                 for j in range(nu):
                     delay_idx = N_eff + nk - 1 - lag
                     if delay_idx >= 0 and delay_idx + N_eff <= N:
-                        Phi_i[:, col] = u[j, delay_idx - N_eff + 1 : delay_idx - N_eff + N_eff + 1]
+                        Phi_i[:, col] = u[
+                            j, delay_idx - N_eff + 1 : delay_idx - N_eff + N_eff + 1
+                        ]
                     else:
                         Phi_i[:, col] = 0
                     col += 1
-            
+
             # Solve for output i
-            theta_i, residuals_i, rank_i, s_i = lstsq(Phi_i, y[i, nk + nb - 1 : nk + nb - 1 + N_eff], rcond=None)
+            theta_i, residuals_i, rank_i, s_i = lstsq(
+                Phi_i, y[i, nk + nb - 1 : nk + nb - 1 + N_eff], rcond=None
+            )
             residuals_list.append(residuals_i)
-            
+
             # Extract input coefficients for output i
             fir_coeffs[i, :] = theta_i
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
-            model = self._create_state_space_from_fir(fir_coeffs, nb, nk, ny, nu, data.sample_time)
+            model = self._create_state_space_from_fir(
+                fir_coeffs, nb, nk, ny, nu, data.sample_time
+            )
         else:
             # Fallback when harold is not available
-            model = self._create_mock_model(fir_coeffs, nb, nk, ny, nu, data.sample_time)
+            model = self._create_mock_model(
+                fir_coeffs, nb, nk, ny, nu, data.sample_time
+            )
 
         return model
 
     def _create_regression_matrix(self, u, y, nb, nk, ny, nu, N):
         """
         Create regression matrix Phi and output matrix y for least squares.
+
+        This function automatically uses the Numba-compiled version when available
+        for improved performance.
 
         Parameters:
         -----------
@@ -163,31 +188,37 @@ class FIRAlgorithm(IdentificationAlgorithm):
         y_matrix : ndarray
             Output matrix
         """
-        # Determine effective data length
-        max_lag = nb + nk - 1
-        N_eff = N - max_lag
+        if NUMBA_AVAILABLE and create_regression_matrix_fir_compiled is not None:
+            return create_regression_matrix_fir_compiled(u, y, nb, nk, ny, nu, N)
+        else:
+            # Fallback to original implementation
+            # Determine effective data length
+            max_lag = nb + nk - 1
+            N_eff = N - max_lag
 
-        if N_eff <= 0:
-            raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+            if N_eff <= 0:
+                raise ValueError(
+                    f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+                )
 
-        # Initialize regression matrix
-        n_params = nb * ny * nu
-        Phi = np.zeros((N_eff, n_params))
+            # Initialize regression matrix
+            n_params = nb * ny * nu
+            Phi = np.zeros((N_eff, n_params))
 
-        # Fill FIR part (lagged inputs)
-        for k in range(nb):
-            for i in range(nu):
-                # For MIMO, each input affects all outputs
-                for j in range(ny):
-                    col_idx = k * ny * nu + i * ny + j
-                    delay_idx = max_lag - 1 - k
-                    if delay_idx >= 0 and delay_idx + N_eff <= N:
-                        Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
+            # Fill FIR part (lagged inputs)
+            for k in range(nb):
+                for i in range(nu):
+                    # For MIMO, each input affects all outputs
+                    for j in range(ny):
+                        col_idx = k * ny * nu + i * ny + j
+                        delay_idx = max_lag - 1 - k
+                        if delay_idx >= 0 and delay_idx + N_eff <= N:
+                            Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
 
-        # Output matrix
-        y_matrix = y[:, max_lag : N]
+            # Output matrix
+            y_matrix = y[:, max_lag:N]
 
-        return Phi, y_matrix
+            return Phi, y_matrix
 
     def _create_state_space_from_fir(self, fir_coeffs, nb, nk, ny, nu, Ts):
         """
@@ -241,7 +272,11 @@ class FIRAlgorithm(IdentificationAlgorithm):
                                     D[i, j] = fir_coeffs[i, k * nu + j]
                         else:
                             # Feed-through through states
-                            C[i, k - 1] = fir_coeffs[i, k * nu + j] if k * nu + j < fir_coeffs.shape[1] else 0
+                            C[i, k - 1] = (
+                                fir_coeffs[i, k * nu + j]
+                                if k * nu + j < fir_coeffs.shape[1]
+                                else 0
+                            )
 
         # Create harold StateSpace object
         ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
@@ -256,7 +291,7 @@ class FIRAlgorithm(IdentificationAlgorithm):
             R=np.eye(ss_model.C.shape[0]),
             S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )
 
     def _create_mock_model(self, fir_coeffs, nb, nk, ny, nu, Ts):
@@ -317,5 +352,5 @@ class FIRAlgorithm(IdentificationAlgorithm):
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )

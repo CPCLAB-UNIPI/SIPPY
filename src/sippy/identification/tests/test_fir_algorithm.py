@@ -1,6 +1,7 @@
 """
 Test cases for FIR identification algorithm implementation.
 """
+
 from unittest.mock import patch
 
 import numpy as np
@@ -32,21 +33,13 @@ class TestFIRAlgorithm:
         self.y = y_clean + 0.1 * np.random.randn(self.n_samples)
 
         # Create DataFrame for IDData
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u': self.u,
-            'y': self.y
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame({"u": self.u, "y": self.y}, index=time_index)
 
         # Configure data
-        self.data = IDData(
-            data=data_df,
-            inputs=['u'],
-            outputs=['y'],
-            tsample=1.0
-        )
+        self.data = IDData(data=data_df, inputs=["u"], outputs=["y"], tsample=1.0)
 
-        self.config = SystemIdentificationConfig(method='FIR')
+        self.config = SystemIdentificationConfig(method="FIR")
         # Set FIR-specific parameters
         self.config.nb = 3  # Number of FIR coefficients
         self.config.nk = 1  # Input delay
@@ -62,13 +55,13 @@ class TestFIRAlgorithm:
         algorithm = FIRAlgorithm()
         assert algorithm.get_algorithm_name() == "FIR"
 
-    @patch('sippy.identification.algorithms.fir.HAROLD_AVAILABLE', True)
+    @patch("sippy.identification.algorithms.fir.HAROLD_AVAILABLE", True)
     def test_fir_basic_identification(self):
         """Test basic FIR identification functionality."""
         algorithm = FIRAlgorithm()
 
         # Test that algorithm can be called
-        with patch('sippy.identification.algorithms.fir.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.fir.harold") as mock_harold:
             # Mock the harold state space creation
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.zeros((3, 3))
@@ -90,11 +83,11 @@ class TestFIRAlgorithm:
 
         # Test different coefficient counts
         for nb in [2, 3, 5, 10]:
-            config = SystemIdentificationConfig(method='FIR')
+            config = SystemIdentificationConfig(method="FIR")
             config.nb = nb
             config.nk = 1
 
-            with patch('sippy.identification.algorithms.fir.harold') as mock_harold:
+            with patch("sippy.identification.algorithms.fir.harold") as mock_harold:
                 mock_ss = mock_harold.StateSpace.return_value
                 mock_ss.A = np.zeros((nb, nb))
                 mock_ss.B = np.zeros((nb, 1))
@@ -111,27 +104,22 @@ class TestFIRAlgorithm:
         u = np.random.randn(2, self.n_samples)
         y = np.random.randn(2, self.n_samples)
 
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u1': u[0, :],
-            'u2': u[1, :],
-            'y1': y[0, :],
-            'y2': y[1, :]
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame(
+            {"u1": u[0, :], "u2": u[1, :], "y1": y[0, :], "y2": y[1, :]},
+            index=time_index,
+        )
 
         data = IDData(
-            data=data_df,
-            inputs=['u1', 'u2'],
-            outputs=['y1', 'y2'],
-            tsample=1.0
+            data=data_df, inputs=["u1", "u2"], outputs=["y1", "y2"], tsample=1.0
         )
-        config = SystemIdentificationConfig(method='FIR')
+        config = SystemIdentificationConfig(method="FIR")
         config.nb = 5
         config.nk = 1
 
         algorithm = FIRAlgorithm()
 
-        with patch('sippy.identification.algorithms.fir.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.fir.harold") as mock_harold:
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.zeros((5, 5))
             mock_ss.B = np.zeros((5, 2))
@@ -145,7 +133,7 @@ class TestFIRAlgorithm:
         """Test FIR algorithm graceful degradation without harold."""
         algorithm = FIRAlgorithm()
 
-        with patch('sippy.identification.algorithms.fir.HAROLD_AVAILABLE', False):
+        with patch("sippy.identification.algorithms.fir.HAROLD_AVAILABLE", False):
             result = algorithm.identify(self.data, self.config)
             # Should return a mock model when harold is not available
             assert result is not None
@@ -156,10 +144,12 @@ class TestFIRAlgorithm:
         algorithm = FIRAlgorithm()
 
         # Test with invalid coefficient count
-        invalid_config = SystemIdentificationConfig(method='FIR')
+        invalid_config = SystemIdentificationConfig(method="FIR")
         invalid_config.nb = 0  # Invalid nb
 
-        with pytest.raises(ValueError, match="Number of FIR coefficients must be positive"):
+        with pytest.raises(
+            ValueError, match="Number of FIR coefficients must be positive"
+        ):
             algorithm.identify(self.data, invalid_config)
 
     def test_fir_data_validation(self):
@@ -167,28 +157,31 @@ class TestFIRAlgorithm:
         algorithm = FIRAlgorithm()
 
         # Test with MIMO data
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u1': np.random.randn(self.n_samples),
-            'u2': np.random.randn(self.n_samples),
-            'y1': np.random.randn(self.n_samples),
-            'y2': np.random.randn(self.n_samples),
-            'y3': np.random.randn(self.n_samples)  # Extra output
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame(
+            {
+                "u1": np.random.randn(self.n_samples),
+                "u2": np.random.randn(self.n_samples),
+                "y1": np.random.randn(self.n_samples),
+                "y2": np.random.randn(self.n_samples),
+                "y3": np.random.randn(self.n_samples),  # Extra output
+            },
+            index=time_index,
+        )
 
         data = IDData(
             data=data_df,
-            inputs=['u1', 'u2'],
-            outputs=['y1', 'y2', 'y3'],  # Different number of outputs
-            tsample=1.0
+            inputs=["u1", "u2"],
+            outputs=["y1", "y2", "y3"],  # Different number of outputs
+            tsample=1.0,
         )
 
         # This should work since our algorithm should handle MIMO
-        config = SystemIdentificationConfig(method='FIR')
+        config = SystemIdentificationConfig(method="FIR")
         config.nb = 5
         config.nk = 1
 
-        with patch('sippy.identification.algorithms.fir.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.fir.harold") as mock_harold:
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.eye(5)
             mock_ss.B = np.zeros((5, 2))

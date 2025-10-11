@@ -1,6 +1,7 @@
 """
 PARSIM-S algorithm implementation.
 """
+
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
@@ -24,8 +25,13 @@ class PARSIMSAlgorithm(IdentificationAlgorithm):
         """Return algorithm name."""
         return "PARSIM-S"
 
-    def identify(self, y: Optional[np.ndarray] = None, u: Optional[np.ndarray] = None,
-                 iddata: Optional['IDData'] = None, **kwargs) -> StateSpaceModel:
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Perform PARSIM-S system identification.
 
@@ -50,12 +56,12 @@ class PARSIMSAlgorithm(IdentificationAlgorithm):
         self.validate_parameters(**kwargs)
 
         # Extract parameters with defaults
-        f = kwargs.get('ss_f', 20)
-        p = kwargs.get('ss_p', 20)
-        threshold = kwargs.get('ss_threshold', 0.1)
-        fixed_order = kwargs.get('ss_fixed_order', np.nan)
-        d_required = kwargs.get('ss_d_required', False)
-        tsample = kwargs.get('tsample', 1.0)
+        f = kwargs.get("ss_f", 20)
+        p = kwargs.get("ss_p", 20)
+        threshold = kwargs.get("ss_threshold", 0.1)
+        fixed_order = kwargs.get("ss_fixed_order", np.nan)
+        d_required = kwargs.get("ss_d_required", False)
+        tsample = kwargs.get("tsample", 1.0)
 
         # Call the core PARSIM-S implementation
         try:
@@ -88,16 +94,16 @@ class PARSIMSAlgorithm(IdentificationAlgorithm):
 
     def validate_parameters(self, **kwargs) -> bool:
         """Validate PARSIM-S-specific parameters."""
-        required_params = ['ss_f']
+        required_params = ["ss_f"]
         for param in required_params:
             if param not in kwargs or kwargs[param] is None:
                 raise ValueError(f"Missing required parameter: {param}")
 
-        f = kwargs.get('ss_f')
+        f = kwargs.get("ss_f")
         if not isinstance(f, (int, float)) or f <= 0:
             raise ValueError("ss_f must be a positive number")
 
-        p = kwargs.get('ss_p', f)
+        p = kwargs.get("ss_p", f)
         if not isinstance(p, (int, float)) or p <= 0:
             raise ValueError("ss_p must be a positive number")
 

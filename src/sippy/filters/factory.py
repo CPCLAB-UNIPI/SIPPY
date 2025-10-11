@@ -93,7 +93,9 @@ class FilterFactory:
         return name.lower() in cls._filters
 
     @classmethod
-    def create(cls, name: str, config: Optional[FilterConfig] = None, **kwargs) -> IFilter:
+    def create(
+        cls, name: str, config: Optional[FilterConfig] = None, **kwargs
+    ) -> IFilter:
         """
         Create a filter instance.
 
@@ -119,7 +121,7 @@ class FilterFactory:
         normalized_name = name.lower()
 
         if normalized_name not in cls._filters:
-            available = ', '.join(cls._filters.keys())
+            available = ", ".join(cls._filters.keys())
             raise ValueError(f"Unknown filter '{name}'. Available: {available}")
 
         try:
@@ -133,7 +135,9 @@ class FilterFactory:
                 return filter_class(config)
             else:
                 # Create config from kwargs
-                return (filter_class(FilterConfig(**kwargs)) if kwargs else filter_class())
+                return (
+                    filter_class(FilterConfig(**kwargs)) if kwargs else filter_class()
+                )
 
         except Exception as e:
             raise ValueError(f"Failed to create filter '{name}': {e}")
@@ -161,28 +165,28 @@ class FilterFactory:
         normalized_name = name.lower()
 
         if normalized_name not in cls._filters:
-            available = ', '.join(cls._filters.keys())
+            available = ", ".join(cls._filters.keys())
             raise ValueError(f"Unknown filter '{name}'. Available: {available}")
 
         filter_class = cls._filters[normalized_name]
         return {
-            'name': name,
-            'class': filter_class.__name__,
-            'module': filter_class.__module__,
-            'doc': filter_class.__doc__ or "No documentation available"
+            "name": name,
+            "class": filter_class.__name__,
+            "module": filter_class.__module__,
+            "doc": filter_class.__doc__ or "No documentation available",
         }
 
 
 # Register built-in filters
-FilterFactory.register('highpass', HighPassFilter)
-FilterFactory.register('high_pass', HighPassFilter)
-FilterFactory.register('difference', DifferenceFilter)
-FilterFactory.register('doubledifference', DifferenceFilter)
-FilterFactory.register('diff', DifferenceFilter)
-FilterFactory.register('zeromean', ZeroMeanFilter)
-FilterFactory.register('zero_mean', ZeroMeanFilter)
-FilterFactory.register('none', NoneFilter)
-FilterFactory.register('passthrough', NoneFilter)
+FilterFactory.register("highpass", HighPassFilter)
+FilterFactory.register("high_pass", HighPassFilter)
+FilterFactory.register("difference", DifferenceFilter)
+FilterFactory.register("doubledifference", DifferenceFilter)
+FilterFactory.register("diff", DifferenceFilter)
+FilterFactory.register("zeromean", ZeroMeanFilter)
+FilterFactory.register("zero_mean", ZeroMeanFilter)
+FilterFactory.register("none", NoneFilter)
+FilterFactory.register("passthrough", NoneFilter)
 
 
 def get_filter(filter_type: str, **kwargs) -> IFilter:
@@ -211,7 +215,7 @@ def get_filter(filter_type: str, **kwargs) -> IFilter:
     warnings.warn(
         "get_filter() is deprecated, use FilterFactory.create() instead",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
 
     return FilterFactory.create(filter_type, **kwargs)

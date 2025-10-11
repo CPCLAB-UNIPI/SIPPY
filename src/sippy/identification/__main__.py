@@ -1,6 +1,7 @@
 """
 Main system identification interface.
 """
+
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
@@ -29,8 +30,13 @@ class SystemIdentification:
         """
         self.config = config or SystemIdentificationConfig()
 
-    def identify(self, y: Optional[np.ndarray] = None, u: Optional[np.ndarray] = None,
-                 iddata: Optional['IDData'] = None, **kwargs) -> StateSpaceModel:
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Perform system identification.
 
@@ -61,13 +67,15 @@ class SystemIdentification:
         config_dict = self.config.__dict__.copy()
         config_dict.update(kwargs)
 
-        method = config_dict.get('method', 'N4SID')
+        method = config_dict.get("method", "N4SID")
 
         # Create algorithm instance
         algorithm = create_algorithm(method)
 
         # Apply data centering if specified
-        y_centered, u_centered = self._apply_centering(y, u, config_dict.get('centering', 'None'))
+        y_centered, u_centered = self._apply_centering(
+            y, u, config_dict.get("centering", "None")
+        )
 
         # Perform identification
         model = algorithm.identify(y_centered, u_centered, **config_dict)
@@ -97,13 +105,13 @@ class SystemIdentification:
             y = y[:, :minlength]
             u = u[:, :minlength]
 
-        if centering == 'InitVal':
+        if centering == "InitVal":
             y_rif = 1.0 * y[:, 0]
             u_init = 1.0 * u[:, 0]
             for i in range(ylength):
                 y[:, i] = y[:, i] - y_rif
                 u[:, i] = u[:, i] - u_init
-        elif centering == 'MeanVal':
+        elif centering == "MeanVal":
             y_rif = np.zeros(ydim)
             u_mean = np.zeros(udim)
             for i in range(ydim):
@@ -118,8 +126,13 @@ class SystemIdentification:
 
 
 # Convenience function for backward compatibility
-def system_identification(y: Optional[np.ndarray] = None, u: Optional[np.ndarray] = None,
-                          iddata: Optional['IDData'] = None, id_method: str = 'N4SID', **kwargs) -> StateSpaceModel:
+def system_identification(
+    y: Optional[np.ndarray] = None,
+    u: Optional[np.ndarray] = None,
+    iddata: Optional["IDData"] = None,
+    id_method: str = "N4SID",
+    **kwargs,
+) -> StateSpaceModel:
     """
     Backward compatibility function that mimics the original API.
 
@@ -128,14 +141,14 @@ def system_identification(y: Optional[np.ndarray] = None, u: Optional[np.ndarray
     """
     # Map old parameter names to new ones
     param_mapping = {
-        'SS_fixed_order': 'ss_fixed_order',
-        'SS_max_order': 'ss_max_order',
-        'SS_orders': 'ss_orders',
-        'SS_threshold': 'ss_threshold',
-        'SS_f': 'ss_f',
-        'SS_D_required': 'ss_d_required',
-        'SS_A_stability': 'ss_a_stability',
-        'IC': 'ic'
+        "SS_fixed_order": "ss_fixed_order",
+        "SS_max_order": "ss_max_order",
+        "SS_orders": "ss_orders",
+        "SS_threshold": "ss_threshold",
+        "SS_f": "ss_f",
+        "SS_D_required": "ss_d_required",
+        "SS_A_stability": "ss_a_stability",
+        "IC": "ic",
     }
 
     # Convert parameter names
@@ -143,7 +156,7 @@ def system_identification(y: Optional[np.ndarray] = None, u: Optional[np.ndarray
     for key, value in kwargs.items():
         mapped_key = param_mapping.get(key, key)
         # Don't override method if it's already set via id_method
-        if mapped_key != 'method':
+        if mapped_key != "method":
             mapped_kwargs[mapped_key] = value
 
     config = SystemIdentificationConfig(method=id_method, **mapped_kwargs)

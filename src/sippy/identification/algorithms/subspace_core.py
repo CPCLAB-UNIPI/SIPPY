@@ -26,11 +26,15 @@ try:
     from ...utils.compiled_utils import (
         information_criterion_compiled,
         rescale_compiled,
-        NUMBA_AVAILABLE
+        subspace_weighted_svd_compiled,
+        Z_dot_PIort_compiled,
+        NUMBA_AVAILABLE,
     )
 except ImportError:
     information_criterion_compiled = None
     rescale_compiled = None
+    subspace_weighted_svd_compiled = None
+    Z_dot_PIort_compiled = None
     NUMBA_AVAILABLE = False
 
 
@@ -38,7 +42,7 @@ class SubspaceCoreAlgorithm:
     """Core subspace identification algorithms implementation."""
 
     @staticmethod
-    def svd_weighted(y, u, f, l, weights='N4SID'):
+    def svd_weighted(y, u, f, l, weights="N4SID"):
         """
         Perform weighted SVD for subspace algorithms.
 
@@ -68,16 +72,33 @@ class SubspaceCoreAlgorithm:
         Uf, Up = ordinate_sequence(u, f, f)
         Zp = impile(Up, Yp)
 
-        YfdotPIort_Uf = Z_dot_PIort(Yf, Uf)
-        ZpdotPIort_Uf = Z_dot_PIort(Zp, Uf)
+        # Use compiled Z_dot_PIort when available
+        if NUMBA_AVAILABLE and Z_dot_PIort_compiled is not None:
+            try:
+                YfdotPIort_Uf = Z_dot_PIort_compiled(Yf, Uf)
+                ZpdotPIort_Uf = Z_dot_PIort_compiled(Zp, Uf)
+            except Exception:
+                # Fallback to original
+                YfdotPIort_Uf = Z_dot_PIort(Yf, Uf)
+                ZpdotPIort_Uf = Z_dot_PIort(Zp, Uf)
+        else:
+            YfdotPIort_Uf = Z_dot_PIort(Yf, Uf)
+            ZpdotPIort_Uf = Z_dot_PIort(Zp, Uf)
+
         O_i = np.dot(np.dot(YfdotPIort_Uf, pinv(ZpdotPIort_Uf)), Zp)
 
-        if weights == 'MOESP':
+        if weights == "MOESP":
             W1 = None
-            OidotPIort_Uf = Z_dot_PIort(O_i, Uf)
+            if NUMBA_AVAILABLE and Z_dot_PIort_compiled is not None:
+                try:
+                    OidotPIort_Uf = Z_dot_PIort_compiled(O_i, Uf)
+                except Exception:
+                    OidotPIort_Uf = Z_dot_PIort(O_i, Uf)
+            else:
+                OidotPIort_Uf = Z_dot_PIort(O_i, Uf)
             U_n, S_n, V_n = np.linalg.svd(OidotPIort_Uf, full_matrices=False)
 
-        elif weights == 'CVA':
+        elif weights == "CVA":
             YfdotPIort_Uf_YfdotPIort_Uf_T = np.dot(YfdotPIort_Uf, YfdotPIort_Uf.T)
             if YfdotPIort_Uf_YfdotPIort_Uf_T.shape[0] == 0:
                 warnings.warn("CVA weighting failed, falling back to N4SID")
@@ -88,10 +109,18 @@ class SubspaceCoreAlgorithm:
                 sqrt_term_real = sqrt_term.real
                 W1 = np.linalg.inv(sqrt_term_real)
                 W1dotOi = np.dot(W1, O_i)
-                W1_dot_Oi_dot_PIort_Uf = Z_dot_PIort(W1dotOi, Uf)
-                U_n, S_n, V_n = np.linalg.svd(W1_dot_Oi_dot_PIort_Uf, full_matrices=False)
+                if NUMBA_AVAILABLE and Z_dot_PIort_compiled is not None:
+                    try:
+                        W1_dot_Oi_dot_PIort_Uf = Z_dot_PIort_compiled(W1dotOi, Uf)
+                    except Exception:
+                        W1_dot_Oi_dot_PIort_Uf = Z_dot_PIort(W1dotOi, Uf)
+                else:
+                    W1_dot_Oi_dot_PIort_Uf = Z_dot_PIort(W1dotOi, Uf)
+                U_n, S_n, V_n = np.linalg.svd(
+                    W1_dot_Oi_dot_PIort_Uf, full_matrices=False
+                )
 
-        elif weights == 'N4SID':
+        elif weights == "N4SID":
             W1 = None  # is identity
             U_n, S_n, V_n = np.linalg.svd(O_i, full_matrices=False)
         else:
@@ -100,7 +129,9 @@ class SubspaceCoreAlgorithm:
         return U_n, S_n, V_n, W1, O_i
 
     @staticmethod
-    def algorithm_1(y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, D_required):
+    def algorithm_1(
+        y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, threshold, max_order, D_required
+    ):
         """
         Algorithm 1 from subspace identification literature.
 
@@ -149,8 +180,8 @@ class SubspaceCoreAlgorithm:
             Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
 
         X_fd = np.dot(np.linalg.pinv(Ob), O_i)
-        Sxterm = impile(X_fd[:, 1:N], y[:, f:f + N - 1])
-        Dxterm = impile(X_fd[:, 0:N - 1], u[:, f:f + N - 1])
+        Sxterm = impile(X_fd[:, 1:N], y[:, f : f + N - 1])
+        Dxterm = impile(X_fd[:, 0 : N - 1], u[:, f : f + N - 1])
 
         if D_required:
             M = np.dot(Sxterm, np.linalg.pinv(Dxterm))
@@ -196,20 +227,27 @@ class SubspaceCoreAlgorithm:
             Whether A was forced stable
         """
         Forced_A = False
-        if np.max(np.abs(np.linalg.eigvals(M[0:n, 0:n]))) >= 1.:
+        if np.max(np.abs(np.linalg.eigvals(M[0:n, 0:n]))) >= 1.0:
             Forced_A = True
             warnings.warn("Forcing A stability")
-            M[0:n, 0:n] = np.dot(np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n))))
+            M[0:n, 0:n] = np.dot(
+                np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n)))
+            )
 
-            if np.linalg.det(u[:, f:f + N - 1]) != 0:
-                B_new = np.dot(X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0:N - 1]),
-                             np.linalg.pinv(u[:, f:f + N - 1]))
+            if np.linalg.det(u[:, f : f + N - 1]) != 0:
+                B_new = np.dot(
+                    X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1]),
+                    np.linalg.pinv(u[:, f : f + N - 1]),
+                )
                 M[0:n, n::] = B_new
             else:
                 warnings.warn("Cannot compute B matrix due to singular input data")
 
-        res = X_fd[:, 1:N] - np.dot(M[0:n, 0:n], X_fd[:, 0:N - 1]) - np.dot(M[0:n, n::],
-                                                                               u[:, f:f + N - 1])
+        res = (
+            X_fd[:, 1:N]
+            - np.dot(M[0:n, 0:n], X_fd[:, 0 : N - 1])
+            - np.dot(M[0:n, n::], u[:, f : f + N - 1])
+        )
         return M, res, Forced_A
 
     @staticmethod
@@ -236,8 +274,17 @@ class SubspaceCoreAlgorithm:
         return A, B, C, D
 
     @staticmethod
-    def olsims(y, u, f, weights='N4SID', threshold=0.1, max_order=np.nan,
-               fixed_order=np.nan, D_required=False, A_stability=False):
+    def olsims(
+        y,
+        u,
+        f,
+        weights="N4SID",
+        threshold=0.1,
+        max_order=np.nan,
+        fixed_order=np.nan,
+        D_required=False,
+        A_stability=False,
+    ):
         """
         Main subspace identification implementation.
 
@@ -273,8 +320,8 @@ class SubspaceCoreAlgorithm:
         K : ndarray
             Kalman gain
         """
-        y = 1. * np.atleast_2d(y)
-        u = 1. * np.atleast_2d(u)
+        y = 1.0 * np.atleast_2d(y)
+        u = 1.0 * np.atleast_2d(u)
         l, L = y.shape
         m = u[:, 0].size
 
@@ -285,7 +332,9 @@ class SubspaceCoreAlgorithm:
         N = L - 2 * f + 1
 
         if N <= 0:
-            raise ValueError(f"Not enough data points. Need at least {2 * f + 1} points, got {L}")
+            raise ValueError(
+                f"Not enough data points. Need at least {2 * f + 1} points, got {L}"
+            )
 
         # Standardize inputs and outputs
         Ustd = np.zeros(m)
@@ -345,8 +394,17 @@ class SubspaceCoreAlgorithm:
         return A, B, C, D, Vn, Q, R, S, K
 
     @staticmethod
-    def select_order(y, u, f=20, weights='N4SID', method='AIC', orders=[1, 10],
-                    ss_threshold=0.1, D_required=False, A_stability=False):
+    def select_order(
+        y,
+        u,
+        f=20,
+        weights="N4SID",
+        method="AIC",
+        orders=[1, 10],
+        ss_threshold=0.1,
+        D_required=False,
+        A_stability=False,
+    ):
         """
         Select optimal model order using information criteria.
 
@@ -382,8 +440,8 @@ class SubspaceCoreAlgorithm:
         K : ndarray
             Kalman gain
         """
-        y = 1. * np.atleast_2d(y)
-        u = 1. * np.atleast_2d(u)
+        y = 1.0 * np.atleast_2d(y)
+        u = 1.0 * np.atleast_2d(u)
         min_ord = min(orders)
         l, L = y.shape
         m, L = u.shape
@@ -397,10 +455,14 @@ class SubspaceCoreAlgorithm:
 
         max_ord = max(orders) + 1
         if f < min_ord:
-            warnings.warn(f"The horizon must be larger than the model order, min_order set to f={f}")
+            warnings.warn(
+                f"The horizon must be larger than the model order, min_order set to f={f}"
+            )
             min_ord = f
         if f < max_ord - 1:
-            warnings.warn(f"The horizon must be larger than the model order, max_order set to f={f}")
+            warnings.warn(
+                f"The horizon must be larger than the model order, max_order set to f={f}"
+            )
             max_ord = f + 1
 
         IC_old = np.inf
@@ -430,7 +492,9 @@ class SubspaceCoreAlgorithm:
             )
 
             if A_stability:
-                _, _, ForcedA = SubspaceCoreAlgorithm.force_a_stability(M, n, Ob, l, X_fd, N, u, f)
+                _, _, ForcedA = SubspaceCoreAlgorithm.force_a_stability(
+                    M, n, Ob, l, X_fd, N, u, f
+                )
                 if ForcedA:
                     warnings.warn(f"A stability forced at n={n}")
 
@@ -446,7 +510,7 @@ class SubspaceCoreAlgorithm:
 
             # Use compiled information criterion if available
             if NUMBA_AVAILABLE and information_criterion_compiled is not None:
-                method_map = {'AIC': 0, 'AICc': 1, 'BIC': 2}
+                method_map = {"AIC": 0, "AICc": 1, "BIC": 2}
                 method_code = method_map.get(method, 0)
                 IC = information_criterion_compiled(K_par, L, Vn, method_code)
             else:
@@ -463,7 +527,9 @@ class SubspaceCoreAlgorithm:
         )
 
         if A_stability:
-            _, _, _ = SubspaceCoreAlgorithm.force_a_stability(M, n, Ob, l, X_fd, N, u, f)
+            _, _, _ = SubspaceCoreAlgorithm.force_a_stability(
+                M, n, Ob, l, X_fd, N, u, f
+            )
 
         A, B, C, D = SubspaceCoreAlgorithm.extract_matrices(M, n)
         Covariances = np.dot(residuals, residuals.T) / (N - 1)

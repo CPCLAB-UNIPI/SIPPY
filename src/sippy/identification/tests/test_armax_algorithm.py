@@ -1,6 +1,7 @@
 """
 Test cases for ARMAX identification algorithm implementation.
 """
+
 from unittest.mock import patch
 
 import numpy as np
@@ -26,25 +27,17 @@ class TestARMAXAlgorithm:
         e = np.random.randn(self.n_samples) * 0.1
         y_clean = np.zeros(self.n_samples)
         for k in range(1, self.n_samples):
-            y_clean[k] = 0.7 * y_clean[k-1] + 0.5 * self.u[k-1] + 0.3 * e[k-1]
+            y_clean[k] = 0.7 * y_clean[k - 1] + 0.5 * self.u[k - 1] + 0.3 * e[k - 1]
         self.y = y_clean + 0.05 * np.random.randn(self.n_samples)
 
         # Create DataFrame for IDData
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u': self.u,
-            'y': self.y
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame({"u": self.u, "y": self.y}, index=time_index)
 
         # Configure data
-        self.data = IDData(
-            data=data_df,
-            inputs=['u'],
-            outputs=['y'],
-            tsample=1.0
-        )
+        self.data = IDData(data=data_df, inputs=["u"], outputs=["y"], tsample=1.0)
 
-        self.config = SystemIdentificationConfig(method='ARMAX')
+        self.config = SystemIdentificationConfig(method="ARMAX")
         # Set ARMAX-specific parameters
         self.config.na = 1  # AR order
         self.config.nb = 1  # X order
@@ -78,15 +71,17 @@ class TestARMAXAlgorithm:
             algorithm.validate_parameters(na=1, nb=0, nc=1, nk=0)
         with pytest.raises(ValueError, match="MA order \\(nc\\) must be positive"):
             algorithm.validate_parameters(na=1, nb=1, nc=0, nk=0)
-        with pytest.raises(ValueError, match="Input delay \\(nk\\) must be non-negative"):
+        with pytest.raises(
+            ValueError, match="Input delay \\(nk\\) must be non-negative"
+        ):
             algorithm.validate_parameters(na=1, nb=1, nc=1, nk=-1)
 
-    @patch('sippy.identification.algorithms.armax.HAROLD_AVAILABLE', True)
+    @patch("sippy.identification.algorithms.armax.HAROLD_AVAILABLE", True)
     def test_armax_basic_identification(self):
         """Test basic ARMAX identification functionality."""
         algorithm = ARMAXAlgorithm()
 
-        with patch('sippy.identification.algorithms.armax.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.armax.harold") as mock_harold:
             # Mock the harold state space creation
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.eye(3)
@@ -108,13 +103,13 @@ class TestARMAXAlgorithm:
 
         # Test different orders
         for na, nb, nc in [(1, 1, 1), (2, 2, 1), (1, 2, 2), (2, 1, 2)]:
-            config = SystemIdentificationConfig(method='ARMAX')
+            config = SystemIdentificationConfig(method="ARMAX")
             config.na = na
             config.nb = nb
             config.nc = nc
             config.nk = 1
 
-            with patch('sippy.identification.algorithms.armax.harold') as mock_harold:
+            with patch("sippy.identification.algorithms.armax.harold") as mock_harold:
                 mock_ss = mock_harold.StateSpace.return_value
                 mock_ss.A = np.eye(na + nc)
                 mock_ss.B = np.zeros((na + nc, 1))
@@ -131,21 +126,16 @@ class TestARMAXAlgorithm:
         u = np.random.randn(2, self.n_samples)
         y = np.random.randn(2, self.n_samples)
 
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u1': u[0, :],
-            'u2': u[1, :],
-            'y1': y[0, :],
-            'y2': y[1, :]
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame(
+            {"u1": u[0, :], "u2": u[1, :], "y1": y[0, :], "y2": y[1, :]},
+            index=time_index,
+        )
 
         data = IDData(
-            data=data_df,
-            inputs=['u1', 'u2'],
-            outputs=['y1', 'y2'],
-            tsample=1.0
+            data=data_df, inputs=["u1", "u2"], outputs=["y1", "y2"], tsample=1.0
         )
-        config = SystemIdentificationConfig(method='ARMAX')
+        config = SystemIdentificationConfig(method="ARMAX")
         config.na = 1
         config.nb = 1
         config.nc = 1
@@ -153,7 +143,7 @@ class TestARMAXAlgorithm:
 
         algorithm = ARMAXAlgorithm()
 
-        with patch('sippy.identification.algorithms.armax.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.armax.harold") as mock_harold:
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.eye(3)
             mock_ss.B = np.zeros((3, 2))
@@ -167,7 +157,7 @@ class TestARMAXAlgorithm:
         """Test ARMAX algorithm graceful degradation without harold."""
         algorithm = ARMAXAlgorithm()
 
-        with patch('sippy.identification.algorithms.armax.HAROLD_AVAILABLE', False):
+        with patch("sippy.identification.algorithms.armax.HAROLD_AVAILABLE", False):
             result = algorithm.identify(self.data, self.config)
             # Should return a mock model when harold is not available
             assert result is not None
@@ -178,20 +168,17 @@ class TestARMAXAlgorithm:
         algorithm = ARMAXAlgorithm()
 
         # Test with insufficient data
-        small_data_time_index = pd.date_range('2023-01-01', periods=5, freq='1s')
-        small_data_df = pd.DataFrame({
-            'u': np.random.randn(5),
-            'y': np.random.randn(5)
-        }, index=small_data_time_index)
-
-        small_data = IDData(
-            data=small_data_df,
-            inputs=['u'],
-            outputs=['y'],
-            tsample=1.0
+        small_data_time_index = pd.date_range("2023-01-01", periods=5, freq="1s")
+        small_data_df = pd.DataFrame(
+            {"u": np.random.randn(5), "y": np.random.randn(5)},
+            index=small_data_time_index,
         )
 
-        config = SystemIdentificationConfig(method='ARMAX')
+        small_data = IDData(
+            data=small_data_df, inputs=["u"], outputs=["y"], tsample=1.0
+        )
+
+        config = SystemIdentificationConfig(method="ARMAX")
         config.na = 4  # Requires more data than available
         config.nb = 2
         config.nc = 2
@@ -204,13 +191,13 @@ class TestARMAXAlgorithm:
         """Test that ARMAX calculates correct model order."""
         algorithm = ARMAXAlgorithm()
 
-        config = SystemIdentificationConfig(method='ARMAX')
+        config = SystemIdentificationConfig(method="ARMAX")
         config.na = 2
         config.nb = 1
         config.nc = 1
         config.nk = 0
 
-        with patch('sippy.identification.algorithms.armax.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.armax.harold") as mock_harold:
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.eye(3)  # na + nc = 3
             mock_ss.B = np.zeros((3, 1))
@@ -225,13 +212,13 @@ class TestARMAXAlgorithm:
         """Test ARMAX properly models noise dynamics."""
         algorithm = ARMAXAlgorithm()
 
-        config = SystemIdentificationConfig(method='ARMAX')
+        config = SystemIdentificationConfig(method="ARMAX")
         config.na = 1
         config.nb = 1
         config.nc = 1
         config.nk = 0
 
-        with patch('sippy.identification.algorithms.armax.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.armax.harold") as mock_harold:
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.array([[0.7, 0.3], [-0.2, -0.5]])
             mock_ss.B = np.array([[0.5], [0.1]])

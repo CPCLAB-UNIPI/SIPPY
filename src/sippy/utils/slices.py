@@ -11,7 +11,9 @@ import numpy as np
 import pandas as pd
 
 
-def _normalize_targets(columns: Iterable[str], slice_info: Dict[str, Any]) -> Iterable[str]:
+def _normalize_targets(
+    columns: Iterable[str], slice_info: Dict[str, Any]
+) -> Iterable[str]:
     if slice_info.get("isGlobal", False):
         return list(columns)
     tags = slice_info.get("tags", []) or []

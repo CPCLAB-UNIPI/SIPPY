@@ -1,6 +1,7 @@
 """
 ARMAX (AutoRegressive Moving Average with eXogenous inputs) identification algorithm.
 """
+
 import warnings
 
 import numpy as np
@@ -8,10 +9,21 @@ from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
 
+# Import compiled utilities for performance
+try:
+    from ...utils.compiled_utils import (
+        create_regression_matrix_armax_compiled,
+        NUMBA_AVAILABLE,
+    )
+except ImportError:
+    create_regression_matrix_armax_compiled = None
+    NUMBA_AVAILABLE = False
+
 try:
     import harold
+
     # Check if harold has the required components
-    if hasattr(harold, 'StateSpace'):
+    if hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -61,10 +73,10 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         bool
             True if parameters are valid
         """
-        na = kwargs.get('na', 1)
-        nb = kwargs.get('nb', 1)
-        nc = kwargs.get('nc', 1)
-        nk = kwargs.get('nk', 1)
+        na = kwargs.get("na", 1)
+        nb = kwargs.get("nb", 1)
+        nc = kwargs.get("nc", 1)
+        nk = kwargs.get("nk", 1)
 
         if na <= 0:
             raise ValueError("AR order (na) must be positive")
@@ -98,10 +110,10 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         y = data.get_output_array()
 
         # Extract configuration parameters (ARMAX specific)
-        na = getattr(config, 'na', 1)
-        nb = getattr(config, 'nb', 1)
-        nc = getattr(config, 'nc', 1)
-        nk = getattr(config, 'nk', 1)
+        na = getattr(config, "na", 1)
+        nb = getattr(config, "nb", 1)
+        nc = getattr(config, "nc", 1)
+        nk = getattr(config, "nk", 1)
 
         # Validate parameters
         self.validate_parameters(na=na, nb=nb, nc=nc, nk=nk)
@@ -111,7 +123,9 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         nu, _ = u.shape
 
         # Create regression matrices for ARMAX identification
-        Phi, y_matrix = self._create_armax_regression_matrices(u, y, na, nb, nc, nk, ny, nu, N)
+        Phi, y_matrix = self._create_armax_regression_matrices(
+            u, y, na, nb, nc, nk, ny, nu, N
+        )
 
         # Estimate parameters using least squares - handle dimensions properly
         if ny == 1:
@@ -122,23 +136,33 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
             theta_list = []
             residuals_list = []
             for i in range(ny):
-                theta_i, residuals_i, rank_i, s_i = lstsq(Phi, y_matrix[i, :], rcond=None)
+                theta_i, residuals_i, rank_i, s_i = lstsq(
+                    Phi, y_matrix[i, :], rcond=None
+                )
                 theta_list.append(theta_i)
                 residuals_list.append(residuals_i)
             theta = np.concatenate(theta_list)
-            np.concatenate(residuals_list) if all(r is not None and r.size > 0 for r in residuals_list) else []
+            np.concatenate(residuals_list) if all(
+                r is not None and r.size > 0 for r in residuals_list
+            ) else []
 
         # Reshape parameters into matrices
-        A_coeffs = theta[:na * ny].reshape(ny, na)
-        B_coeffs = theta[na * ny:na * ny + nb * ny * nu].reshape(ny, nb * nu)
-        C_coeffs = theta[na * ny + nb * ny * nu:na * ny + nb * ny * nu + nc * ny].reshape(ny, nc)
+        A_coeffs = theta[: na * ny].reshape(ny, na)
+        B_coeffs = theta[na * ny : na * ny + nb * ny * nu].reshape(ny, nb * nu)
+        C_coeffs = theta[
+            na * ny + nb * ny * nu : na * ny + nb * ny * nu + nc * ny
+        ].reshape(ny, nc)
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
-            model = self._create_state_space_from_armax(A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, data.sample_time)
+            model = self._create_state_space_from_armax(
+                A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, data.sample_time
+            )
         else:
             # Fallback when harold is not available
-            model = self._create_mock_model(A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, data.sample_time)
+            model = self._create_mock_model(
+                A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, data.sample_time
+            )
 
         return model
 
@@ -146,7 +170,8 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         """
         Create regression matrices Phi and output matrix y for ARMAX identification.
 
-        This uses the extended least-squares approach to handle the moving average part.
+        This function automatically uses the Numba-compiled version when available
+        for improved performance. The extended least-squares approach handles the moving average part.
 
         Parameters:
         -----------
@@ -166,47 +191,57 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         y_matrix : ndarray
             Output matrix
         """
-        # Determine effective data length
-        max_lag = max(na + nc, nb + nk - 1)
-        N_eff = N - max_lag
+        if NUMBA_AVAILABLE and create_regression_matrix_armax_compiled is not None:
+            return create_regression_matrix_armax_compiled(
+                u, y, na, nb, nc, nk, ny, nu, N
+            )
+        else:
+            # Fallback to original implementation
+            # Determine effective data length
+            max_lag = max(na + nc, nb + nk - 1)
+            N_eff = N - max_lag
 
-        if N_eff <= 0:
-            raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+            if N_eff <= 0:
+                raise ValueError(
+                    f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+                )
 
-        # Initialize regression matrix
-        n_params = na * ny + nb * ny * nu + nc * ny  # AR + X + MA terms
-        Phi = np.zeros((N_eff, n_params))
+            # Initialize regression matrix
+            n_params = na * ny + nb * ny * nu + nc * ny  # AR + X + MA terms
+            Phi = np.zeros((N_eff, n_params))
 
-        # Fill AR part (lagged outputs)
-        for i in range(na):
-            for j in range(ny):
-                col_idx = i * ny + j
-                Phi[:, col_idx] = y[j, max_lag - 1 - i : max_lag - 1 - i + N_eff]
-
-        # Fill X part (lagged inputs)
-        for k in range(nb):
-            for i in range(nu):
+            # Fill AR part (lagged outputs)
+            for i in range(na):
                 for j in range(ny):
-                    col_idx = na * ny + k * ny * nu + i * ny + j
-                    delay_idx = max_lag - 1 - (k + nk - 1)
-                    if delay_idx >= 0 and delay_idx + N_eff <= N:
-                        Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
+                    col_idx = i * ny + j
+                    Phi[:, col_idx] = y[j, max_lag - 1 - i : max_lag - 1 - i + N_eff]
 
-        # Fill MA part (estimated noise terms)
-        # For ARMAX, we use a simplified approach by assuming noise can be estimated
-        # In practice, this would require iterative estimation
-        for i in range(nc):
-            for j in range(ny):
-                col_idx = na * ny + nb * ny * nu + i * ny + j
-                # Initialize with small random values (would need proper estimation)
-                Phi[:, col_idx] = np.random.randn(N_eff) * 0.01
+            # Fill X part (lagged inputs)
+            for k in range(nb):
+                for i in range(nu):
+                    for j in range(ny):
+                        col_idx = na * ny + k * ny * nu + i * ny + j
+                        delay_idx = max_lag - 1 - (k + nk - 1)
+                        if delay_idx >= 0 and delay_idx + N_eff <= N:
+                            Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
 
-        # Output matrix - ensure proper flattening for MIMO
-        y_matrix = y[:, max_lag : N]
+            # Fill MA part (estimated noise terms)
+            # For ARMAX, we use a simplified approach by assuming noise can be estimated
+            # In practice, this would require iterative estimation
+            for i in range(nc):
+                for j in range(ny):
+                    col_idx = na * ny + nb * ny * nu + i * ny + j
+                    # Initialize with small random values (would need proper estimation)
+                    Phi[:, col_idx] = np.random.randn(N_eff) * 0.01
 
-        return Phi, y_matrix
+            # Output matrix - ensure proper flattening for MIMO
+            y_matrix = y[:, max_lag:N]
 
-    def _create_state_space_from_armax(self, A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, Ts):
+            return Phi, y_matrix
+
+    def _create_state_space_from_armax(
+        self, A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, Ts
+    ):
         """
         Create state-space model from ARMAX parameters using harold.
 
@@ -239,8 +274,8 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
 
         # Add MA dynamics in bottom block
         if nc > 0:
-            A[na:na+nc, na:na+nc] = np.eye(nc)
-            A[:na, na:na+nc] = np.zeros((na, nc))
+            A[na : na + nc, na : na + nc] = np.eye(nc)
+            A[:na, na : na + nc] = np.zeros((na, nc))
 
         # B matrix - input coupling
         B = np.zeros((n_states, nu))
@@ -271,10 +306,12 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
             R=np.eye(ss_model.C.shape[0]),
             S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )
 
-    def _create_mock_model(self, A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, Ts):
+    def _create_mock_model(
+        self, A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, Ts
+    ):
         """
         Create a mock state-space model when harold is not available.
 
@@ -309,19 +346,19 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
                 # Fallback assignment
                 for i in range(nc):
                     for j in range(ny):
-                        A[-nc+i, j] = -A_coeffs[j, i] if A_coeffs.shape[1] > i else 0
+                        A[-nc + i, j] = -A_coeffs[j, i] if A_coeffs.shape[1] > i else 0
         if nc > 0:
-            A[na:na+nc, na:na+nc] = np.eye(nc)
+            A[na : na + nc, na : na + nc] = np.eye(nc)
 
         # Input matrix
         B = np.zeros((n_states, nu))
         if nu > 0 and nb >= na:
             # Simple case when nb >= na, can use reshape
             if B_coeffs.shape == (ny, nb * nu):
-                temp_B = B_coeffs[:, :na * nu].reshape(ny, na, nu).mean(axis=0)
+                temp_B = B_coeffs[:, : na * nu].reshape(ny, na, nu).mean(axis=0)
                 B[:na, :] = temp_B
             else:
-                B[:na, :] = B_coeffs[:na * nu].reshape(na, nu)
+                B[:na, :] = B_coeffs[: na * nu].reshape(na, nu)
         elif nu > 0:
             # Handle case when nb < na
             B[:na, :] = 0  # Zero fill if insufficient coefficients
@@ -343,7 +380,12 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         D = np.zeros((ny, nu))
 
         # Validate matrix dimensions
-        if A.shape != (n_states, n_states) or B.shape != (n_states, nu) or C.shape != (ny, n_states) or D.shape != (ny, nu):
+        if (
+            A.shape != (n_states, n_states)
+            or B.shape != (n_states, nu)
+            or C.shape != (ny, n_states)
+            or D.shape != (ny, nu)
+        ):
             raise ValueError("Matrix dimension mismatch in state-space model creation")
 
         return StateSpaceModel(
@@ -356,5 +398,5 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )

@@ -13,12 +13,12 @@ from .none_filter import NoneFilter
 from .zero_mean import ZeroMeanFilter
 
 __all__ = [
-    'FilterFactory',
-    'IFilter',
-    'FilterConfig',
-    'FilterDataManager',
-    'HighPassFilter',
-    'DifferenceFilter',
-    'ZeroMeanFilter',
-    'NoneFilter'
+    "FilterFactory",
+    "IFilter",
+    "FilterConfig",
+    "FilterDataManager",
+    "HighPassFilter",
+    "DifferenceFilter",
+    "ZeroMeanFilter",
+    "NoneFilter",
 ]

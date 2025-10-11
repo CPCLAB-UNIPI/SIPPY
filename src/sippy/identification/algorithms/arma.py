@@ -1,6 +1,7 @@
 """
 ARMA (AutoRegressive Moving Average) identification algorithm.
 """
+
 import warnings
 
 import numpy as np
@@ -10,8 +11,9 @@ from ..base import IdentificationAlgorithm, StateSpaceModel
 
 try:
     import harold
+
     # Check if harold has the required components
-    if hasattr(harold, 'StateSpace'):
+    if hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -63,8 +65,8 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         bool
             True if parameters are valid
         """
-        na = kwargs.get('na', 1)
-        nc = kwargs.get('nc', 1)
+        na = kwargs.get("na", 1)
+        nc = kwargs.get("nc", 1)
 
         if na <= 0:
             raise ValueError("AR order (na) must be positive")
@@ -94,9 +96,9 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         y = data.get_output_array()
 
         # Extract configuration parameters (ARMA specific)
-        na = getattr(config, 'na', 1)
-        nc = getattr(config, 'nc', 1)
-        nk = getattr(config, 'nk', 0)  # Not used in ARMA but keep for consistency
+        na = getattr(config, "na", 1)
+        nc = getattr(config, "nc", 1)
+        nk = getattr(config, "nk", 0)  # Not used in ARMA but keep for consistency
 
         # Validate parameters
         self.validate_parameters(na=na, nc=nc)
@@ -113,7 +115,9 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         N_eff = N - max_lag
 
         if N_eff <= 0:
-            raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+            raise ValueError(
+                f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+            )
 
         # MIMO case - handle each output separately (ARMA is typically SISO time series)
         AR_coeffs = np.zeros((ny, na))
@@ -126,22 +130,24 @@ class ARMAAlgorithm(IdentificationAlgorithm):
             n_params = na + nc  # Only AR and MA coefficients
             Phi = np.zeros((N_eff, n_params))
             col = 0
-            
+
             # AR part: lagged outputs
             for lag in range(na):
                 Phi[:, col] = y[i, max_lag - 1 - lag : max_lag - 1 - lag + N_eff]
                 col += 1
-            
+
             # MA part: since we don't have access to noise terms directly,
             # we use an iterative approach or approximate method
             # For simplicity, use residuals from initial AR fit as noise estimate
             if nc > 0:
                 # Initial AR-only estimate to get residuals
                 Phi_ar = Phi[:, :na]
-                theta_ar, _, _, _ = lstsq(Phi_ar, y[i, max_lag : max_lag + N_eff], rcond=None)
+                theta_ar, _, _, _ = lstsq(
+                    Phi_ar, y[i, max_lag : max_lag + N_eff], rcond=None
+                )
                 ar_pred = Phi_ar @ theta_ar
                 residuals = y[i, max_lag : max_lag + N_eff] - ar_pred
-                
+
                 # MA part: use residuals as approximation of past noise terms
                 for lag in range(nc):
                     if lag == 0:
@@ -159,11 +165,13 @@ class ARMAAlgorithm(IdentificationAlgorithm):
             else:
                 # No MA coefficients needed
                 pass
-            
+
             # Solve for ARMA parameters
-            theta, residuals_i, rank, s = lstsq(Phi, y[i, max_lag : max_lag + N_eff], rcond=None)
+            theta, residuals_i, rank, s = lstsq(
+                Phi, y[i, max_lag : max_lag + N_eff], rcond=None
+            )
             residuals_list.append(residuals_i)
-            
+
             # Extract AR and MA coefficients
             AR_coeffs[i, :] = theta[:na]
             if nc > 0:
@@ -171,10 +179,14 @@ class ARMAAlgorithm(IdentificationAlgorithm):
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
-            model = self._create_state_space_from_arma(AR_coeffs, MA_coeffs, na, nc, ny, data.sample_time)
+            model = self._create_state_space_from_arma(
+                AR_coeffs, MA_coeffs, na, nc, ny, data.sample_time
+            )
         else:
             # Fallback when harold is not available
-            model = self._create_mock_model(AR_coeffs, MA_coeffs, na, nc, ny, data.sample_time)
+            model = self._create_mock_model(
+                AR_coeffs, MA_coeffs, na, nc, ny, data.sample_time
+            )
 
         return model
 
@@ -200,7 +212,7 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         """
         # For ARMA, we create a transfer function representation
         # A(q) y(k) = C(q) e(k) -> y(k) = C(q)/A(q) * e(k)
-        
+
         # Create state-space model for each output (SISO for simplicity)
         # Use companion form for the AR part
         n_states = max(na, nc)
@@ -208,30 +220,30 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         B = np.zeros((n_states, ny))  # Noise input
         C = np.zeros((ny, n_states))
         D = np.eye(ny)  # Direct feedthrough from noise
-        
+
         # Build companion form for AR coefficients
         for i in range(ny):
             A_sub = np.zeros((max(na, nc), max(na, nc)))
-            
+
             # Companion form for AR part
             if na > 0:
                 if na > 1:
-                    A_sub[:na-1, 1:na] = np.eye(na-1)
-                A_sub[na-1, :na] = -AR_coeffs[i, :]
-            
+                    A_sub[: na - 1, 1:na] = np.eye(na - 1)
+                A_sub[na - 1, :na] = -AR_coeffs[i, :]
+
             # Handle C matrix for output
             row_offset = i * max(na, nc)
             C_i = np.zeros((1, max(na, nc)))
-            C_i[0, max(na, nc)-1] = 1
-            C[row_offset:row_offset+1, :] = C_i
-            
+            C_i[0, max(na, nc) - 1] = 1
+            C[row_offset : row_offset + 1, :] = C_i
+
             # Set B matrix (noise input)
             if nc > 0:
                 # MA coefficients affect the noise input
                 B_i = np.zeros((max(na, nc), 1))
                 B_i[:nc, 0] = MA_coeffs[i, :]
-                B[row_offset:row_offset+max(na, nc), i] = B_i.flatten()
-            
+                B[row_offset : row_offset + max(na, nc), i] = B_i.flatten()
+
             # Assemble into full state space
             if ny == 1:
                 A = A_sub
@@ -244,19 +256,23 @@ class ARMAAlgorithm(IdentificationAlgorithm):
                     B = B_i
                     C = C_i
                 else:
-                    A_block = np.zeros((A.shape[0] + A_sub.shape[0], A.shape[1] + A_sub.shape[1]))
-                    A_block[:A.shape[0], :A.shape[1]] = A
-                    A_block[A.shape[0]:, A.shape[1]:] = A_sub
+                    A_block = np.zeros(
+                        (A.shape[0] + A_sub.shape[0], A.shape[1] + A_sub.shape[1])
+                    )
+                    A_block[: A.shape[0], : A.shape[1]] = A
+                    A_block[A.shape[0] :, A.shape[1] :] = A_sub
                     A = A_block
-                    
-                    B_block = np.zeros((B.shape[0] + B_i.shape[0], max(B.shape[1], B_i.shape[1]) + 1))
-                    B_block[:B.shape[0], :B.shape[1]] = B
-                    B_block[B.shape[0]:, i] = B_i.flatten()
+
+                    B_block = np.zeros(
+                        (B.shape[0] + B_i.shape[0], max(B.shape[1], B_i.shape[1]) + 1)
+                    )
+                    B_block[: B.shape[0], : B.shape[1]] = B
+                    B_block[B.shape[0] :, i] = B_i.flatten()
                     B = B_block
-                    
+
                     C_block = np.vstack([C, C_i])
                     C = C_block
-        
+
         # Create harold StateSpace object
         ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
 
@@ -270,7 +286,7 @@ class ARMAAlgorithm(IdentificationAlgorithm):
             R=np.eye(ss_model.C.shape[0]),
             S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )
 
     def _create_mock_model(self, AR_coeffs, MA_coeffs, na, nc, ny, Ts):
@@ -295,19 +311,23 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         """
         # Create simple companion form state-space representation
         n_states = max(na, nc)
-        
+
         # State matrix A (companion form)
         A = np.zeros((n_states, n_states))
         if na > 1:
-            A[:na-1, 1:na] = np.eye(na-1)
+            A[: na - 1, 1:na] = np.eye(na - 1)
         if na > 0:
-            A[na-1, :na] = -AR_coeffs[0, :] if ny == 1 else -AR_coeffs[0, :]
+            A[na - 1, :na] = -AR_coeffs[0, :] if ny == 1 else -AR_coeffs[0, :]
 
         # Input matrix B (noise input)
         B = np.zeros((n_states, ny))
         if nc > 0:
             num_b_elements = min(nc, n_states)
-            B[:num_b_elements, :] = MA_coeffs[0:num_b_elements, :].T if ny == 1 else np.zeros((num_b_elements, ny))
+            B[:num_b_elements, :] = (
+                MA_coeffs[0:num_b_elements, :].T
+                if ny == 1
+                else np.zeros((num_b_elements, ny))
+            )
 
         # Output matrix C
         C = np.zeros((ny, n_states))
@@ -326,5 +346,5 @@ class ARMAAlgorithm(IdentificationAlgorithm):
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
-            Vn=0.01
+            Vn=0.01,
         )

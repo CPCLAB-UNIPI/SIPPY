@@ -41,9 +41,9 @@ def calculate_sampling_frequency(data: pd.DataFrame) -> float:
         raise ValueError(f"Failed to calculate sampling frequency: {e}")
 
 
-def detect_outliers(data: pd.DataFrame,
-                    method: str = 'iqr',
-                    threshold: float = 1.5) -> pd.DataFrame:
+def detect_outliers(
+    data: pd.DataFrame, method: str = "iqr", threshold: float = 1.5
+) -> pd.DataFrame:
     """
     Detect outliers in time series data using various methods.
 
@@ -69,14 +69,16 @@ def detect_outliers(data: pd.DataFrame,
     outliers = pd.DataFrame(index=data.index, columns=data.columns, dtype=bool)
 
     for column in data.columns:
-        if method == 'iqr':
+        if method == "iqr":
             outliers[column] = _detect_outliers_iqr(data[column], threshold)
-        elif method == 'zscore':
+        elif method == "zscore":
             outliers[column] = _detect_outliers_zscore(data[column], threshold)
-        elif method == 'modified_zscore':
+        elif method == "modified_zscore":
             outliers[column] = _detect_outliers_modified_zscore(data[column], threshold)
         else:
-            raise ValueError(f"Method '{method}' not supported. Use 'iqr', 'zscore', or 'modified_zscore'")
+            raise ValueError(
+                f"Method '{method}' not supported. Use 'iqr', 'zscore', or 'modified_zscore'"
+            )
 
     return outliers
 
@@ -105,7 +107,9 @@ def _detect_outliers_modified_zscore(series: pd.Series, threshold: float) -> pd.
     return np.abs(modified_z_scores) > threshold
 
 
-def analyze_signal_properties(data: pd.DataFrame) -> Dict[str, Union[float, Dict[str, float]]]:
+def analyze_signal_properties(
+    data: pd.DataFrame,
+) -> Dict[str, Union[float, Dict[str, float]]]:
     """
     Analyze basic properties of time series signals.
 
@@ -128,14 +132,16 @@ def analyze_signal_properties(data: pd.DataFrame) -> Dict[str, Union[float, Dict
             continue
 
         column_props = {
-            'mean': float(series.mean()),
-            'std': float(series.std()),
-            'min': float(series.min()),
-            'max': float(series.max()),
-            'range': float(series.max() - series.min()),
-            'signal_to_noise': float(series.std() / np.abs(series.mean())) if series.mean() != 0 else np.inf,
-            'zero_crossings': count_zero_crossings(series),
-            'autocorr_lag1': series.autocorr(lag=1) if len(series) > 1 else np.nan
+            "mean": float(series.mean()),
+            "std": float(series.std()),
+            "min": float(series.min()),
+            "max": float(series.max()),
+            "range": float(series.max() - series.min()),
+            "signal_to_noise": float(series.std() / np.abs(series.mean()))
+            if series.mean() != 0
+            else np.inf,
+            "zero_crossings": count_zero_crossings(series),
+            "autocorr_lag1": series.autocorr(lag=1) if len(series) > 1 else np.nan,
         }
 
         properties[column] = column_props
@@ -167,10 +173,12 @@ def count_zero_crossings(series: pd.Series, threshold: float = 0.0) -> int:
     return int(crosses.sum())
 
 
-def create_test_data(length: int = 1000,
-                   freq: float = 1.0,
-                   noise_level: float = 0.1,
-                   trend_slope: float = 0.0) -> pd.DataFrame:
+def create_test_data(
+    length: int = 1000,
+    freq: float = 1.0,
+    noise_level: float = 0.1,
+    trend_slope: float = 0.0,
+) -> pd.DataFrame:
     """
     Create synthetic test data for filter testing.
 
@@ -208,5 +216,5 @@ def create_test_data(length: int = 1000,
         signal += noise_level * np.random.randn(length)
 
     # Create DataFrame with time index
-    index = pd.date_range(start='2023-01-01', periods=length, freq='1S')
-    return pd.DataFrame({'signal': signal}, index=index)
+    index = pd.date_range(start="2023-01-01", periods=length, freq="1S")
+    return pd.DataFrame({"signal": signal}, index=index)

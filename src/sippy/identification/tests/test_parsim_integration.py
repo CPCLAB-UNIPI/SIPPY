@@ -1,6 +1,7 @@
 """
 Integration tests for PARSIM algorithms.
 """
+
 import numpy as np
 import pytest
 
@@ -16,8 +17,8 @@ class TestPARSIMIntegration:
         """Generate sample test data for integration tests."""
         np.random.seed(42)
         N = 200  # Number of samples
-        m = 2     # Number of inputs
-        l = 1     # Number of outputs
+        m = 2  # Number of inputs
+        l = 1  # Number of outputs
 
         # Generate input signals
         u = np.random.randn(m, N)
@@ -26,15 +27,15 @@ class TestPARSIMIntegration:
         # Convert to state space and simulate
         A_true = np.array([[1.5, -0.7], [1.0, 0.0]])
         B_true = np.array([[0.5, 0.2], [0.0, 0.3]])  # Fix dimensions: 2x2 for 2 inputs
-        C_true = np.array([[0.0, 1.0]])           # 1x2 for 1 output
-        D_true = np.array([[0.3, 0.1]])           # 1x2 for 1 output, 2 inputs
+        C_true = np.array([[0.0, 1.0]])  # 1x2 for 1 output
+        D_true = np.array([[0.3, 0.1]])  # 1x2 for 1 output, 2 inputs
 
         # Simulate with noise
         x = np.zeros((2, N + 1))
         y = np.zeros((l, N))
 
         for k in range(N):
-            x[:, k+1] = A_true @ x[:, k] + B_true @ u[:, k]
+            x[:, k + 1] = A_true @ x[:, k] + B_true @ u[:, k]
             y[:, k] = C_true @ x[:, k] + D_true @ u[:, k] + 0.05 * np.random.randn()
 
         return y, u, A_true, B_true, C_true, D_true
@@ -45,11 +46,11 @@ class TestPARSIMIntegration:
 
         # Test using the new architecture
         config = SystemIdentificationConfig(
-            method='PARSIM-K',
+            method="PARSIM-K",
             ss_f=20,
             ss_threshold=0.05,
             ss_fixed_order=2,
-            ss_d_required=True
+            ss_d_required=True,
         )
 
         identifier = SystemIdentification(config)
@@ -70,11 +71,11 @@ class TestPARSIMIntegration:
         y, u, A_true, B_true, C_true, D_true = sample_data
 
         config = SystemIdentificationConfig(
-            method='PARSIM-S',
+            method="PARSIM-S",
             ss_f=20,
             ss_threshold=0.05,
             ss_fixed_order=2,
-            ss_d_required=True
+            ss_d_required=True,
         )
 
         identifier = SystemIdentification(config)
@@ -93,11 +94,11 @@ class TestPARSIMIntegration:
         y, u, A_true, B_true, C_true, D_true = sample_data
 
         config = SystemIdentificationConfig(
-            method='PARSIM-P',
+            method="PARSIM-P",
             ss_f=20,
             ss_threshold=0.05,
             ss_fixed_order=2,
-            ss_d_required=True
+            ss_d_required=True,
         )
 
         identifier = SystemIdentification(config)
@@ -115,18 +116,14 @@ class TestPARSIMIntegration:
         """Test PARSIM algorithms directly with numpy arrays (without IDData)."""
         y, u, A_true, B_true, C_true, D_true = sample_data
 
-        config = SystemIdentificationConfig(
-            ss_f=15,
-            ss_threshold=0.1,
-            ss_fixed_order=2
-        )
+        config = SystemIdentificationConfig(ss_f=15, ss_threshold=0.1, ss_fixed_order=2)
 
-        for algo_name in ['PARSIM-K', 'PARSIM-S', 'PARSIM-P']:
+        for algo_name in ["PARSIM-K", "PARSIM-S", "PARSIM-P"]:
             config_method = SystemIdentificationConfig(
                 method=algo_name,
                 ss_f=config.ss_f,
                 ss_threshold=config.ss_threshold,
-                ss_fixed_order=config.ss_fixed_order
+                ss_fixed_order=config.ss_fixed_order,
             )
             identifier = SystemIdentification(config_method)
             result = identifier.identify(y=y, u=u)
@@ -139,18 +136,16 @@ class TestPARSIMIntegration:
         y, u, A_true, B_true, C_true, D_true = sample_data
 
         config = SystemIdentificationConfig(
-            ss_f=20,
-            ss_threshold=0.05,
-            ss_fixed_order=2
+            ss_f=20, ss_threshold=0.05, ss_fixed_order=2
         )
 
         results = {}
-        for algo_name in ['PARSIM-K', 'PARSIM-S', 'PARSIM-P']:
+        for algo_name in ["PARSIM-K", "PARSIM-S", "PARSIM-P"]:
             config_method = SystemIdentificationConfig(
                 method=algo_name,
                 ss_f=config.ss_f,
                 ss_threshold=config.ss_threshold,
-                ss_fixed_order=config.ss_fixed_order
+                ss_fixed_order=config.ss_fixed_order,
             )
             identifier = SystemIdentification(config_method)
             result = identifier.identify(y=y, u=u)
@@ -178,15 +173,15 @@ class TestPARSIMIntegration:
 
             config = SystemIdentificationConfig(
                 ss_f=min(20, N // 4),  # Adjust horizon for data size
-                ss_threshold=0.1
+                ss_threshold=0.1,
             )
 
-            for algo_name in ['PARSIM-K', 'PARSIM-S', 'PARSIM-P']:
+            for algo_name in ["PARSIM-K", "PARSIM-S", "PARSIM-P"]:
                 try:
                     config_method = SystemIdentificationConfig(
                         method=algo_name,
                         ss_f=config.ss_f,
-                        ss_threshold=config.ss_threshold
+                        ss_threshold=config.ss_threshold,
                     )
                     identifier = SystemIdentification(config_method)
                     result = identifier.identify(y=y, u=u)

@@ -1,6 +1,7 @@
 """
 Test cases for OE (Output Error) identification algorithm implementation.
 """
+
 from unittest.mock import patch
 
 import numpy as np
@@ -27,29 +28,23 @@ class TestOEAlgorithm:
         noise_free_output = np.zeros(self.n_samples)
         for k in range(2, self.n_samples):
             # Noise-free output feedback
-            denominator = 1 + 0.3 * noise_free_output[k-1] - 0.2 * noise_free_output[k-2]
-            numerator = 0.5 * self.u[k-1] + 0.3 * self.u[k-2]
+            denominator = (
+                1 + 0.3 * noise_free_output[k - 1] - 0.2 * noise_free_output[k - 2]
+            )
+            numerator = 0.5 * self.u[k - 1] + 0.3 * self.u[k - 2]
             noise_free_output[k] = numerator / denominator
             y_clean[k] = noise_free_output[k]
-        
+
         self.y = y_clean + 0.05 * np.random.randn(self.n_samples)
 
         # Create DataFrame for IDData
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u': self.u,
-            'y': self.y
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame({"u": self.u, "y": self.y}, index=time_index)
 
         # Configure data
-        self.data = IDData(
-            data=data_df,
-            inputs=['u'],
-            outputs=['y'],
-            tsample=1.0
-        )
+        self.data = IDData(data=data_df, inputs=["u"], outputs=["y"], tsample=1.0)
 
-        self.config = SystemIdentificationConfig(method='OE')
+        self.config = SystemIdentificationConfig(method="OE")
         # Set OE-specific parameters
         self.config.nb = 2  # Numerator order
         self.config.nf = 2  # Denominator order
@@ -76,19 +71,25 @@ class TestOEAlgorithm:
         algorithm.validate_parameters(nb=3, nf=4, nk=2)
 
         # Test boundary conditions
-        with pytest.raises(ValueError, match="Numerator order \\(nb\\) must be positive"):
+        with pytest.raises(
+            ValueError, match="Numerator order \\(nb\\) must be positive"
+        ):
             algorithm.validate_parameters(nb=0, nf=2, nk=0)
-        with pytest.raises(ValueError, match="Denominator order \\(nf\\) must be positive"):
+        with pytest.raises(
+            ValueError, match="Denominator order \\(nf\\) must be positive"
+        ):
             algorithm.validate_parameters(nb=2, nf=0, nk=0)
-        with pytest.raises(ValueError, match="Input delay \\(nk\\) must be non-negative"):
+        with pytest.raises(
+            ValueError, match="Input delay \\(nk\\) must be non-negative"
+        ):
             algorithm.validate_parameters(nb=2, nf=2, nk=-1)
 
-    @patch('sippy.identification.algorithms.oe.HAROLD_AVAILABLE', True)
+    @patch("sippy.identification.algorithms.oe.HAROLD_AVAILABLE", True)
     def test_oe_basic_identification(self):
         """Test basic OE identification functionality."""
         algorithm = OEAlgorithm()
 
-        with patch('sippy.identification.algorithms.oe.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.oe.harold") as mock_harold:
             # Mock the harold state space creation
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.eye(2)
@@ -110,12 +111,12 @@ class TestOEAlgorithm:
 
         # Test different orders
         for nb, nf in [(2, 2), (3, 2), (2, 3), (3, 3)]:
-            config = SystemIdentificationConfig(method='OE')
+            config = SystemIdentificationConfig(method="OE")
             config.nb = nb
             config.nf = nf
             config.nk = 1
 
-            with patch('sippy.identification.algorithms.oe.harold') as mock_harold:
+            with patch("sippy.identification.algorithms.oe.harold") as mock_harold:
                 mock_ss = mock_harold.StateSpace.return_value
                 mock_ss.A = np.eye(nf)
                 mock_ss.B = np.zeros((nf, 1))
@@ -132,28 +133,23 @@ class TestOEAlgorithm:
         u = np.random.randn(2, self.n_samples)
         y = np.random.randn(2, self.n_samples)
 
-        time_index = pd.date_range('2023-01-01', periods=self.n_samples, freq='1s')
-        data_df = pd.DataFrame({
-            'u1': u[0, :],
-            'u2': u[1, :],
-            'y1': y[0, :],
-            'y2': y[1, :]
-        }, index=time_index)
+        time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
+        data_df = pd.DataFrame(
+            {"u1": u[0, :], "u2": u[1, :], "y1": y[0, :], "y2": y[1, :]},
+            index=time_index,
+        )
 
         data = IDData(
-            data=data_df,
-            inputs=['u1', 'u2'],
-            outputs=['y1', 'y2'],
-            tsample=1.0
+            data=data_df, inputs=["u1", "u2"], outputs=["y1", "y2"], tsample=1.0
         )
-        config = SystemIdentificationConfig(method='OE')
+        config = SystemIdentificationConfig(method="OE")
         config.nb = 2
         config.nf = 2
         config.nk = 1
 
         algorithm = OEAlgorithm()
 
-        with patch('sippy.identification.algorithms.oe.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.oe.harold") as mock_harold:
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.eye(2)
             mock_ss.B = np.zeros((2, 2))
@@ -167,7 +163,7 @@ class TestOEAlgorithm:
         """Test OE algorithm graceful degradation without harold."""
         algorithm = OEAlgorithm()
 
-        with patch('sippy.identification.algorithms.oe.HAROLD_AVAILABLE', False):
+        with patch("sippy.identification.algorithms.oe.HAROLD_AVAILABLE", False):
             result = algorithm.identify(self.data, self.config)
             # Should return a mock model when harold is not available
             assert result is not None
@@ -178,20 +174,17 @@ class TestOEAlgorithm:
         algorithm = OEAlgorithm()
 
         # Test with insufficient data
-        small_data_time_index = pd.date_range('2023-01-01', periods=5, freq='1s')
-        small_data_df = pd.DataFrame({
-            'u': np.random.randn(5),
-            'y': np.random.randn(5)
-        }, index=small_data_time_index)
-
-        small_data = IDData(
-            data=small_data_df,
-            inputs=['u'],
-            outputs=['y'],
-            tsample=1.0
+        small_data_time_index = pd.date_range("2023-01-01", periods=5, freq="1s")
+        small_data_df = pd.DataFrame(
+            {"u": np.random.randn(5), "y": np.random.randn(5)},
+            index=small_data_time_index,
         )
 
-        config = SystemIdentificationConfig(method='OE')
+        small_data = IDData(
+            data=small_data_df, inputs=["u"], outputs=["y"], tsample=1.0
+        )
+
+        config = SystemIdentificationConfig(method="OE")
         config.nb = 5  # Requires more data than available
         config.nf = 4
         config.nk = 1
@@ -203,12 +196,12 @@ class TestOEAlgorithm:
         """Test that OE calculates correct model order."""
         algorithm = OEAlgorithm()
 
-        config = SystemIdentificationConfig(method='OE')
+        config = SystemIdentificationConfig(method="OE")
         config.nb = 2
         config.nf = 3  # Denominator order determines state dimension
         config.nk = 0
 
-        with patch('sippy.identification.algorithms.oe.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.oe.harold") as mock_harold:
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.eye(3)  # nf = 3
             mock_ss.B = np.zeros((3, 1))
@@ -223,12 +216,12 @@ class TestOEAlgorithm:
         """Test OE properly models output error structure."""
         algorithm = OEAlgorithm()
 
-        config = SystemIdentificationConfig(method='OE')
+        config = SystemIdentificationConfig(method="OE")
         config.nb = 2
         config.nf = 2
         config.nk = 0
 
-        with patch('sippy.identification.algorithms.oe.harold') as mock_harold:
+        with patch("sippy.identification.algorithms.oe.harold") as mock_harold:
             mock_ss = mock_harold.StateSpace.return_value
             mock_ss.A = np.array([[0.0, 1.0], [-0.3, 0.2]])  # F coefficients
             mock_ss.B = np.array([[0.1], [0.5]])  # B coefficients

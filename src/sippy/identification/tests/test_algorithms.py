@@ -1,6 +1,7 @@
 """
 Tests for concrete algorithm implementations.
 """
+
 import numpy as np
 import pytest
 
@@ -13,13 +14,15 @@ class TestN4SIDAlgorithm:
     def test_n4sid_registration(self):
         """Test that N4SID algorithm is registered."""
         from sippy.identification.factory import AlgorithmFactory
-        assert AlgorithmFactory.is_registered('N4SID')
+
+        assert AlgorithmFactory.is_registered("N4SID")
 
     def test_n4sid_creation(self):
         """Test creating N4SID algorithm."""
         from sippy.identification.algorithms.n4sid import N4SIDAlgorithm
+
         algo = N4SIDAlgorithm()
-        assert algo.name == 'N4SIDAlgorithm'
+        assert algo.name == "N4SIDAlgorithm"
 
     @pytest.fixture
     def sample_data(self):
@@ -30,7 +33,12 @@ class TestN4SIDAlgorithm:
         # Simple linear system response
         y = np.zeros((1, n_points))
         for i in range(1, n_points):
-            y[0, i] = 0.8 * y[0, i-1] + 0.5 * u[0, i-1] + 0.3 * u[1, i-1] + 0.1 * np.random.randn()
+            y[0, i] = (
+                0.8 * y[0, i - 1]
+                + 0.5 * u[0, i - 1]
+                + 0.3 * u[1, i - 1]
+                + 0.1 * np.random.randn()
+            )
         return y, u
 
     def test_n4sid_identification(self, sample_data):
@@ -41,11 +49,11 @@ class TestN4SIDAlgorithm:
         algo = N4SIDAlgorithm()
 
         config = {
-            'ss_f': 10,
-            'ss_threshold': 0.1,
-            'ss_fixed_order': 2,
-            'ss_d_required': False,
-            'ss_a_stability': False
+            "ss_f": 10,
+            "ss_threshold": 0.1,
+            "ss_fixed_order": 2,
+            "ss_d_required": False,
+            "ss_a_stability": False,
         }
 
         model = algo.identify(y, u, **config)
@@ -64,13 +72,15 @@ class TestMOESPAlgorithm:
     def test_moesp_registration(self):
         """Test that MOESP algorithm is registered."""
         from sippy.identification.factory import AlgorithmFactory
-        assert AlgorithmFactory.is_registered('MOESP')
+
+        assert AlgorithmFactory.is_registered("MOESP")
 
     def test_moesp_creation(self):
         """Test creating MOESP algorithm."""
         from sippy.identification.algorithms.moesp import MOESPAlgorithm
+
         algo = MOESPAlgorithm()
-        assert algo.name == 'MOESPAlgorithm'
+        assert algo.name == "MOESPAlgorithm"
 
 
 class TestCVAAlgorithm:
@@ -79,10 +89,12 @@ class TestCVAAlgorithm:
     def test_cva_registration(self):
         """Test that CVA algorithm is registered."""
         from sippy.identification.factory import AlgorithmFactory
-        assert AlgorithmFactory.is_registered('CVA')
+
+        assert AlgorithmFactory.is_registered("CVA")
 
     def test_cva_creation(self):
         """Test creating CVA algorithm."""
         from sippy.identification.algorithms.cva import CVAAlgorithm
+
         algo = CVAAlgorithm()
-        assert algo.name == 'CVAAlgorithm'
+        assert algo.name == "CVAAlgorithm"

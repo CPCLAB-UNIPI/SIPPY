@@ -1,6 +1,7 @@
 """
 Base classes for system identification algorithms.
 """
+
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Optional, Union
 
@@ -17,8 +18,13 @@ class IdentificationAlgorithm(ABC):
         self.name = self.__class__.__name__
 
     @abstractmethod
-    def identify(self, y: Optional[np.ndarray] = None, u: Optional[np.ndarray] = None,
-                 iddata: Optional['IDData'] = None, **kwargs) -> 'StateSpaceModel':
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> "StateSpaceModel":
         """
         Perform system identification.
 
@@ -45,9 +51,19 @@ class IdentificationAlgorithm(ABC):
 class StateSpaceModel:
     """Enhanced state-space model container."""
 
-    def __init__(self, A: np.ndarray, B: np.ndarray, C: np.ndarray, D: np.ndarray,
-                 K: np.ndarray, Q: np.ndarray, R: np.ndarray, S: np.ndarray,
-                 ts: float, Vn: Union[float, np.ndarray]):
+    def __init__(
+        self,
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+        K: np.ndarray,
+        Q: np.ndarray,
+        R: np.ndarray,
+        S: np.ndarray,
+        ts: float,
+        Vn: Union[float, np.ndarray],
+    ):
         self.A = A
         self.B = B
         self.C = C
@@ -63,6 +79,7 @@ class StateSpaceModel:
         # Try to import harold for State object
         try:
             from harold import State
+
             self.G = State(A, B, C, D, ts)
         except ImportError:
             self.G = None
@@ -101,8 +118,9 @@ class StateSpaceModel:
         except (ValueError, np.linalg.LinAlgError, ZeroDivisionError):
             return np.array([])
 
-    def get_fir_coefficients(self, inputs: list, outputs: list,
-                           sampling: float, tss: float) -> dict:
+    def get_fir_coefficients(
+        self, inputs: list, outputs: list, sampling: float, tss: float
+    ) -> dict:
         """
         Get FIR coefficients for the model.
 
@@ -123,6 +141,7 @@ class StateSpaceModel:
             Nested dictionary of FIR coefficients
         """
         from ..utils.simulation_utils import get_fir_coef
+
         return get_fir_coef(self, inputs, outputs, sampling, tss)
 
     def get_step_response(self, inputs: list, outputs: list) -> dict:
@@ -142,11 +161,17 @@ class StateSpaceModel:
             Nested dictionary of step responses
         """
         from ..utils.simulation_utils import get_step_response
+
         fir_model = self.get_fir_coefficients(inputs, outputs, 1.0, 60)
         return get_step_response(fir_model)
 
-    def get_model_uncertainty(self, input_data: np.ndarray, output_data: np.ndarray,
-                            input_name: str, output_name: str) -> tuple:
+    def get_model_uncertainty(
+        self,
+        input_data: np.ndarray,
+        output_data: np.ndarray,
+        input_name: str,
+        output_name: str,
+    ) -> tuple:
         """
         Get model uncertainty analysis.
 
@@ -193,6 +218,7 @@ class StateSpaceModel:
             Output signals
         """
         from ..utils.simulation_utils import simulate_ss_system
+
         return simulate_ss_system(self.A, self.B, self.C, self.D, u, x0)
 
     def supports_optimization_methods(self) -> bool:
@@ -209,18 +235,20 @@ class StateSpaceModel:
 class SystemIdentificationConfig:
     """Configuration container for system identification."""
 
-    def __init__(self,
-                 method: str = 'N4SID',
-                 centering: str = 'None',
-                 ic: str = 'None',
-                 tsample: float = 1.0,
-                 ss_f: int = 20,
-                 ss_threshold: float = 0.1,
-                 ss_max_order: Optional[int] = None,
-                 ss_fixed_order: Optional[int] = 1,  # Default to 1 to avoid issues
-                 ss_orders: List[int] = [1, 10],
-                 ss_d_required: bool = False,
-                 ss_a_stability: bool = False):
+    def __init__(
+        self,
+        method: str = "N4SID",
+        centering: str = "None",
+        ic: str = "None",
+        tsample: float = 1.0,
+        ss_f: int = 20,
+        ss_threshold: float = 0.1,
+        ss_max_order: Optional[int] = None,
+        ss_fixed_order: Optional[int] = 1,  # Default to 1 to avoid issues
+        ss_orders: List[int] = [1, 10],
+        ss_d_required: bool = False,
+        ss_a_stability: bool = False,
+    ):
         self.method = method
         self.centering = centering
         self.ic = ic

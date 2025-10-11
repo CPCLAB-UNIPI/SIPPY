@@ -16,7 +16,7 @@ try:
         impile_compiled,
         reducingOrder_compiled,
         Vn_mat_compiled,
-        NUMBA_AVAILABLE
+        NUMBA_AVAILABLE,
     )
 except ImportError:
     # Fallback if compiled_utils is not available
@@ -29,10 +29,13 @@ except ImportError:
 
 try:
     import harold
+
     HAROLD_AVAILABLE = True
 except ImportError:
     HAROLD_AVAILABLE = False
-    warnings.warn("harold library not available. Some simulation features will be limited.")
+    warnings.warn(
+        "harold library not available. Some simulation features will be limited."
+    )
 
 
 def ordinate_sequence(y, f, p):
@@ -68,8 +71,8 @@ def ordinate_sequence(y, f, p):
         Yf = np.zeros((l * f, N))
 
         for i in range(1, f + 1):
-            Yf[l * (i - 1):l * i] = y[:, p + i - 1:L - f + i]
-            Yp[l * (i - 1):l * i] = y[:, i - 1:L - f - p + i]
+            Yf[l * (i - 1) : l * i] = y[:, p + i - 1 : L - f + i]
+            Yp[l * (i - 1) : l * i] = y[:, i - 1 : L - f - p + i]
 
         return Yf, Yp
 
@@ -146,8 +149,8 @@ def impile(M1, M2):
     else:
         # Fallback to original implementation
         M = np.zeros((M1[:, 0].size + M2[:, 0].size, M1[0, :].size))
-        M[0:M1[:, 0].size] = M1
-        M[M1[:, 0].size::] = M2
+        M[0 : M1[:, 0].size] = M1
+        M[M1[:, 0].size : :] = M2
         return M
 
 
@@ -207,7 +210,7 @@ def check_types(threshold, max_order, fixed_order, f, p=20):
     valid : bool
         Whether parameters are valid
     """
-    if threshold < 0. or threshold >= 1.:
+    if threshold < 0.0 or threshold >= 1.0:
         print("Error! The threshold value must be >=0. and <1.")
         return False
     if not np.isnan(max_order):
@@ -253,7 +256,9 @@ def check_inputs(threshold, max_order, fixed_order, f):
         threshold = 0.0
         max_order = fixed_order
     if f < max_order:
-        print('Warning! The horizon must be larger than the model order, max_order setted as f')
+        print(
+            "Warning! The horizon must be larger than the model order, max_order setted as f"
+        )
     if max_order >= f:
         max_order = f
     return threshold, max_order
@@ -401,10 +406,10 @@ def get_model_uncertainty(u, y, model):
     confidence68 = 0.68
     nperseg = 1024
 
-    y_estimate = signal.convolve(u, model, mode='full')[:len(u)]
+    y_estimate = signal.convolve(u, model, mode="full")[: len(u)]
     model_error = y - y_estimate
 
-    h = fftpack.fft(model, nperseg)[:nperseg//2]
+    h = fftpack.fft(model, nperseg)[: nperseg // 2]
     freqs, Pxx = signal.welch(u, nperseg=nperseg)
     freqs, Pyy = signal.welch(y, nperseg=nperseg)
     freqs, Pyy_err = signal.welch(model_error, nperseg=nperseg)
@@ -415,16 +420,22 @@ def get_model_uncertainty(u, y, model):
     data_bode_mag = np.abs(data_bode)
 
     win = np.hamming(16)
-    data_bode_mag_filt_f = (np.convolve(data_bode_mag, win, mode='full') / sum(win))[:len(data_bode_mag)]
-    data_bode_mag_filt_b = (np.convolve(data_bode_mag_filt_f[::-1], win, mode='full') / sum(win))[:len(data_bode_mag_filt_f)][::-1]
-    snr_filt_f = (np.convolve(np.abs(snr), win, mode='full') / sum(win))[:len(snr)]
-    snr_filt_b = (np.convolve(snr_filt_f[::-1], win, mode='full') / sum(win))[:len(snr_filt_f)][::-1]
+    data_bode_mag_filt_f = (np.convolve(data_bode_mag, win, mode="full") / sum(win))[
+        : len(data_bode_mag)
+    ]
+    data_bode_mag_filt_b = (
+        np.convolve(data_bode_mag_filt_f[::-1], win, mode="full") / sum(win)
+    )[: len(data_bode_mag_filt_f)][::-1]
+    snr_filt_f = (np.convolve(np.abs(snr), win, mode="full") / sum(win))[: len(snr)]
+    snr_filt_b = (np.convolve(snr_filt_f[::-1], win, mode="full") / sum(win))[
+        : len(snr_filt_f)
+    ][::-1]
 
     model_bode_mag = np.abs(h)
     combined_bode = np.vstack((model_bode_mag, data_bode_mag_filt_b[:-1]))
     se = stats.sem(combined_bode)
-    ci95 = se * stats.t.ppf((1 + confidence95) / 2., n - 1)
-    ci68 = se * stats.t.ppf((1 + confidence68) / 2., n - 1)
+    ci95 = se * stats.t.ppf((1 + confidence95) / 2.0, n - 1)
+    ci68 = se * stats.t.ppf((1 + confidence68) / 2.0, n - 1)
 
     return freqs[:-1], model_bode_mag, ci95, ci68, snr_filt_b[:-1]
 
@@ -457,12 +468,12 @@ def get_fir_coef(model, inds, deps, sampling, tss):
         for dep in deps:
             fir_model[dep] = {}
             for ind in inds:
-                fir_model[dep][ind] = np.random.randn(int(tss*60/sampling)) * 0.01
+                fir_model[dep][ind] = np.random.randn(int(tss * 60 / sampling)) * 0.01
         return fir_model
 
     fir_model = dict()
     t = np.arange(0, tss * 60, sampling)
-    Gc = harold.undiscretize(model, method='backward euler')
+    Gc = harold.undiscretize(model, method="backward euler")
     imp_response, _ = harold.simulate_impulse_response(Gc, t)
 
     for depidx, dep in enumerate(deps):
@@ -473,7 +484,9 @@ def get_fir_coef(model, inds, deps, sampling, tss):
             elif model.NumberOfInputs == 1 and model.NumberOfOutputs > 1:
                 fir_model[dep][ind] = imp_response[:, depidx] * model.SamplingPeriod
             else:
-                fir_model[dep][ind] = imp_response[:, depidx, indidx] * model.SamplingPeriod
+                fir_model[dep][ind] = (
+                    imp_response[:, depidx, indidx] * model.SamplingPeriod
+                )
 
     return fir_model
 
@@ -562,7 +575,9 @@ def simulate_fir(fir_model, data):
     for dep in deps:
         predictions[dep].values[:] = 0.0
         for ind in inds:
-            predictions[dep] += signal.convolve(data[ind], fir_model[dep][ind], mode='full')[:N]
+            predictions[dep] += signal.convolve(
+                data[ind], fir_model[dep][ind], mode="full"
+            )[:N]
         tss = len(fir_model[dep][inds[0]])
         predictions[dep][:tss] = predictions[dep].values[tss + 1]
         predictions[dep] = predictions[dep] - predictions[dep].mean() + data[dep].mean()

@@ -28,12 +28,14 @@ class NoneFilter(IFilter):
         """
         super().__init__(config)
 
-    def apply_filter(self,
-                    data: pd.DataFrame,
-                    tss: Optional[float] = None,
-                    multiplier: Optional[float] = None,
-                    slices: Optional[Dict[str, Any]] = None,
-                    **kwargs) -> pd.DataFrame:
+    def apply_filter(
+        self,
+        data: pd.DataFrame,
+        tss: Optional[float] = None,
+        multiplier: Optional[float] = None,
+        slices: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Apply passthrough filter (returns input data unchanged except for slice processing).
 
@@ -83,8 +85,8 @@ class NoneFilter(IFilter):
             Filter information
         """
         return {
-            'type': 'NoneFilter',
-            'description': 'Passthrough filter that returns input data unchanged',
-            'suitable_for': 'Testing or when no filtering is required',
-            'effect': 'No transformation applied (except slice processing)'
+            "type": "NoneFilter",
+            "description": "Passthrough filter that returns input data unchanged",
+            "suitable_for": "Testing or when no filtering is required",
+            "effect": "No transformation applied (except slice processing)",
         }
