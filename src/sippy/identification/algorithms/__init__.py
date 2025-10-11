@@ -5,9 +5,9 @@ Concrete algorithm implementations.
 try:
     # Register all algorithms with the factory
     from ..factory import AlgorithmFactory
-    from .arma import ARMAAlgorithm
-    from .ararx import ARARXAlgorithm
     from .ararmax import ARARMAXAlgorithm
+    from .ararx import ARARXAlgorithm
+    from .arma import ARMAAlgorithm
     from .armax import ARMAXAlgorithm
     from .arx import ARXAlgorithm
     from .bj import BJAlgorithm

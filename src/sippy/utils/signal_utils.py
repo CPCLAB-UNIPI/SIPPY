@@ -9,13 +9,13 @@ import numpy as np
 # Import compiled utilities for performance
 try:
     from .compiled_utils import (
-        GBN_seq_compiled,
-        GBN_seq_advanced_compiled,
-        RW_seq_compiled,
-        white_noise_var_compiled,
-        white_noise_compiled_advanced,
-        signal_rescale_advanced_compiled,
         NUMBA_AVAILABLE,
+        GBN_seq_advanced_compiled,
+        GBN_seq_compiled,
+        RW_seq_compiled,
+        signal_rescale_advanced_compiled,
+        white_noise_compiled_advanced,
+        white_noise_var_compiled,
     )
 except ImportError:
     GBN_seq_compiled = None

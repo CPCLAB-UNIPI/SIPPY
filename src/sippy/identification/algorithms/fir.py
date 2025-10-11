@@ -12,8 +12,8 @@ from ..base import IdentificationAlgorithm, StateSpaceModel
 # Import compiled utilities for performance
 try:
     from ...utils.compiled_utils import (
-        create_regression_matrix_fir_compiled,
         NUMBA_AVAILABLE,
+        create_regression_matrix_fir_compiled,
     )
 except ImportError:
     create_regression_matrix_fir_compiled = None

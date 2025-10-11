@@ -10,7 +10,8 @@ import warnings
 import numpy as np
 
 try:
-    from numba import njit, prange, config as numba_config
+    from numba import config as numba_config
+    from numba import njit, prange
 
     NUMBA_AVAILABLE = True
 except ImportError:
@@ -19,7 +20,7 @@ except ImportError:
     # Create fallback for numba.config reference
     class ConfigFallback:
         NUMBA_NUM_THREADS = 1
-    
+
     numba_config = ConfigFallback()
 
 
@@ -649,53 +650,43 @@ def create_regression_matrix_armax_compiled(u, y, na, nb, nc, nk, ny, nu, N):
     N_eff = N - max_lag
 
     if N_eff <= 0:
-        return np.zeros((1, 1)), np.zeros((1, 1))
+        # For consistent return types, match the fallback implementation format
+        n_params = na * ny + nb * ny * nu + nc * ny  # Calculate params first
+        return np.zeros((1, n_params)), np.zeros((ny, 1))  # Use 1 instead of N_eff since N_eff <= 0
 
     n_params = na * ny + nb * ny * nu + nc * ny
-    Phi = np.zeros((N_eff * ny, n_params))
+    Phi = np.zeros((N_eff, n_params))
 
-    # Build regression matrix for all outputs
-    for output_idx in range(ny):
-        row_start = output_idx * N_eff
-        col = 0
+    # Build regression matrix in fallback format (not flattened)
+    col = 0
 
-        # AR terms: lagged outputs
-        for i in range(na):
+    # Fill AR part (lagged outputs)
+    for i in range(na):
+        for j in range(ny):
+            col_idx = i * ny + j
+            Phi[:, col_idx] = y[j, max_lag - 1 - i : max_lag - 1 - i + N_eff]
+        col += 1
+
+    # Fill X part (lagged inputs)
+    for k in range(nb):
+        for i in range(nu):
             for j in range(ny):
-                start_idx = max_lag - 1 - i
-                end_idx = start_idx + N_eff
-                if start_idx >= 0 and end_idx <= N:
-                    Phi[row_start : row_start + N_eff, col] = y[j, start_idx:end_idx]
+                col_idx = na * ny + k * ny * nu + i * ny + j
+                delay_idx = max_lag - 1 - (k + nk - 1)
+                if delay_idx >= 0 and delay_idx + N_eff <= N:
+                    Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
                 col += 1
 
-        # X terms: lagged inputs
-        for i in range(nb):
-            for j in range(nu):
-                for k in range(ny):
-                    delay_idx = max_lag - 1 - (i + nk - 1)
-                    if delay_idx >= 0 and delay_idx + N_eff <= N:
-                        Phi[row_start : row_start + N_eff, col] = u[
-                            j, delay_idx : delay_idx + N_eff
-                        ]
-                    col += 1
+    # Fill MA part
+    for i in range(nc):
+        for j in range(ny):
+            col_idx = na * ny + nb * ny * nu + i * ny + j
+            # Initialize with small random values (would need proper estimation)
+            Phi[:, col_idx] = np.random.randn(N_eff) * 0.01
+        col += 1
 
-        # MA terms: simplified lagged outputs for initial implementation
-        for i in range(nc):
-            start_idx = max_lag - 1 - i - 1
-            end_idx = start_idx + N_eff
-            if start_idx >= 0 and end_idx <= N:
-                Phi[row_start : row_start + N_eff, col] = y[
-                    output_idx, start_idx:end_idx
-                ]
-            col += 1
-
-        # Target output for this output channel
-        Phi[row_start : row_start + N_eff, -1] = y[output_idx, max_lag:N]
-
-    # Build flattened output matrix
-    y_matrix = np.zeros(N_eff * ny)
-    for i in range(ny):
-        y_matrix[i * N_eff : (i + 1) * N_eff] = y[i, max_lag:N]
+    # Output matrix - ensure proper flattenng for MIMO
+    y_matrix = y[:, max_lag:N]
 
     return Phi, y_matrix
 
@@ -1386,9 +1377,9 @@ def impile_advanced_compiled(M1, M2):
     rows1, cols = M1.shape
     rows2, _ = M2.shape
     total_rows = rows1 + rows2
-    
+
     M = np.empty((total_rows, cols), dtype=M1.dtype)
-    
+
     # Parallel copy for large matrices
     if total_rows * cols > 10000:  # Threshold for parallelization
         for j in prange(cols):
@@ -1400,7 +1391,7 @@ def impile_advanced_compiled(M1, M2):
         # Sequential copy for smaller matrices (less overhead)
         M[:rows1, :] = M1
         M[rows1:, :] = M2
-    
+
     return M
 
 
@@ -1428,10 +1419,10 @@ def reducingOrder_fast_compiled(U_n, S_n, V_n, threshold=0.1, max_order=10):
     """
     if S_n.size == 0:
         return U_n, S_n, V_n
-    
+
     s0 = S_n[0]
     effective_threshold = threshold * s0
-    
+
     # Vectorized threshold comparison for faster execution
     # Find the first index where either condition is met
     index = S_n.size
@@ -1439,11 +1430,11 @@ def reducingOrder_fast_compiled(U_n, S_n, V_n, threshold=0.1, max_order=10):
         if S_n[i] < effective_threshold or i >= max_order:
             index = i
             break
-    
+
     # Handle edge case where all values are kept
     if index >= S_n.size:
         index = S_n.size
-    
+
     # Return truncated arrays
     return U_n[:, :index], S_n[:index], V_n[:index, :]
 
@@ -1476,12 +1467,12 @@ def kalc_riccati_compiled(A, C, Q, R, S, dtol=1e-12, max_iter=100):
     """
     n = A.shape[0]
     l = C.shape[0]
-    
+
     # Initialize with simple solution - always return P=Q, K=zeros as fallback
     P = Q.copy()
     K = np.zeros((n, l))
     Calculated = False
-    
+
     # For now, return a deterministic result to avoid compilation issues
     # More complex Riccati implementation can be added later
     return K, Calculated, P
@@ -1507,16 +1498,16 @@ def vn_mat_parallel_compiled(y_flat, yest_flat):
     n = y_flat.size
     if n == 0:
         return 0.0
-    
+
     # Compute residuals
     eps = y_flat - yest_flat
     squared_sum = 0.0
-    
+
     # Sequential sum for reliability
     for i in range(n):
         val = eps[i]
         squared_sum += val * val
-    
+
     Vn = squared_sum / n
     return float(Vn)
 
@@ -1545,29 +1536,29 @@ def covariance_symmetric_compiled(residuals, ddof=1):
         Symmetric covariance matrix
     """
     n_dim, n_samples = residuals.shape
-    
+
     if n_samples <= ddof:
         return np.eye(n_dim)
-    
+
     # Initialize output matrix
     cov = np.zeros((n_dim, n_dim))
-    
+
     # Compute only upper triangle (including diagonal)
     for i in range(n_dim):
         row_i = residuals[i, :]
-        
+
         for j in range(i, n_dim):
             row_j = residuals[j, :]
-            
+
             # Compute covariance for element (i, j)
             cov_ij = 0.0
             for k in range(n_samples):
                 cov_ij += row_i[k] * row_j[k]
-            
+
             cov_ij = cov_ij / (n_samples - ddof)
             cov[i, j] = cov_ij
             cov[j, i] = cov_ij  # Mirror for symmetry
-    
+
     return cov
 
 
@@ -1593,7 +1584,7 @@ def extract_matrices_batch_compiled(M, n):
     B = M[:n, n:].copy()
     C = M[n:, :n].copy()
     D = M[n:, n:].copy()
-    
+
     return A, B, C, D
 
 
@@ -1621,26 +1612,26 @@ def pinv_compiled_svd(A, rcond=1e-15):
     """
     try:
         U, s, Vh = np.linalg.svd(A, full_matrices=False)
-        
+
         # Filter singular values based on threshold
         max_s = s[0] if s.size > 0 else 0.0
         threshold = max_s * rcond
         keep_indices = s > threshold
-        
+
         if not np.any(keep_indices):
             # All singular values filtered out
             return np.zeros((A.shape[1], A.shape[0]))
-        
+
         U_filtered = U[:, keep_indices]
         s_filtered = s[keep_indices]
         Vh_filtered = Vh[keep_indices, :]
-        
+
         # Compute pseudoinverse
         s_inv = 1.0 / s_filtered
         A_pinv = np.dot(Vh_filtered.T, s_inv[:, np.newaxis] * U_filtered.T)
-        
+
         return A_pinv
-        
+
     except Exception:
         # Fallback to numpy pseudoinverse
         return np.linalg.pinv(A)

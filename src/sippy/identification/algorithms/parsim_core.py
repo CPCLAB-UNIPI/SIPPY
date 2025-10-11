@@ -18,12 +18,12 @@ from ...utils.simulation_utils import (
 # Import compiled utilities for performance
 try:
     from ...utils.compiled_utils import (
+        NUMBA_AVAILABLE,
+        Z_dot_PIort_compiled,
+        matrix_operations_a_compiled,
         parsim_k_matrix_operations_compiled,
         parsim_y_tilde_estimation_compiled,
         subspace_weighted_svd_compiled,
-        Z_dot_PIort_compiled,
-        matrix_operations_a_compiled,
-        NUMBA_AVAILABLE,
     )
 except ImportError:
     parsim_k_matrix_operations_compiled = None

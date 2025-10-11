@@ -11,20 +11,20 @@ from scipy.linalg import solve_discrete_are
 # Import compiled utilities for performance
 try:
     from .compiled_utils import (
-        ordinate_sequence_compiled,
-        simulate_ss_system_compiled,
-        impile_compiled,
-        reducingOrder_compiled,
+        NUMBA_AVAILABLE,
         Vn_mat_compiled,
-        # Enhanced Phase 1-3 functions
-        impile_advanced_compiled,
-        reducingOrder_fast_compiled,
-        kalc_riccati_compiled, 
-        vn_mat_parallel_compiled,
         covariance_symmetric_compiled,
         extract_matrices_batch_compiled,
+        # Enhanced Phase 1-3 functions
+        impile_advanced_compiled,
+        impile_compiled,
+        kalc_riccati_compiled,
+        ordinate_sequence_compiled,
         pinv_compiled_svd,
-        NUMBA_AVAILABLE,
+        reducingOrder_compiled,
+        reducingOrder_fast_compiled,
+        simulate_ss_system_compiled,
+        vn_mat_parallel_compiled,
     )
 except ImportError:
     # Fallback if compiled_utils is not available

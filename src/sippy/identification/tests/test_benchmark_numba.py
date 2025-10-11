@@ -6,7 +6,6 @@ This script compares the performance of key functions before and after
 Numba optimization in the SIPPY library.
 """
 
-import sys
 import time
 from typing import Tuple
 
@@ -16,8 +15,8 @@ import numpy as np
 def benchmark_ordinate_sequence(size_multiplier: int = 10) -> Tuple[float, float]:
     """Benchmark the ordinate sequence function."""
     try:
+        from ...utils.compiled_utils import NUMBA_AVAILABLE, ordinate_sequence_compiled
         from ...utils.simulation_utils import ordinate_sequence
-        from ...utils.compiled_utils import ordinate_sequence_compiled, NUMBA_AVAILABLE
 
         # Test data
         n_outputs = 3
@@ -63,8 +62,8 @@ def benchmark_ordinate_sequence(size_multiplier: int = 10) -> Tuple[float, float
 def benchmark_simulation(size_multiplier: int = 10) -> Tuple[float, float]:
     """Benchmark the simulation function."""
     try:
+        from ...utils.compiled_utils import NUMBA_AVAILABLE, simulate_ss_system_compiled
         from ...utils.simulation_utils import simulate_ss_system
-        from ...utils.compiled_utils import simulate_ss_system_compiled, NUMBA_AVAILABLE
 
         # Test data
         n_states = 4
@@ -120,8 +119,8 @@ def benchmark_simulation(size_multiplier: int = 10) -> Tuple[float, float]:
 def benchmark_rescale(size_multiplier: int = 10) -> Tuple[float, float]:
     """Benchmark the rescale function."""
     try:
+        from ...utils.compiled_utils import NUMBA_AVAILABLE, rescale_compiled
         from ...utils.signal_utils import rescale
-        from ...utils.compiled_utils import rescale_compiled, NUMBA_AVAILABLE
 
         # Test data
         size = 10000 * size_multiplier

@@ -2,13 +2,14 @@
 Test suite for ARMA algorithm implementation.
 """
 
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch
 
 from sippy.identification.algorithms.arma import ARMAAlgorithm
-from sippy.identification.base import SystemIdentificationConfig, StateSpaceModel
+from sippy.identification.base import StateSpaceModel, SystemIdentificationConfig
 from sippy.identification.iddata import IDData
 
 
