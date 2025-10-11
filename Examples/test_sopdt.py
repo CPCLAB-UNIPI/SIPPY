@@ -1,7 +1,16 @@
 
 import matplotlib.pyplot as plt
 import pandas as pd
-from harold import step_response_plot
+try:
+    from harold import step_response_plot
+except ImportError:
+    # Try newer Harold API
+    try:
+        import harold
+        step_response_plot = harold.step_response_plot
+    except (ImportError, AttributeError):
+        # Fallback - skip step response plot
+        step_response_plot = None
 from scipy import signal
 
 from sippy import *
@@ -66,5 +75,18 @@ id_result = system_identification(
     SS_threshold=SS_threshold
     )
 
-step_response_plot(id_result.G)
-plt.show()
+if step_response_plot is not None:
+    step_response_plot(id_result.G)
+    plt.show()
+else:
+    print("Step response plot not available - Harold not installed or function not found")
+    # Alternative using matplotlib
+    if hasattr(id_result, 'G') and hasattr(id_result.G, 'step_response'):
+        y_step, t = id_result.G.step_response()
+        plt.figure()
+        plt.plot(t, y_step)
+        plt.title('Step Response')
+        plt.xlabel('Time')
+        plt.ylabel('Output')
+        plt.grid(True)
+        plt.show()

@@ -26,7 +26,8 @@ try:
     import harold
 
     HAROLD_IMPORTED = True
-    if hasattr(harold, "StateSpace"):
+        # Check for either modern (State) or legacy (StateSpace) API
+    if hasattr(harold, "State") or hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -300,7 +301,11 @@ class ARXAlgorithm(IdentificationAlgorithm):
             num_coeffs[nk:] = B_coeffs[0, :]
 
             # Create transfer function
-            tf = harold.TransferFunction(num_coeffs, den_coeffs, dt=Ts)
+            # Use modern Harold API if available, fallback to legacy
+            if hasattr(harold, 'Transfer'):
+                tf = harold.Transfer(num_coeffs, den_coeffs, dt=Ts)
+            else:
+                tf = harold.TransferFunction(num_coeffs, den_coeffs, dt=Ts)
 
             # Convert to state-space
             ss_model = harold.undiscretize(tf, method="backward euler")
@@ -335,7 +340,11 @@ class ARXAlgorithm(IdentificationAlgorithm):
                 C[i, (i + 1) * na - 1] = 1
 
             # Create harold StateSpace object
-            ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
+            # Use modern Harold API if available, fallback to legacy
+            if hasattr(harold, 'State'):
+                ss_model = harold.State(A, B, C, D, dt=Ts)
+            else:
+                ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
 
         return StateSpaceModel(
             A=ss_model.A,

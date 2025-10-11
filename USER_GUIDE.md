@@ -1141,10 +1141,32 @@ model = SystemIdentification(config).identify(y, u)
 ```python
 # Integration with Harold (if available)
 if model.G is not None:  # Harold State object
-    from harold import generate_transfer_function
-    
-    tf = generate_transfer_function(model.G)
-    frequency_response = tf.frequency_response(w)
+    # For Harold v1.0+
+    try:
+        # Harold State objects are already StateSpace models
+        # Direct access to model properties
+        frequency_response = model.G.frequency_response(w)
+        
+        # Convert to transfer function if needed
+        tf = harold.state_to_transfer(model.G)
+        
+        # System analysis
+        poles = harold.poles(model.G)
+        zeros = harold.zeros(model.G)
+        
+        # Simulation
+        y_step, t = harold.simulate_step_response(model.G)
+        y_imp, t = harold.simulate_impulse_response(model.G)
+        
+    except AttributeError:
+        # Fallback for older Harold versions
+        try:
+            from harold import state_to_transfer, poles, zeros
+            tf = state_to_transfer(model.G)
+            poles = poles(model.G)
+            zeros = zeros(model.G)
+        except ImportError:
+            print("Harold functions not available")
 
 # Integration with Python Control
 try:
@@ -1160,6 +1182,21 @@ try:
 except ImportError:
     print("Python Control library not available")
 ```
+
+### Harold API Compatibility
+
+SIPPY works with both Harold v0.x and v1.0+. Here are the key Harold functions used internally:
+
+| Function | Harold v1.0+ | Legacy Harold | Purpose |
+|----------|--------------|---------------|---------|
+| State Space | `harold.State` | `harold.StateSpace` | Create state-space models |
+| Transfer Function | `harold.Transfer` | `harold.TransferFunction` | Create transfer functions |
+| Conversions | `harold.state_to_transfer` | `harold.transfer_to_state` | Model conversions |
+| Simulation | `harold.undiscretize` | `harold.undiscretize` | Discrete to continuous |
+| Simulation | `harold.simulate_impulse_response` | Same | Impulse response |
+| Analysis | `harold.poles`, `harold.zeros` | May differ | System properties |
+
+**For Developers:** All SIPPY algorithms gracefully handle missing Harold dependencies and provide fallback implementations.
 
 ### Batch Processing
 
@@ -1224,7 +1261,8 @@ def process_dataset_files(data_dir, output_dir):
 - **SIPPY GitHub**: https://github.com/CPCLAB-UNIPI/SIPPY
 - **Master Branch Documentation**: Original user_guide.pdf
 - **Python Control**: https://python-control.readthedocs.io/
-- **Harold**: https://github.com/TheHuang-Team/harold
+- **Harold**: https://github.com/ilayn/harold
+- **Harold Documentation**: https://harold.readthedocs.io/
 
 ### Performance Benchmarks
 
