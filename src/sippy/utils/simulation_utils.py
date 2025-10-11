@@ -8,6 +8,25 @@ import numpy as np
 from scipy import fftpack, signal, stats
 from scipy.linalg import solve_discrete_are
 
+# Import compiled utilities for performance
+try:
+    from .compiled_utils import (
+        ordinate_sequence_compiled,
+        simulate_ss_system_compiled,
+        impile_compiled,
+        reducingOrder_compiled,
+        Vn_mat_compiled,
+        NUMBA_AVAILABLE
+    )
+except ImportError:
+    # Fallback if compiled_utils is not available
+    ordinate_sequence_compiled = None
+    simulate_ss_system_compiled = None
+    impile_compiled = None
+    reducingOrder_compiled = None
+    Vn_mat_compiled = None
+    NUMBA_AVAILABLE = False
+
 try:
     import harold
     HAROLD_AVAILABLE = True
@@ -19,6 +38,9 @@ except ImportError:
 def ordinate_sequence(y, f, p):
     """
     Create ordinate sequences for subspace identification.
+
+    This function automatically uses the Numba-compiled version when available
+    for improved performance.
 
     Parameters:
     -----------
@@ -36,16 +58,20 @@ def ordinate_sequence(y, f, p):
     Yp : ndarray
         Past output ordinate sequence
     """
-    l, L = y.shape
-    N = L - p - f + 1
-    Yp = np.zeros((l * f, N))
-    Yf = np.zeros((l * f, N))
+    if NUMBA_AVAILABLE and ordinate_sequence_compiled is not None:
+        return ordinate_sequence_compiled(y, f, p)
+    else:
+        # Fallback to original implementation
+        l, L = y.shape
+        N = L - p - f + 1
+        Yp = np.zeros((l * f, N))
+        Yf = np.zeros((l * f, N))
 
-    for i in range(1, f + 1):
-        Yf[l * (i - 1):l * i] = y[:, p + i - 1:L - f + i]
-        Yp[l * (i - 1):l * i] = y[:, i - 1:L - f - p + i]
+        for i in range(1, f + 1):
+            Yf[l * (i - 1):l * i] = y[:, p + i - 1:L - f + i]
+            Yp[l * (i - 1):l * i] = y[:, i - 1:L - f - p + i]
 
-    return Yf, Yp
+        return Yf, Yp
 
 
 def Z_dot_PIort(z, X):
@@ -72,6 +98,9 @@ def Vn_mat(y, yest):
     """
     Compute the variance of the model residuals.
 
+    This function automatically uses the Numba-compiled version when available
+    for improved performance.
+
     Parameters:
     -----------
     y : ndarray
@@ -84,16 +113,23 @@ def Vn_mat(y, yest):
     Vn : float
         Residual variance
     """
-    y = y.flatten()
-    yest = yest.flatten()
-    eps = y - yest
-    Vn = (eps @ eps) / (max(y.shape))
-    return Vn
+    if NUMBA_AVAILABLE and Vn_mat_compiled is not None:
+        return Vn_mat_compiled(y.flatten(), yest.flatten())
+    else:
+        # Fallback to original implementation
+        y = y.flatten()
+        yest = yest.flatten()
+        eps = y - yest
+        Vn = (eps @ eps) / (max(y.shape))
+        return Vn
 
 
 def impile(M1, M2):
     """
     Stack two matrices vertically.
+
+    This function automatically uses the Numba-compiled version when available
+    for improved performance.
 
     Parameters:
     -----------
@@ -105,15 +141,22 @@ def impile(M1, M2):
     M : ndarray
         Vertically stacked matrix
     """
-    M = np.zeros((M1[:, 0].size + M2[:, 0].size, M1[0, :].size))
-    M[0:M1[:, 0].size] = M1
-    M[M1[:, 0].size::] = M2
-    return M
+    if NUMBA_AVAILABLE and impile_compiled is not None:
+        return impile_compiled(M1, M2)
+    else:
+        # Fallback to original implementation
+        M = np.zeros((M1[:, 0].size + M2[:, 0].size, M1[0, :].size))
+        M[0:M1[:, 0].size] = M1
+        M[M1[:, 0].size::] = M2
+        return M
 
 
 def reducingOrder(U_n, S_n, V_n, threshold=0.1, max_order=10):
     """
     Reduce model order based on singular values.
+
+    This function automatically uses the Numba-compiled version when available
+    for improved performance.
 
     Parameters:
     -----------
@@ -129,13 +172,17 @@ def reducingOrder(U_n, S_n, V_n, threshold=0.1, max_order=10):
     U_n, S_n, V_n : ndarray
         Truncated SVD components
     """
-    s0 = S_n[0]
-    index = S_n.size
-    for i in range(S_n.size):
-        if S_n[i] < threshold * s0 or i >= max_order:
-            index = i
-            break
-    return U_n[:, 0:index], S_n[0:index], V_n[0:index, :]
+    if NUMBA_AVAILABLE and reducingOrder_compiled is not None:
+        return reducingOrder_compiled(U_n, S_n, V_n, threshold, max_order)
+    else:
+        # Fallback to original implementation
+        s0 = S_n[0]
+        index = S_n.size
+        for i in range(S_n.size):
+            if S_n[i] < threshold * s0 or i >= max_order:
+                index = i
+                break
+        return U_n[:, 0:index], S_n[0:index], V_n[0:index, :]
 
 
 def check_types(threshold, max_order, fixed_order, f, p=20):
@@ -216,6 +263,9 @@ def simulate_ss_system(A, B, C, D, u, x0=None):
     """
     Simulate state-space system in process form.
 
+    This function automatically uses the Numba-compiled version when available
+    for improved performance.
+
     Parameters:
     -----------
     A, B, C, D : ndarray
@@ -232,21 +282,25 @@ def simulate_ss_system(A, B, C, D, u, x0=None):
     y : ndarray
         Output signals
     """
-    m, L = u.shape
-    l, n = C.shape
-    y = np.zeros((l, L))
-    x = np.zeros((n, L))
+    if NUMBA_AVAILABLE and simulate_ss_system_compiled is not None:
+        return simulate_ss_system_compiled(A, B, C, D, u, x0)
+    else:
+        # Fallback to original implementation
+        m, L = u.shape
+        l, n = C.shape
+        y = np.zeros((l, L))
+        x = np.zeros((n, L))
 
-    if x0 is not None:
-        x[:, 0] = x0[:, 0]
+        if x0 is not None:
+            x[:, 0] = x0[:, 0]
 
-    y[:, 0] = np.dot(C, x[:, 0]) + np.dot(D, u[:, 0])
+        y[:, 0] = np.dot(C, x[:, 0]) + np.dot(D, u[:, 0])
 
-    for i in range(1, L):
-        x[:, i] = np.dot(A, x[:, i - 1]) + np.dot(B, u[:, i - 1])
-        y[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
+        for i in range(1, L):
+            x[:, i] = np.dot(A, x[:, i - 1]) + np.dot(B, u[:, i - 1])
+            y[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
 
-    return x, y
+        return x, y
 
 
 def ssmatrix(data, axis=1):

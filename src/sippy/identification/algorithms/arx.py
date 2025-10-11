@@ -8,6 +8,16 @@ from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
 
+# Import compiled utilities for performance
+try:
+    from ...utils.compiled_utils import (
+        create_regression_matrix_arx_compiled,
+        NUMBA_AVAILABLE
+    )
+except ImportError:
+    create_regression_matrix_arx_compiled = None
+    NUMBA_AVAILABLE = False
+
 try:
     import harold
     # Check if harold has the required components
@@ -108,7 +118,19 @@ class ARXAlgorithm(IdentificationAlgorithm):
         Phi, y_matrix = self._create_regression_matrix(u, y, na, nb, nk, ny, nu, N)
 
         # Estimate parameters using least squares
-        theta, residuals, rank, s = lstsq(Phi, y_matrix.T.flatten(), rcond=None)
+        if ny == 1:
+            # SISO case
+            theta, residuals, rank, s = lstsq(Phi, y_matrix.T.flatten(), rcond=None)
+        else:
+            # MIMO case - solve for each output separately
+            theta_list = []
+            residuals_list = []
+            for i in range(ny):
+                theta_i, residuals_i, rank_i, s_i = lstsq(Phi, y_matrix[i, :], rcond=None)
+                theta_list.append(theta_i)
+                residuals_list.append(residuals_i)
+            theta = np.concatenate(theta_list)
+            residuals = np.concatenate(residuals_list) if all(r is not None and r.size > 0 for r in residuals_list) else []
 
         # Reshape parameters into matrices
         A_coeffs = theta[:na * ny].reshape(ny, na)
@@ -126,6 +148,9 @@ class ARXAlgorithm(IdentificationAlgorithm):
     def _create_regression_matrix(self, u, y, na, nb, nk, ny, nu, N):
         """
         Create regression matrix Phi and output matrix y for least squares.
+
+        This function automatically uses the Numba-compiled version when available
+        for improved performance.
 
         Parameters:
         -----------
@@ -145,37 +170,41 @@ class ARXAlgorithm(IdentificationAlgorithm):
         y_matrix : ndarray
             Output matrix
         """
-        # Determine effective data length
-        max_lag = max(na, nb + nk - 1)
-        N_eff = N - max_lag
+        if NUMBA_AVAILABLE and create_regression_matrix_arx_compiled is not None:
+            return create_regression_matrix_arx_compiled(u, y, na, nb, nk, ny, nu, N)
+        else:
+            # Fallback to original implementation
+            # Determine effective data length
+            max_lag = max(na, nb + nk - 1)
+            N_eff = N - max_lag
 
-        if N_eff <= 0:
-            raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+            if N_eff <= 0:
+                raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
 
-        # Initialize regression matrix
-        n_params = na * ny + nb * ny * nu
-        Phi = np.zeros((N_eff, n_params))
+            # Initialize regression matrix
+            n_params = na * ny + nb * ny * nu
+            Phi = np.zeros((N_eff, n_params))
 
-        # Fill AR part (lagged outputs)
-        for i in range(na):
-            for j in range(ny):
-                col_idx = i * ny + j
-                Phi[:, col_idx] = y[j, max_lag - 1 - i : max_lag - 1 - i + N_eff]
-
-        # Fill X part (lagged inputs)
-        for k in range(nb):
-            for i in range(nu):
-                # For MIMO, each input affects all outputs
+            # Fill AR part (lagged outputs)
+            for i in range(na):
                 for j in range(ny):
-                    col_idx = na * ny + k * ny * nu + i * ny + j
-                    delay_idx = max_lag - 1 - (k + nk - 1)
-                    if delay_idx >= 0 and delay_idx + N_eff <= N:
-                        Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
+                    col_idx = i * ny + j
+                    Phi[:, col_idx] = y[j, max_lag - 1 - i : max_lag - 1 - i + N_eff]
 
-        # Output matrix
-        y_matrix = y[:, max_lag : N]
+            # Fill X part (lagged inputs)
+            for k in range(nb):
+                for i in range(nu):
+                    # For MIMO, each input affects all outputs
+                    for j in range(ny):
+                        col_idx = na * ny + k * ny * nu + i * ny + j
+                        delay_idx = max_lag - 1 - (k + nk - 1)
+                        if delay_idx >= 0 and delay_idx + N_eff <= N:
+                            Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
 
-        return Phi, y_matrix
+            # Output matrix
+            y_matrix = y[:, max_lag : N]
+
+            return Phi, y_matrix
 
     def _create_transfer_function(self, A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts):
         """
@@ -279,12 +308,41 @@ class ARXAlgorithm(IdentificationAlgorithm):
         for i in range(n_states - 1):
             A[i, i + 1] = 1
         if na > 0:
-            A[-ny:, :] = -A_coeffs.T  # AR coefficients in last rows
+            # Handle AR coefficients assignment properly
+            if A_coeffs.shape[0] == ny and A_coeffs.shape[1] == na:
+                A[-ny:, :na] = -A_coeffs
+            else:
+                # Fallback for different shapes
+                for i in range(min(ny, A_coeffs.shape[0])):
+                    for j in range(min(na, A_coeffs.shape[1])):
+                        A[n_states - ny + i, j] = -A_coeffs[i, j]
 
         # Input matrix B
         B = np.zeros((n_states, nu))
         if nb > 0:
-            B[-ny:, :] = B_coeffs[:, 0, :].T if len(B_coeffs.shape) > 2 else B_coeffs.T
+            # Handle B coefficients properly
+            if len(B_coeffs.shape) == 2:
+                if B_coeffs.shape[0] == ny and B_coeffs.shape[1] == nb:
+                    # Simple case: take first nu columns and reshape
+                    B_flat = B_coeffs[:, :min(nb, nu)]
+                    if B_flat.shape[1] == nu:
+                        B[-ny:, :] = B_flat
+                    else:
+                        # Pad or truncate as needed
+                        B[-ny:, :B_flat.shape[1]] = B_flat
+                else:
+                    # Reshape and pad/truncate as needed
+                    B_flat = B_coeffs.flatten()
+                    if len(B_flat) >= nu * ny:
+                        B[-ny:, :] = B_flat[:nu * ny].reshape(ny, nu)
+                    else:
+                        B[-ny:, :len(B_flat)//ny] = B_flat.reshape(ny, -1)
+            else:
+                # Handle 3D case if it exists
+                if len(B_coeffs.shape) > 2:
+                    B[-ny:, :] = B_coeffs[:, 0, :nu].T
+                else:
+                    B[-ny:, :] = B_coeffs[:nu * ny].reshape(ny, nu)[:nu, :]
 
         # Output matrix C
         C = np.zeros((ny, n_states))

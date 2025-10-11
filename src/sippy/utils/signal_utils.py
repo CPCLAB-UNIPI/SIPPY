@@ -39,6 +39,17 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
     max_Range = max(Range)
     prob = np.random.random()
 
+    # Use compiled version if available for simple GBN without tolerance checking
+    if NUMBA_AVAILABLE and GBN_seq_compiled is not None and Tol == 0.01:
+        # Use simplified compiled version
+        gbn_b = GBN_seq_compiled(N, p_swd, Nmin, (min_Range, max_Range))
+        # Calculate actual switching probability for basic case
+        switches = np.sum(np.abs(np.diff(gbn_b)) > 0)
+        p_sw_b = min(Nmin * (switches + 1) / N, N)  # cap at 1.0
+        Nswb = switches
+        return gbn_b, p_sw_b, Nswb
+    
+    # Use original implementation when advanced features needed
     # Set first value
     if prob < 0.5:
         gbn = -1.0 * np.ones(N)

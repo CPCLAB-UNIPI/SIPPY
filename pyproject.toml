@@ -11,6 +11,7 @@ dependencies = [
     "control>=0.10.2",
     "harold>=1.0.3",
     "jupyterlab>=4.4.9",
+    "numba>=0.60.0",
     "pandas>=2.3.3",
     "pytest>=8.4.2",
     "slycot>=0.6.0",

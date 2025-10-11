@@ -21,6 +21,18 @@ from ...utils.simulation_utils import (
     simulate_ss_system,
 )
 
+# Import compiled utilities for performance
+try:
+    from ...utils.compiled_utils import (
+        information_criterion_compiled,
+        rescale_compiled,
+        NUMBA_AVAILABLE
+    )
+except ImportError:
+    information_criterion_compiled = None
+    rescale_compiled = None
+    NUMBA_AVAILABLE = False
+
 
 class SubspaceCoreAlgorithm:
     """Core subspace identification algorithms implementation."""
@@ -279,9 +291,15 @@ class SubspaceCoreAlgorithm:
         Ustd = np.zeros(m)
         Ystd = np.zeros(l)
         for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
+            if NUMBA_AVAILABLE and rescale_compiled is not None:
+                Ustd[j], u[j] = rescale_compiled(u[j])
+            else:
+                Ustd[j], u[j] = rescale(u[j])
         for j in range(l):
-            Ystd[j], y[j] = rescale(y[j])
+            if NUMBA_AVAILABLE and rescale_compiled is not None:
+                Ystd[j], y[j] = rescale_compiled(y[j])
+            else:
+                Ystd[j], y[j] = rescale(y[j])
 
         # Perform weighted SVD
         U_n, S_n, V_n, W1, O_i = SubspaceCoreAlgorithm.svd_weighted(y, u, f, l, weights)
@@ -392,9 +410,15 @@ class SubspaceCoreAlgorithm:
         Ustd = np.zeros(m)
         Ystd = np.zeros(l)
         for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
+            if NUMBA_AVAILABLE and rescale_compiled is not None:
+                Ustd[j], u[j] = rescale_compiled(u[j])
+            else:
+                Ustd[j], u[j] = rescale(u[j])
         for j in range(l):
-            Ystd[j], y[j] = rescale(y[j])
+            if NUMBA_AVAILABLE and rescale_compiled is not None:
+                Ystd[j], y[j] = rescale_compiled(y[j])
+            else:
+                Ystd[j], y[j] = rescale(y[j])
 
         # Perform SVD
         U_n, S_n, V_n, W1, O_i = SubspaceCoreAlgorithm.svd_weighted(y, u, f, l, weights)
@@ -420,7 +444,13 @@ class SubspaceCoreAlgorithm:
             if D_required:
                 K_par = K_par + l * m
 
-            IC = information_criterion(K_par, L, Vn, method)
+            # Use compiled information criterion if available
+            if NUMBA_AVAILABLE and information_criterion_compiled is not None:
+                method_map = {'AIC': 0, 'AICc': 1, 'BIC': 2}
+                method_code = method_map.get(method, 0)
+                IC = information_criterion_compiled(K_par, L, Vn, method_code)
+            else:
+                IC = information_criterion(K_par, L, Vn, method)
             if IC < IC_old:
                 n_min = i
                 IC_old = IC
