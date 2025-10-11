@@ -3,8 +3,6 @@ Tests for FilterFactory class.
 """
 
 import pytest
-import numpy as np
-import pandas as pd
 from sippy.filters import FilterFactory
 from sippy.filters.base import IFilter, FilterConfig
 

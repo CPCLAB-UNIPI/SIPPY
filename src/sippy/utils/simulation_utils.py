@@ -2,11 +2,11 @@
 System simulation and analysis utilities.
 """
 
-import numpy as np
-import pandas as pd
-from scipy.linalg import solve_discrete_are
-from scipy import stats, signal, fftpack
 import warnings
+
+import numpy as np
+from scipy import fftpack, signal, stats
+from scipy.linalg import solve_discrete_are
 
 try:
     import harold
@@ -19,7 +19,7 @@ except ImportError:
 def ordinate_sequence(y, f, p):
     """
     Create ordinate sequences for subspace identification.
-    
+
     Parameters:
     -----------
     y : ndarray
@@ -28,7 +28,7 @@ def ordinate_sequence(y, f, p):
         Future horizon
     p : int
         Past horizon
-        
+
     Returns:
     --------
     Yf : ndarray
@@ -40,11 +40,11 @@ def ordinate_sequence(y, f, p):
     N = L - p - f + 1
     Yp = np.zeros((l * f, N))
     Yf = np.zeros((l * f, N))
-    
+
     for i in range(1, f + 1):
         Yf[l * (i - 1):l * i] = y[:, p + i - 1:L - f + i]
         Yp[l * (i - 1):l * i] = y[:, i - 1:L - f - p + i]
-    
+
     return Yf, Yp
 
 
@@ -52,14 +52,14 @@ def Z_dot_PIort(z, X):
     """
     Compute the scalar product between vector z and I - X^T * pinv(X^T),
     avoiding direct computation of the full matrix.
-    
+
     Parameters:
     -----------
     z : ndarray
         Vector
     X : ndarray
         Matrix
-        
+
     Returns:
     --------
     result : ndarray
@@ -71,14 +71,14 @@ def Z_dot_PIort(z, X):
 def Vn_mat(y, yest):
     """
     Compute the variance of the model residuals.
-    
+
     Parameters:
     -----------
     y : ndarray
         Process output
     yest : ndarray
         Estimated model output
-        
+
     Returns:
     --------
     Vn : float
@@ -94,12 +94,12 @@ def Vn_mat(y, yest):
 def impile(M1, M2):
     """
     Stack two matrices vertically.
-    
+
     Parameters:
     -----------
     M1, M2 : ndarray
         Matrices to stack
-        
+
     Returns:
     --------
     M : ndarray
@@ -114,7 +114,7 @@ def impile(M1, M2):
 def reducingOrder(U_n, S_n, V_n, threshold=0.1, max_order=10):
     """
     Reduce model order based on singular values.
-    
+
     Parameters:
     -----------
     U_n, S_n, V_n : ndarray
@@ -123,7 +123,7 @@ def reducingOrder(U_n, S_n, V_n, threshold=0.1, max_order=10):
         Threshold for truncation
     max_order : int
         Maximum order to keep
-        
+
     Returns:
     --------
     U_n, S_n, V_n : ndarray
@@ -141,7 +141,7 @@ def reducingOrder(U_n, S_n, V_n, threshold=0.1, max_order=10):
 def check_types(threshold, max_order, fixed_order, f, p=20):
     """
     Validate parameter types and values.
-    
+
     Parameters:
     -----------
     threshold : float
@@ -154,7 +154,7 @@ def check_types(threshold, max_order, fixed_order, f, p=20):
         Future horizon
     p : int
         Past horizon
-        
+
     Returns:
     --------
     valid : bool
@@ -183,7 +183,7 @@ def check_types(threshold, max_order, fixed_order, f, p=20):
 def check_inputs(threshold, max_order, fixed_order, f):
     """
     Adjust and validate input parameters.
-    
+
     Parameters:
     -----------
     threshold : float
@@ -194,7 +194,7 @@ def check_inputs(threshold, max_order, fixed_order, f):
         Fixed model order
     f : int
         Future horizon
-        
+
     Returns:
     --------
     threshold : float
@@ -215,7 +215,7 @@ def check_inputs(threshold, max_order, fixed_order, f):
 def simulate_ss_system(A, B, C, D, u, x0=None):
     """
     Simulate state-space system in process form.
-    
+
     Parameters:
     -----------
     A, B, C, D : ndarray
@@ -224,7 +224,7 @@ def simulate_ss_system(A, B, C, D, u, x0=None):
         Input signals (inputs x time_steps)
     x0 : ndarray, optional
         Initial state
-        
+
     Returns:
     --------
     x : ndarray
@@ -236,30 +236,30 @@ def simulate_ss_system(A, B, C, D, u, x0=None):
     l, n = C.shape
     y = np.zeros((l, L))
     x = np.zeros((n, L))
-    
+
     if x0 is not None:
         x[:, 0] = x0[:, 0]
-    
+
     y[:, 0] = np.dot(C, x[:, 0]) + np.dot(D, u[:, 0])
-    
+
     for i in range(1, L):
         x[:, i] = np.dot(A, x[:, i - 1]) + np.dot(B, u[:, i - 1])
         y[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
-    
+
     return x, y
 
 
 def ssmatrix(data, axis=1):
     """
     Convert argument to a (possibly empty) state space matrix.
-    
+
     Parameters:
     -----------
     data : array, list, or string
         Input data defining the contents of the 2D array
     axis : 0 or 1
         If input data is 1D, which axis to use for return object
-        
+
     Returns:
     -------
     arr : ndarray
@@ -288,12 +288,12 @@ def ssmatrix(data, axis=1):
 def K_calc(A, C, Q, R, S):
     """
     Calculate Kalman filter gain.
-    
+
     Parameters:
     -----------
     A, C, Q, R, S : ndarray
         State-space and noise covariance matrices
-        
+
     Returns:
     --------
     K : ndarray
@@ -318,16 +318,16 @@ def get_model_uncertainty(u, y, model):
     """
     Returns the frequency response of a finite impulse response model and
     frequency confidence intervals (95% and 68%).
-    
+
     Parameters:
     -----------
     u : array-like
         Input signal
     y : array-like
-        Output signal  
+        Output signal
     model : ndarray
         Finite impulse response of the IO pair
-        
+
     Returns:
     --------
     freqs : ndarray
@@ -342,43 +342,43 @@ def get_model_uncertainty(u, y, model):
         Signal to noise ratio
     """
     n = len(u)
-    
+
     confidence95 = 0.95
     confidence68 = 0.68
     nperseg = 1024
-    
+
     y_estimate = signal.convolve(u, model, mode='full')[:len(u)]
     model_error = y - y_estimate
-    
+
     h = fftpack.fft(model, nperseg)[:nperseg//2]
     freqs, Pxx = signal.welch(u, nperseg=nperseg)
     freqs, Pyy = signal.welch(y, nperseg=nperseg)
     freqs, Pyy_err = signal.welch(model_error, nperseg=nperseg)
     freqs, Pxy = signal.csd(u, y, nperseg=nperseg)
-    
+
     snr = Pyy / Pyy_err
     data_bode = Pxy / Pxx
     data_bode_mag = np.abs(data_bode)
-    
+
     win = np.hamming(16)
     data_bode_mag_filt_f = (np.convolve(data_bode_mag, win, mode='full') / sum(win))[:len(data_bode_mag)]
     data_bode_mag_filt_b = (np.convolve(data_bode_mag_filt_f[::-1], win, mode='full') / sum(win))[:len(data_bode_mag_filt_f)][::-1]
     snr_filt_f = (np.convolve(np.abs(snr), win, mode='full') / sum(win))[:len(snr)]
     snr_filt_b = (np.convolve(snr_filt_f[::-1], win, mode='full') / sum(win))[:len(snr_filt_f)][::-1]
-    
+
     model_bode_mag = np.abs(h)
     combined_bode = np.vstack((model_bode_mag, data_bode_mag_filt_b[:-1]))
     se = stats.sem(combined_bode)
     ci95 = se * stats.t.ppf((1 + confidence95) / 2., n - 1)
     ci68 = se * stats.t.ppf((1 + confidence68) / 2., n - 1)
-    
+
     return freqs[:-1], model_bode_mag, ci95, ci68, snr_filt_b[:-1]
 
 
 def get_fir_coef(model, inds, deps, sampling, tss):
     """
     Returns a nested dictionary of numpy arrays containing FIR coefficients.
-    
+
     Parameters:
     -----------
     model : harold.State or object with similar interface
@@ -391,7 +391,7 @@ def get_fir_coef(model, inds, deps, sampling, tss):
         Model sampling rate in seconds
     tss : int
         Time to steady state in minutes
-        
+
     Returns:
     --------
     fir_model : dict
@@ -405,12 +405,12 @@ def get_fir_coef(model, inds, deps, sampling, tss):
             for ind in inds:
                 fir_model[dep][ind] = np.random.randn(int(tss*60/sampling)) * 0.01
         return fir_model
-    
+
     fir_model = dict()
     t = np.arange(0, tss * 60, sampling)
     Gc = harold.undiscretize(model, method='backward euler')
     imp_response, _ = harold.simulate_impulse_response(Gc, t)
-    
+
     for depidx, dep in enumerate(deps):
         fir_model[dep] = dict()
         for indidx, ind in enumerate(inds):
@@ -420,19 +420,19 @@ def get_fir_coef(model, inds, deps, sampling, tss):
                 fir_model[dep][ind] = imp_response[:, depidx] * model.SamplingPeriod
             else:
                 fir_model[dep][ind] = imp_response[:, depidx, indidx] * model.SamplingPeriod
-    
+
     return fir_model
 
 
 def get_step_response(fir_model):
     """
     Returns a nested dictionary of numpy arrays containing step response.
-    
+
     Parameters:
     -----------
     fir_model : dict
         Nested dictionary of FIR coefficients
-        
+
     Returns:
     --------
     step_response : dict
@@ -450,14 +450,14 @@ def get_deadtime(step_response, isramp=False):
     """
     Returns the estimated deadtime based on a predefined minimum response tolerance.
     Current tolerance is the 4% of steady state gain or overshoot.
-    
+
     Parameters:
     -----------
     step_response : ndarray
         Step response of the model
     isramp : bool
         Ramp type flag
-        
+
     Returns:
     --------
     deadtime : int
@@ -472,14 +472,14 @@ def get_deadtime(step_response, isramp=False):
         abs_gain = abs(gain)
         overshoot = np.abs(step_response).max()
         tol = abs_gain / 25 if overshoot <= abs_gain else overshoot / 25
-    
+
     deadtime = 0
     for coef in step_response:
         if abs(coef) <= tol:
             deadtime += 1
         else:
             break
-    
+
     deadtime = deadtime if deadtime >= 2 else 0
     return deadtime
 
@@ -487,14 +487,14 @@ def get_deadtime(step_response, isramp=False):
 def simulate_fir(fir_model, data):
     """
     Returns a pandas dataframe of dependent variable predictions.
-    
+
     Parameters:
     -----------
     fir_model : dict
         Nested dictionary of FIR coefficients
     data : pandas.DataFrame
         DataFrame containing independent and dependent variables data
-        
+
     Returns:
     --------
     predictions : pandas.DataFrame
@@ -504,7 +504,7 @@ def simulate_fir(fir_model, data):
     deps = list(fir_model.keys())
     inds = list(fir_model[deps[0]].keys())
     predictions = data[deps].copy(deep=True)
-    
+
     for dep in deps:
         predictions[dep].values[:] = 0.0
         for ind in inds:
@@ -512,5 +512,5 @@ def simulate_fir(fir_model, data):
         tss = len(fir_model[dep][inds[0]])
         predictions[dep][:tss] = predictions[dep].values[tss + 1]
         predictions[dep] = predictions[dep] - predictions[dep].mean() + data[dep].mean()
-    
+
     return predictions

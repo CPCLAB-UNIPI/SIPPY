@@ -2,14 +2,15 @@
 Signal generation and processing utilities.
 """
 
-import numpy as np
 import warnings
+
+import numpy as np
 
 
 def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
     """
     Generate a Generalized Binary Noise (GBN) sequence.
-    
+
     Parameters:
     -----------
     N : int
@@ -20,11 +21,11 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
         Minimum number of samples between two switches
     Range : list, optional
         Input range [min, max]
-    Tol : float, optional  
+    Tol : float, optional
         Tolerance on switching probability relative error
     nit_max : int, optional
         Maximum number of iterations
-        
+
     Returns:
     --------
     gbn_b : ndarray
@@ -37,17 +38,17 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
     min_Range = min(Range)
     max_Range = max(Range)
     prob = np.random.random()
-    
+
     # Set first value
     if prob < 0.5:
         gbn = -1.0 * np.ones(N)
     else:
         gbn = 1.0 * np.ones(N)
-    
+
     # Initialize variables
     p_sw = p_sw_b = 2.0  # actual switch probability
     nit = 0
-    
+
     while (np.abs(p_sw - p_swd))/p_swd > Tol and nit <= nit_max:
         i_fl = 0
         Nsw = 0
@@ -62,19 +63,19 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
                     # Switch and then count it
                     gbn[i + 1] = -gbn[i + 1]
                     Nsw = Nsw + 1
-        
+
         # Check actual switch probability
         p_sw = Nmin * (Nsw + 1) / N
-        
+
         # Set best iteration
         if np.abs(p_sw - p_swd) < np.abs(p_sw_b - p_swd):
             p_sw_b = p_sw
             Nswb = Nsw
             gbn_b = gbn.copy()
-        
+
         # Increase iteration number
         nit = nit + 1
-    
+
     # Rescale GBN
     gbn_b = np.where(gbn_b > 0, max_Range, min_Range)
     return gbn_b, p_sw_b, Nswb
@@ -83,7 +84,7 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
 def RW_seq(N, rw0, sigma=1):
     """
     Generate a Random Walk sequence.
-    
+
     Parameters:
     -----------
     N : int
@@ -92,7 +93,7 @@ def RW_seq(N, rw0, sigma=1):
         Initial value
     sigma : float, optional
         Standard deviation (mobility) of random walk
-        
+
     Returns:
     --------
     rw : ndarray
@@ -110,14 +111,14 @@ def RW_seq(N, rw0, sigma=1):
 def white_noise(y, A_rel):
     """
     Add white noise to a signal.
-    
+
     Parameters:
     -----------
     y : ndarray
         Clean signal
     A_rel : float
         Relative amplitude (0<x<1) to the standard deviation of y
-        
+
     Returns:
     --------
     errors : ndarray
@@ -129,11 +130,11 @@ def white_noise(y, A_rel):
     y_err = np.zeros(num)
     Ystd = np.std(y)
     scale = np.abs(A_rel * Ystd)
-    
+
     if scale < np.finfo(np.float32).eps:
         scale = np.finfo(np.float32).eps
         warnings.warn("A_rel may be too small, its value set to the lowest default one")
-    
+
     errors = np.random.normal(0., scale, num)
     y_err = y + errors
     return errors, y_err
@@ -142,14 +143,14 @@ def white_noise(y, A_rel):
 def white_noise_var(L, Var):
     """
     Generate white noise matrix with specified variances.
-    
+
     Parameters:
     -----------
     L : int
         Number of samples (columns)
     Var : array_like
         Variance vector for each row
-        
+
     Returns:
     --------
     noise : ndarray
@@ -158,25 +159,25 @@ def white_noise_var(L, Var):
     Var = np.array(Var)
     n = Var.size
     noise = np.zeros((n, L))
-    
+
     for i in range(n):
         if Var[i] < np.finfo(np.float32).eps:
             Var[i] = np.finfo(np.float32).eps
             warnings.warn(f"Var[{i}] may be too small, its value set to the lowest default one")
         noise[i, :] = np.random.normal(0., Var[i] ** 0.5, L)
-    
+
     return noise
 
 
 def rescale(y):
     """
     Rescale array to its standard deviation.
-    
+
     Parameters:
     -----------
     y : ndarray
         Input signal
-        
+
     Returns:
     --------
     ystd : float
@@ -192,7 +193,7 @@ def rescale(y):
 def information_criterion(K, N, Variance, method='AIC'):
     """
     Calculate information criterion for model selection.
-    
+
     Parameters:
     -----------
     K : int
@@ -203,7 +204,7 @@ def information_criterion(K, N, Variance, method='AIC'):
         Model residual variance
     method : str, optional
         Information criterion type ('AIC', 'AICc', 'BIC')
-        
+
     Returns:
     --------
     IC : float
@@ -226,14 +227,14 @@ def information_criterion(K, N, Variance, method='AIC'):
 def mean_square_error(predictions, targets):
     """
     Calculate mean square error.
-    
+
     Parameters:
     -----------
     predictions : ndarray
         Predicted values
     targets : ndarray
         Target values
-        
+
     Returns:
     --------
     mse : float

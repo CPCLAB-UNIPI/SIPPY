@@ -4,13 +4,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
-from sippy.identification import system_identification, get_model_uncertainty, get_fir_coef, get_step_response, simulate_ss_system, simulate_ss_system as simulate_fir
+from sippy.identification import (system_identification, get_model_uncertainty, get_fir_coef, get_step_response, 
+                                   simulate_ss_system, simulate_ss_system as simulate_fir, IDData)
 from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
 from sippy.filters import FilterFactory
 
 
 # Load spteptest data from a TSV file
-file = r'data\FRAC2.csv'
+file = 'data/FRAC2.csv'
 columns = ['Time', 'AI-2020', 'AI-2021', 'AI-2022', 'FIC-2100', 'FIC-2101', 'FIC-2102', 'FI-2005', 'FIC-2001', 'FIC-2002', 'FIC-2004', 'QI-2106', 'TIC-2003']
 step_test_data = pd.read_csv(file,skiprows=[1,2,3], usecols=columns, index_col='Time', parse_dates=True)
 
@@ -37,14 +38,18 @@ else:
     
 idinput = d_filter.data_manager.get_data("output")
 
-# Resample datadet
+# Resample data
 idinput_resampled = idinput.resample('1min').mean()
 
-# Convert dataframe to numpy array in the shape requied for SIPPY
-u = idinput_resampled[inputs].to_numpy().T
-y = idinput_resampled[outputs].to_numpy().T
+# Create IDData object - NEW APPROACH
+id_data = IDData(idinput_resampled, inputs, outputs)
+
+# The IDData object automatically provides data in the correct format
+y = id_data.get_output_array()
+u = id_data.get_input_array()
+print('IDData object:', id_data)
 print('Output shape:', y.shape)
-print('Input shape:',u.shape)
+print('Input shape:', u.shape)
 
 #specify model identification parameters, reffer the documentation for detais.
 id_method='CVA'
@@ -57,6 +62,22 @@ req_D = True
 force_A_stable = False
 tsample = pd.Timedelta(idinput_resampled.index[1] - idinput_resampled.index[0]).total_seconds() # data sampling time
 
+# Option 1: Traditional approach with numpy arrays (shown above)
+# Option 2: NEW approach with IDData object directly
+# id_result = system_identification(
+#     iddata=id_data,  # Pass IDData object directly
+#     id_method=id_method,
+#     tsample=tsample,
+#     SS_fixed_order=fix_ordr,
+#     SS_orders=ss_orders,
+#     SS_threshold=SS_threshold,
+#     IC=IC,
+#     SS_f=TH,
+#     SS_D_required=req_D,
+#     SS_A_stability=force_A_stable
+# )
+
+# Using traditional approach for now
 id_result = system_identification(
     y=y, 
     u=u,

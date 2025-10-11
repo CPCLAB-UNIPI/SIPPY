@@ -79,7 +79,7 @@ class TestFilterConfig:
             cutoff=0.1,
             order=4,
             multiplier=2.5,
-            slices={'test': {'type': 'bad', 'start': 10, 'end': 20, 'tags': ['col1']}
+            slices={'test': {'type': 'bad', 'start': 10, 'end': 20, 'tags': ['col1']}}
         )
         
         assert config.cutoff == 0.1

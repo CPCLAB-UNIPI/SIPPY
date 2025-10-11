@@ -2,8 +2,7 @@
 Difference filter implementation for signal differentiation.
 """
 
-from typing import Optional, Union, Any, Dict
-import numpy as np
+from typing import Optional, Any, Dict
 import pandas as pd
 from .base import FilterConfig, IFilter
 

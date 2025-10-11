@@ -128,7 +128,7 @@ class TestDifferenceFilter:
         
         index = pd.date_range('2023-01-01', periods=1000, freq='1D')
         data = pd.DataFrame({
-            'y': pd.Series(np.sin(2 * np.pi * 0.1 * np.arange(1000)),
+            'y': pd.Series(np.sin(2 * np.pi * 0.1 * np.arange(1000))),
             'u': pd.Series(np.random.randn(1000))
         }, index=index)
         

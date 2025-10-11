@@ -4,8 +4,7 @@ Utility functions for filter operations and analysis.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union
-from scipy import signal
+from typing import Dict, Union
 
 
 def calculate_sampling_frequency(data: pd.DataFrame) -> float:

@@ -2,12 +2,9 @@
 Integration tests for filter functionality.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
-from sippy.filters import FilterFactory, FilterConfig
-from sippy.filters.zero_mean import ZeroMeanFilter
-from sippy.filters.utils import create_test_data, calculate_sampling_frequency
+from sippy.filters import FilterFactory
 
 
 class TestFilterIntegration:
@@ -84,7 +81,6 @@ class TestFilterIntegration:
     def test_backward_compatibility_interface(self):
         """Test that the old DetrendingFilter interface works as expected."""
         # This would test the legacy compatibility layer that we need to implement
-        from sippy.filters import get_filter
         
         # Test that get_filter provides same interface as DetrendingFilter().get_filter()
         filter1 = FilterFactory.create('highpass')

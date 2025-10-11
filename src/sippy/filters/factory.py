@@ -41,7 +41,7 @@ class FilterFactory:
             If name is already registered
         """
         if not issubclass(filter_class, IFilter):
-            raise TypeError(f"Filter class must implement IFilter interface")
+            raise TypeError("Filter class must implement IFilter interface")
             
         normalized_name = name.lower()
         if normalized_name in cls._filters:

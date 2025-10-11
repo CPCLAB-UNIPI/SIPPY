@@ -3,7 +3,7 @@ Base classes and interfaces for signal processing filters.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 import numpy as np
 import pandas as pd
 
