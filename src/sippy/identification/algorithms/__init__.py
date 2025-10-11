@@ -10,6 +10,7 @@ try:
     from .fir import FIRAlgorithm
     from .moesp import MOESPAlgorithm
     from .n4sid import N4SIDAlgorithm
+    from .oe import OEAlgorithm
     from .parsim_k import PARSIMKAlgorithm
     from .parsim_p import PARSIMPAlgorithm
     from .parsim_s import PARSIMSAlgorithm
@@ -23,6 +24,7 @@ try:
     AlgorithmFactory.register('ARX', ARXAlgorithm)
     AlgorithmFactory.register('FIR', FIRAlgorithm)
     AlgorithmFactory.register('ARMAX', ARMAXAlgorithm)
+    AlgorithmFactory.register('OE', OEAlgorithm)
 except ImportError:
     # In case sysidbox is not available, we still have the base classes ready
     N4SIDAlgorithm = None
@@ -34,3 +36,4 @@ except ImportError:
     ARXAlgorithm = None
     ARMAXAlgorithm = None
     FIRAlgorithm = None
+    OEAlgorithm = None
