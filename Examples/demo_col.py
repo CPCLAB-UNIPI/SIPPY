@@ -4,9 +4,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
-from sippy.identification import system_identification, get_model_uncertainty, get_fir_coef, get_step_response, simulate_fir
+from sippy.identification import system_identification, get_model_uncertainty, get_fir_coef, get_step_response, simulate_ss_system, simulate_ss_system as simulate_fir
 from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
-from detrend.detrending_filter import DetrendingFilter
+from sippy.filters import FilterFactory
 
 
 # Load spteptest data from a TSV file
@@ -29,13 +29,13 @@ tags = inputs + outputs
 tss = 120
 filter_tss_mult_factor = 3
 filter_type  = 'highpass' # Valid filters ['highpass', 'difference', 'doubledifference', 'zeromean', 'none']
-d_filter = DetrendingFilter().get_filter(filter_type)
+d_filter = FilterFactory.create(filter_type)
 if filter_type == 'highpass':
     d_filter.apply_filter(step_test_data[tags], tss, filter_tss_mult_factor, slices)
 else:
     d_filter.apply_filter(step_test_data[tags], slices)
     
-idinput = d_filter.filterdata.data["output"]
+idinput = d_filter.data_manager.get_data("output")
 
 # Resample datadet
 idinput_resampled = idinput.resample('1min').mean()

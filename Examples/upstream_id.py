@@ -19,13 +19,13 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
 from sippy.identification import system_identification, get_model_uncertainty, get_fir_coef, get_step_response
 from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
-from detrend.detrending_filter import DetrendingFilter
+from sippy.filters import FilterFactory, FilterConfig
 # %matplotlib widget
 
 
 # %%
 # Load spteptest data from a TSV file
-file = os.path.join(os.path.dirname(os.getcwd()),'SIPPY','data','Upstream-HP.txt')
+file = os.path.join(os.path.dirname(os.getcwd()),'data','Upstream-HP.txt')
 hp_columns = ['Time', 'KOPC_OP',  'KOPC_SP',  'PIC100X_OP',  'PIC100X_SP', 'TIC100_OP', 'TIC100_SP', 'GAS.PV', 'HPCPOWER.PV', 'WELL1.OP', 'WELL2.OP', 'WELL3.OP']
 lp_columns = ['Time', 'LIC102_OP', 'PIC100_OP', 'PIC100X_SP','PIC1042_OP', 'PIC1042_SP', 'TIC101_OP', 'TIC101_SP',  'TIC104_OP', 'TIC104_SP', 'MPC1POWER.PV', 'MPC2POWER.PV']
 lwvwl_columns = ['Time', 'LIC102', 'LIC102_OP', 'LIC106', 'LIC106_OP', 'LIC110', 'LIC110_OP', 'PIC1042_SP', 'TIC101_SP', 'TIC104_SP', 'WELL1.OP', 'WELL2.OP', 'WELL3.OP']
@@ -68,34 +68,36 @@ slices = { "slice1":{"type":"bad", "isGlobal": True, "start":badslice1_start, "e
 #specify model identification parameters, reffer the documentation for detais.
 tss = 90                   # Process time to steady state
 controller_sampling = 1    # Controller sampling time
-filter_tss_mult_factor = 3 # 3 for self-regulating CV, 6 for ramp CV
+filter_tss_mult_factor = 3 # 3 for self-regulating CIV, 6 for ramp CV
 resampling = 1             # For tss more than 90 use 2, and if grater than 240 use 3 
 id_method='CVA'            # CVA, MOESP, N4SID
 IC = 'AIC'                 # None, AIC, AICc, BIC
-TH =  20                   # The length of time horizon used for regression
+TH = 20                   # The length of time horizon used for regression
 fix_ordr = 12              # Used if and only if IC = 'None'
 ss_orders = [1, 20]        # SS orser min and max, Used if IC = AIC, AICc or BIC
 SS_threshold = 0.2         # Singular value threshold
 req_D = True
 force_A_stable = False
 
+# Adjust for available data - use appropriate filter type and parameters
+filter_type = 'zeromean'  # Use zero-mean instead of high-pass for this data
+filter_tss_mult_factor = 1.0
+tss = None  # Override tss for zero-mean
+
 
 # %%
 # Create FIR filter to detrend signal 
 tags = inputs + outputs
-filter_type  = 'highpass' # Valid filters ['highpass', 'difference', 'doubledifference', 'zeromean', 'none']
-d_filter = DetrendingFilter().get_filter(filter_type)
-if filter_type == 'highpass':
-    d_filter.apply_filter(step_test_data[tags], tss, filter_tss_mult_factor, slices)
-else:
-    d_filter.apply_filter(step_test_data[tags], slices)
+filter_type = 'zeromean' # Use zero-mean instead of high-pass for this data
+d_filter = FilterFactory.create(filter_type)
+d_filter.apply_filter(step_test_data[tags], slices=slices)
     
-idinput = d_filter.filterdata.data["output"]
+idinput = d_filter.data_manager.get_data("output")
 
 
 # %%
 tag = 'GAS.PV'
-trend = d_filter.filterdata.data["trend"]
+trend = d_filter.data_manager.get_data("trend")
 plt.plot(step_test_data.index, step_test_data[tag], idinput.index, idinput[tag], trend.index, trend[tag])
 plt.margins(x=0)
 plt.grid()

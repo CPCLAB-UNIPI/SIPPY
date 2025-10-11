@@ -10,7 +10,7 @@
 
 ## Core Identification Flow
 
-1. Preprocess raw signals with `detrend.DetrendingFilter` to remove trends, interpolate bad slices, and store results in the shared `FilterData` singleton.
+1. Preprocess raw signals with `sippy.filters.FilterFactory` to remove trends, interpolate bad slices, and store results in the `FilterDataManager`.
 2. Convert filtered data into numpy arrays and use `src.sippy.identification.SystemIdentification` with fluent API for modern object-oriented approach.
 3. Choose from registered algorithms (N4SID, MOESP, CVA) via `AlgorithmFactory` with configuration through `SystemIdentificationConfig`.
 4. Work with the returned `StateSpaceModel` wrapper which exposes matrices, covariance estimates, and helper methods including:
@@ -34,7 +34,7 @@
 - `src/sippy/utils/simulation_utils.py`: Simulation and analysis utilities (`get_fir_coef`, `get_step_response`, `get_model_uncertainty`, `simulate_ss_system`).
 
 ### Signal Processing
-- `detrend/high_pass_filter.py`, `difference_filter.py`, `zero_mean_filter.py`, `none_filter.py`: concrete filter strategies created by `DetrendingFilter`.
+- `src/sippy/filters/high_pass.py`, `difference.py`, `zero_mean.py`, `none_filter.py`: concrete filter strategies created by `FilterFactory`.
 
 ### Examples
 - `Examples/upstream_id.py`: comprehensive reference pipeline from raw data to identified model and plots.
