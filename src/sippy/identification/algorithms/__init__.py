@@ -5,6 +5,7 @@ try:
     # Register all algorithms with the factory
     from ..factory import AlgorithmFactory
     from .arma import ARMAAlgorithm
+    from .ararx import ARARXAlgorithm
     from .armax import ARMAXAlgorithm
     from .arx import ARXAlgorithm
     from .bj import BJAlgorithm
@@ -24,6 +25,7 @@ try:
     AlgorithmFactory.register('PARSIM-S', PARSIMSAlgorithm)
     AlgorithmFactory.register('PARSIM-P', PARSIMPAlgorithm)
     AlgorithmFactory.register('ARX', ARXAlgorithm)
+    AlgorithmFactory.register('ARARX', ARARXAlgorithm)
     AlgorithmFactory.register('FIR', FIRAlgorithm)
     AlgorithmFactory.register('ARMAX', ARMAXAlgorithm)
     AlgorithmFactory.register('OE', OEAlgorithm)
@@ -38,6 +40,7 @@ except ImportError:
     PARSIMSAlgorithm = None
     PARSIMPAlgorithm = None
     ARXAlgorithm = None
+    ARARXAlgorithm = None
     ARMAXAlgorithm = None
     BJAlgorithm = None
     FIRAlgorithm = None

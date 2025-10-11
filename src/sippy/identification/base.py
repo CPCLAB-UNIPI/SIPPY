@@ -195,6 +195,16 @@ class StateSpaceModel:
         from ..utils.simulation_utils import simulate_ss_system
         return simulate_ss_system(self.A, self.B, self.C, self.D, u, x0)
 
+    def supports_optimization_methods(self) -> bool:
+        """
+        Check if the model supports various optimization methods.
+
+        Returns:
+        --------
+        bool : True if optimization methods are supported
+        """
+        return True  # Most modern identification algorithms support optimization
+
 
 class SystemIdentificationConfig:
     """Configuration container for system identification."""
