@@ -3,7 +3,13 @@
 
 import pandas as pd
 import numpy as np
-from src.sippy.filters import FilterFactory
+import sys
+import os
+
+# Add the source directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+from sippy.filters import FilterFactory
 
 def test_basic_functionality():
     """Test basic filter functionality."""
