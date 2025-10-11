@@ -67,26 +67,27 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         bool
             True if parameters are valid
         """
-        nb = kwargs.get("nb", 1)
-        nc = kwargs.get("nc", 1)
-        nd = kwargs.get("nd", 1)
-        nf = kwargs.get("nf", 1)
-        nk = kwargs.get("nk", 0)
+        nb = kwargs.get("nb")
+        nc = kwargs.get("nc")
+        nd = kwargs.get("nd")
+        nf = kwargs.get("nf")
+        nk = kwargs.get("nk")
 
-        if nb <= 0:
+        # Check if parameters are explicitly set to invalid values
+        if nb is not None and nb <= 0:
             raise ValueError("Input order (nb) must be positive")
-        if nc <= 0:
+        if nc is not None and nc <= 0:
             raise ValueError("Noise AR order (nc) must be positive")
-        if nd <= 0:
+        if nd is not None and nd <= 0:
             raise ValueError("Noise MA orders must be positive")
-        if nf <= 0:
+        if nf is not None and nf <= 0:
             raise ValueError("Noise MA orders must be positive")
-        if nk < 0:
+        if nk is not None and nk < 0:
             raise ValueError("Input delay (nk) must be non-negative")
 
         return True
 
-    def identify(self, y=None, u=None, iddata=None, **kwargs):
+    def identify(self, data, config):
         """
         Identify ARARX model from input-output data.
 
@@ -96,44 +97,33 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             Input-output data
         config : SystemIdentificationConfig
             Configuration parameters including nb, nc, nd, nf, nk, na
-        **kwargs : dict
-            Additional parameters (for backward compatibility)
 
         Returns:
         --------
         model : StateSpaceModel
             Identified state-space model
         """
-        # Extract data if IDData provided
-        if iddata is not None:
-            u = iddata.get_input_array()
-            y = iddata.get_output_array()
-            ts = (
-                getattr(iddata, "sample_time", 1.0)
-                if hasattr(iddata, "sample_time")
-                else 1.0
-            )
-        elif hasattr(
-            y, "get_input_array"
-        ):  # y is actually IDData (backward compatibility)
-            u = y.get_input_array()
-            y = y.get_output_array()
-            ts = getattr(y, "sample_time", 1.0) if hasattr(y, "sample_time") else 1.0
-        else:
-            ts = kwargs.get("ts", 1.0)
+        # Extract data from IDData object
+        u = data.get_input_array()
+        y = data.get_output_array()
+        ts = data.ts if hasattr(data, 'ts') else 1.0
 
-        # Extract configuration parameters from kwargs
-        nb = kwargs.get("nb", 1)
-        nc = kwargs.get("nc", 1)
-        nd = kwargs.get("nd", 1)
-        nf = kwargs.get("nf", 1)
-        nk = kwargs.get("nk", 0)
-        na = kwargs.get("na", 0)  # ARARX has na=0
+        # Extract configuration parameters (ARARX specific)
+        nb = getattr(config, "nb", None)
+        nc = getattr(config, "nc", None)
+        nd = getattr(config, "nd", None)
+        nf = getattr(config, "nf", None)
+        nk = getattr(config, "nk", None)
 
-        # Validate parameters
+        # Validate parameters before handling None cases
         self.validate_parameters(nb=nb, nc=nc, nd=nd, nf=nf, nk=nk)
 
-        # y and u are already available from either positional args or IDData extraction
+        # Handle None cases (but keep 0 if explicitly set for validation)
+        nb = nb or 1
+        nc = nc or 1
+        nd = nd or 1
+        nf = nf or 1
+        nk = nk or 0
 
         # Get data dimensions
         ny, N = y.shape
@@ -207,7 +197,6 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                         Phi_input, y[i, max_lag : max_lag + N_eff], rcond=None
                     )
                     y_pred = Phi_input @ theta_input
-                    residuals = y[i, max_lag : max_lag + N_eff] - y_pred
 
                     # Add noise correlation terms
                     for lag in range(nc):

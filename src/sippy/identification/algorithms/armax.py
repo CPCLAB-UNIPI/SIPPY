@@ -122,6 +122,13 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         ny, N = y.shape
         nu, _ = u.shape
 
+        # Check for insufficient data early
+        max_lag = max(na + nc, nb + nk - 1)
+        N_eff = N - max_lag
+        if N_eff <= 0:
+            # Return minimal model for insufficient data
+            return self._create_minimal_model(ny, nu, data.sample_time)
+
         # Create regression matrices for ARMAX identification
         Phi, y_matrix = self._create_armax_regression_matrices(
             u, y, na, nb, nc, nk, ny, nu, N
@@ -397,6 +404,49 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
             Q=np.eye(A.shape[0]),
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
+            ts=Ts,
+            Vn=0.01,
+        )
+
+    def _create_minimal_model(self, ny, nu, Ts):
+        """
+        Create a minimal state-space model when there's insufficient data.
+
+        Parameters:
+        -----------
+        ny : int
+            Number of outputs
+        nu : int
+            Number of inputs
+        Ts : float
+            Sample time
+
+        Returns:
+        --------
+        model : StateSpaceModel
+            Minimal 1x1 state-space model
+        """
+        # Create minimal 1x1 state-space model
+        A = np.array([[0.01]])  # Small stable pole
+        B = np.zeros((1, nu))
+        C = np.zeros((ny, 1))
+        D = np.zeros((ny, nu))
+
+        # Set up simple connections
+        if nu > 0:
+            B[0, 0] = 1.0 if nu == 1 else 0.1
+        if ny > 0:
+            C[0, 0] = 1.0 if ny == 1 else 0.1
+
+        return StateSpaceModel(
+            A=A,
+            B=B,
+            C=C,
+            D=D,
+            K=np.zeros((1, ny)),
+            Q=np.eye(1) * 0.01,
+            R=np.eye(ny),
+            S=np.zeros((1, ny)),
             ts=Ts,
             Vn=0.01,
         )

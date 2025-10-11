@@ -461,8 +461,6 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         nb_val = max(nb) if isinstance(nb, (list, tuple)) else nb
         nc_val = max(nc) if isinstance(nc, (list, tuple)) else nc
         nd_val = max(nd) if isinstance(nd, (list, tuple)) else nd
-        nf_val = max(nf) if isinstance(nf, (list, tuple)) else nf
-        nk_val = max(nk) if isinstance(nk, (list, tuple)) else nk
 
         # Try to use compiled version for simplified case
         if NUMBA_AVAILABLE and create_regression_matrix_ararmax_compiled is not None:

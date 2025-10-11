@@ -98,7 +98,6 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         # Extract configuration parameters (ARMA specific)
         na = getattr(config, "na", 1)
         nc = getattr(config, "nc", 1)
-        nk = getattr(config, "nk", 0)  # Not used in ARMA but keep for consistency
 
         # Validate parameters
         self.validate_parameters(na=na, nc=nc)
