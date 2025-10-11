@@ -10,6 +10,7 @@ import pandas as pd
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
+
 try:
     from ..iddata import IDData
 except ImportError:
@@ -18,8 +19,8 @@ except ImportError:
 # Import compiled utilities for performance
 try:
     from ...utils.compiled_utils import (
-        create_regression_matrix_ararmax_compiled,
         NUMBA_AVAILABLE,
+        create_regression_matrix_ararmax_compiled,
     )
 except ImportError:
     create_regression_matrix_ararmax_compiled = None
@@ -102,6 +103,28 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
+        # Extract parameters from master branch style ararmax_orders if needed
+        if (hasattr(config, 'ararmax_orders') and config.ararmax_orders is not None and
+            len(config.ararmax_orders) >= 5):
+            # Master branch format: [na, nb, nc, nd, nf] where nk is auto-calculated
+            orders = config.ararmax_orders
+            if not hasattr(config, "na") or config.na is None:
+                config.na = orders[0]
+            if not hasattr(config, "nb") or config.nb is None:
+                config.nb = orders[1]
+            if not hasattr(config, "nc") or config.nc is None:
+                config.nc = orders[2]
+            if not hasattr(config, "nd") or config.nd is None:
+                config.nd = orders[3]
+            if not hasattr(config, "nf") or config.nf is None:
+                config.nf = orders[4]
+            # Auto-calculate nk as 1 if not provided (master branch behavior)
+            if not hasattr(config, "nk") or config.nk is None:
+                if len(orders) > 5:
+                    config.nk = orders[5]  # theta/delay matrix from master branch
+                else:
+                    config.nk = 1  # Default delay
+
         # Check required ARARMAX parameters
         if not hasattr(config, "na") or config.na is None:
             raise ValueError(
@@ -139,6 +162,36 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             raise ValueError("'nf' must be an integer or list")
         if not isinstance(config.nk, (int, list)):
             raise ValueError("'nk' must be an integer or list")
+
+        # Helper function to flatten nested lists and validate
+        def flatten_and_validate(param, param_name):
+            if isinstance(param, int):
+                if param < 1:
+                    raise ValueError(f"{param_name} must be positive")
+                return param
+            elif isinstance(param, list):
+                # Flatten nested list structure (MIMO case)
+                flat_param = []
+                for item in param:
+                    if isinstance(item, (list, tuple)):
+                        flat_param.extend(item)
+                    else:
+                        flat_param.append(item)
+                # Validate all values
+                for x in flat_param:
+                    if not isinstance(x, (int, float)) or x < 0:
+                        raise ValueError(f"All {param_name} values must be non-negative numbers")
+                return max(flat_param) if flat_param else 0
+            else:
+                raise ValueError(f"{param_name} must be an integer or list")
+
+        # Validate constraints using helper function
+        flatten_and_validate(config.na, "AR order (na)")
+        flatten_and_validate(config.nb, "Input order (nb)")
+        flatten_and_validate(config.nc, "Noise AR order (nc)")
+        flatten_and_validate(config.nd, "Noise MA order (nd)")
+        flatten_and_validate(config.nf, "Input TF order (nf)")
+        flatten_and_validate(config.nk, "Input delay (nk)")
 
     def identify(
         self,
@@ -219,26 +272,35 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         nf = config.nf
         nk = config.nk
 
-        # Convert to lists if they are single numbers
-        if isinstance(na, int):
-            na = [na]
-        if isinstance(nb, int):
-            nb = [nb]
-        if isinstance(nc, int):
-            nc = [nc]
-        if isinstance(nd, int):
-            nd = [nd]
-        if isinstance(nf, int):
-            nf = [nf]
-        if isinstance(nk, int):
-            nk = [nk]
+        # Flatten nested lists and extract max values for MIMO compatibility
+        def flatten_and_max(param):
+            if isinstance(param, int):
+                return param, [param]
+            elif isinstance(param, (list, tuple)):
+                # Flatten nested list/tuple structure
+                flat_param = []
+                for item in param:
+                    if isinstance(item, (list, tuple)):
+                        flat_param.extend(item)
+                    else:
+                        flat_param.append(item)
+                return max(flat_param) if flat_param else 0, flat_param
+            else:
+                return 0, []
+
+        max_na, na = flatten_and_max(na)
+        max_nb, nb = flatten_and_max(nb)
+        max_nc, nc = flatten_and_max(nc)
+        max_nd, nd = flatten_and_max(nd)
+        max_nf, nf = flatten_and_max(nf)
+        max_nk, nk = flatten_and_max(nk)
 
         # Convert to numpy arrays
         u_values = u.values if hasattr(u, "values") else np.array(u)
-        y_values = y.values if hasattr(y, "values") else np.array(u_values)
+        y_values = y.values if hasattr(y, "values") else np.array(y)
 
         n_samples = len(u_values)
-        max_order = max(max(na), max(nb) + max(nk), max(nc), max(nd), max(nf))
+        max_order = max(max_na, max_nb + max_nk, max_nc, max_nd, max_nf)
 
         # Check data sufficiency
         if n_samples <= max_order + 10:  # Need enough data for estimation
@@ -338,7 +400,6 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             # Noise MA part
             if n_noise_ma > 0:
                 ma_start = n_main + n_noise_ar
-                ma_end = ma_start + n_noise_ma
                 for i in range(n_noise_ma - 1):
                     A_aug[ma_start + i, ma_start + i + 1] = 1.0
 
@@ -395,11 +456,13 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         n_outputs = y.shape[1] if len(y.shape) > 1 else 1
         n_inputs = u.shape[1] if len(u.shape) > 1 else 1
 
-        # For simplicity in this implementation, use scalar orders
+        # Use scalar orders (already flattened by caller)
         na_val = max(na) if isinstance(na, (list, tuple)) else na
         nb_val = max(nb) if isinstance(nb, (list, tuple)) else nb
         nc_val = max(nc) if isinstance(nc, (list, tuple)) else nc
         nd_val = max(nd) if isinstance(nd, (list, tuple)) else nd
+        nf_val = max(nf) if isinstance(nf, (list, tuple)) else nf
+        nk_val = max(nk) if isinstance(nk, (list, tuple)) else nk
 
         # Try to use compiled version for simplified case
         if NUMBA_AVAILABLE and create_regression_matrix_ararmax_compiled is not None:
@@ -573,10 +636,7 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         # This is a simplified implementation
         na_val = max(na)
         nb_val = max(nb)
-        nc_val = max(nc)
-        nd_val = max(nd)
-        nf_val = max(nf)
-        nk_val = max(nk)
+        nk_val = max(nk) if isinstance(nk, (list, tuple)) else nk
 
         # Main system parameters (first na_val + nb_val coefficients)
         n_main = max(na_val, nb_val + nk_val)
@@ -597,7 +657,6 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
 
         if nb_val > 0 and na_val + nb_val <= len(theta):
             # Input coefficients
-            B_idx = max(0, na_val - 1)  # Position where B coefficients start
             for i in range(min(nb_val, len(theta) - na_val)):
                 B[max(0, na_val - 1 - i), 0] = theta[na_val + i]
 
@@ -638,7 +697,6 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         B = np.zeros((n_main, 1))
 
         if nb_val > 0 and na_val + nb_val <= len(theta):
-            B_idx = max(0, na_val - 1)
             for i in range(min(nb_val, len(theta) - na_val)):
                 B[max(0, na_val - 1 - i), 0] = theta[na_val + i]
 
@@ -652,11 +710,11 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         arx_algo = ARXAlgorithm()
         arx_config = config.copy()
         arx_config.method = "ARX"
-        arx_config.na = na_val
         # Handle both int and list parameters for fallback
         nb_val = config.nb
         nk_val = config.nk
         na_val = config.na
+        arx_config.na = na_val
 
         # Convert to single integers if they're lists
         if hasattr(nb_val, "__len__"):
@@ -670,38 +728,6 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         arx_config.nk = nk_val
         arx_config.na = na_val
 
-        # Create IDData from data for ARX fallback
-        from ..iddata import IDData
-
-        arx_iddata = IDData(
-            data=pd.DataFrame(
-                {
-                    **{
-                        f"u{i + 1}": u_values[:, i]
-                        if len(u_values.shape) > 1
-                        else u_values
-                        for i in range(
-                            len(u_values[0]) if len(u_values.shape) > 1 else 1
-                        )
-                    },
-                    **{
-                        f"y{i + 1}": y_values[:, i]
-                        if len(y_values.shape) > 1
-                        else y_values
-                        for i in range(
-                            len(y_values[0]) if len(y_values.shape) > 1 else 1
-                        )
-                    },
-                }
-            ),
-            inputs=[
-                f"u{i + 1}"
-                for i in range(len(u_values[0]) if len(u_values.shape) > 1 else 1)
-            ],
-            outputs=[
-                f"y{i + 1}"
-                for i in range(len(y_values[0]) if len(y_values.shape) > 1 else 1)
-            ],
-            tsample=config.tsample,
-        )
-        return arx_algo.identify(arx_iddata, arx_config)
+        # Use original u, y arrays for fallback
+        arx_result = arx_algo.identify(y=y, u=u, config=arx_config)
+        return arx_result

@@ -248,7 +248,25 @@ class SystemIdentificationConfig:
         ss_orders: List[int] = [1, 10],
         ss_d_required: bool = False,
         ss_a_stability: bool = False,
+        # AR* algorithm parameters (for compatibility with master branch)
+        na: Optional[Union[int, List[int]]] = None,
+        nb: Optional[Union[int, List[int]]] = None,
+        nc: Optional[Union[int, List[int]]] = None,
+        nd: Optional[Union[int, List[int]]] = None,
+        nf: Optional[Union[int, List[int]]] = None,
+        nk: Optional[Union[int, List[int]]] = None,
+        # Master branch style parameters
+        arx_orders: Optional[List] = None,
+        armax_orders: Optional[List] = None,
+        ararx_orders: Optional[List] = None,
+        ararmax_orders: Optional[List] = None,
+        bj_orders: Optional[List] = None,
+        # Additional parameters
+        max_iterations: int = 200,
+        stab_marg: float = 1.0,
+        stab_cons: bool = False,
     ):
+        # Subspace method parameters
         self.method = method
         self.centering = centering
         self.ic = ic
@@ -260,3 +278,23 @@ class SystemIdentificationConfig:
         self.ss_orders = ss_orders
         self.ss_d_required = ss_d_required
         self.ss_a_stability = ss_a_stability
+
+        # AR* algorithm parameters (individual)
+        self.na = na
+        self.nb = nb
+        self.nc = nc
+        self.nd = nd
+        self.nf = nf
+        self.nk = nk
+
+        # Master branch style parameters
+        self.arx_orders = arx_orders
+        self.armax_orders = armax_orders
+        self.ararx_orders = ararx_orders
+        self.ararmax_orders = ararmax_orders
+        self.bj_orders = bj_orders
+
+        # Additional parameters
+        self.max_iterations = max_iterations
+        self.stab_marg = stab_marg
+        self.stab_cons = stab_cons
