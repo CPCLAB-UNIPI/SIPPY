@@ -30,7 +30,7 @@ try:
     import harold
 
     # Check if harold has the required components
-    if hasattr(harold, "StateSpace"):
+    if hasattr(harold, "State") or hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
