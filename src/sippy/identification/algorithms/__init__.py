@@ -7,6 +7,7 @@ try:
     from .arma import ARMAAlgorithm
     from .armax import ARMAXAlgorithm
     from .arx import ARXAlgorithm
+    from .bj import BJAlgorithm
     from .cva import CVAAlgorithm
     from .fir import FIRAlgorithm
     from .moesp import MOESPAlgorithm
@@ -27,6 +28,7 @@ try:
     AlgorithmFactory.register('ARMAX', ARMAXAlgorithm)
     AlgorithmFactory.register('OE', OEAlgorithm)
     AlgorithmFactory.register('ARMA', ARMAAlgorithm)
+    AlgorithmFactory.register('BJ', BJAlgorithm)
 except ImportError:
     # In case sysidbox is not available, we still have the base classes ready
     N4SIDAlgorithm = None
@@ -37,6 +39,7 @@ except ImportError:
     PARSIMPAlgorithm = None
     ARXAlgorithm = None
     ARMAXAlgorithm = None
+    BJAlgorithm = None
     FIRAlgorithm = None
     OEAlgorithm = None
     ARMAAlgorithm = None
