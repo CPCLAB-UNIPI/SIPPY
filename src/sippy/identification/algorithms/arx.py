@@ -12,11 +12,13 @@ from ..base import IdentificationAlgorithm, StateSpaceModel
 # Import compiled utilities for performance
 try:
     from ...utils.compiled_utils import (
-        create_regression_matrix_arx_compiled,
         NUMBA_AVAILABLE,
+        create_regression_matrix_arx_compiled,
+        create_regression_matrix_arx_mimo_compiled,
     )
 except ImportError:
     create_regression_matrix_arx_compiled = None
+    create_regression_matrix_arx_mimo_compiled = None
     NUMBA_AVAILABLE = False
 
 # Import harold for test mocking and availability checking
@@ -126,66 +128,79 @@ class ARXAlgorithm(IdentificationAlgorithm):
                 f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
             )
 
-        # Create regression matrix (for SISO case only)
-        Phi, y_matrix = self._create_regression_matrix(u, y, na, nb, nk, ny, nu, N)
-
         # Estimate parameters using least squares
+        max_lag = max(na, nb + nk - 1)
+        N_eff = N - max_lag
+        if N_eff <= 0:
+            raise ValueError(
+                f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+            )
+
         if ny == 1:
-            # SISO case
+            # SISO case leverages shared compiled builder
+            Phi, y_matrix = self._create_regression_matrix(
+                u, y, na, nb, nk, ny, nu, N
+            )
             theta, residuals, rank, s = lstsq(Phi, y_matrix.T.flatten(), rcond=None)
-            # Reshape theta for SISO
-            A_coeffs = theta[:na].reshape(1, na)  # ny=1, na
-            B_coeffs = theta[na:].reshape(1, nb)  # ny=1, nb
+            A_coeffs = theta[:na].reshape(1, na)
+            B_coeffs = theta[na:].reshape(1, nb)
         else:
-            # MIMO case - simplifed and correct approach
+            use_compiled_mimo = NUMBA_AVAILABLE and (
+                create_regression_matrix_arx_mimo_compiled is not None
+            )
+
+            if use_compiled_mimo:
+                Phi_batches, y_targets = create_regression_matrix_arx_mimo_compiled(
+                    np.ascontiguousarray(u),
+                    np.ascontiguousarray(y),
+                    na,
+                    nb,
+                    nk,
+                    ny,
+                    nu,
+                    N,
+                )
+            else:
+                Phi, y_matrix = self._create_regression_matrix(
+                    u, y, na, nb, nk, ny, nu, N
+                )
+
             A_coeffs = np.zeros((ny, na))
             B_coeffs = np.zeros((ny, nb * nu))
-            residuals_list = []
-
             for i in range(ny):
-                # For output i, we need na*ny AR coeffs + nb*nu input coeffs
-                # Construct regression matrix for output i
-                n_params_i = na * ny + nb * nu
-                Phi_i = np.zeros((N_eff, n_params_i))
-                col = 0
+                if use_compiled_mimo:
+                    Phi_i = np.ascontiguousarray(Phi_batches[i, :, :])
+                    y_target = y_targets[i, :]
+                else:
+                    n_params_i = na * ny + nb * nu
+                    Phi_i = np.zeros((N_eff, n_params_i))
+                    col = 0
 
-                # AR part: all lagged outputs affect this output
-                for lag in range(na):
-                    for j in range(ny):
-                        Phi_i[:, col] = y[
-                            j, max_lag - 1 - lag : max_lag - 1 - lag + N_eff
-                        ]
-                        col += 1
+                    for lag in range(na):
+                        for j in range(ny):
+                            Phi_i[:, col] = y[
+                                j, max_lag - 1 - lag : max_lag - 1 - lag + N_eff
+                            ]
+                            col += 1
 
-                # Input part: all lagged inputs affect this output
-                for lag in range(nb):
-                    for j in range(nu):
-                        delay_idx = max_lag - 1 - (lag + nk - 1)
-                        if delay_idx >= 0 and delay_idx + N_eff <= N:
-                            Phi_i[:, col] = u[j, delay_idx : delay_idx + N_eff]
-                        else:
-                            Phi_i[:, col] = 0
-                        col += 1
+                    for lag in range(nb):
+                        for j in range(nu):
+                            delay_idx = max_lag - 1 - (lag + nk - 1)
+                            if delay_idx >= 0 and delay_idx + N_eff <= N:
+                                Phi_i[:, col] = u[j, delay_idx : delay_idx + N_eff]
+                            col += 1
 
-                # Solve for output i
+                    y_target = y_matrix[i, :]
+
                 theta_i, residuals_i, rank_i, s_i = lstsq(
-                    Phi_i, y_matrix[i, :], rcond=None
+                    Phi_i, y_target, rcond=None
                 )
-                residuals_list.append(residuals_i)
 
-                # Extract AR coefficients for output i (only those corresponding to its own lags)
                 for lag in range(na):
-                    idx = lag * ny + i  # Coefficient for y[i] at this lag
+                    idx = lag * ny + i
                     A_coeffs[i, lag] = theta_i[idx]
 
-                # Extract input coefficients for output i
                 B_coeffs[i, :] = theta_i[na * ny :]
-
-            residuals = (
-                np.concatenate(residuals_list)
-                if all(r is not None and r.size > 0 for r in residuals_list)
-                else []
-            )
 
         # Create state-space representation
         if HAROLD_AVAILABLE and harold is not None:

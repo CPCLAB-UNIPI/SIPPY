@@ -41,10 +41,13 @@ def fallback_njit(*args, **kwargs):
 if NUMBA_AVAILABLE:
     def jit(*args, **kwargs):
         """JIT decorator with optimal performance configuration."""
+        default_kwargs = {"cache": True, "fastmath": True, "nogil": True}
+        default_kwargs.update(kwargs)
+
         if args and callable(args[0]):
-            return njit(cache=True, fastmath=True, nogil=True)(args[0])
+            return njit(**default_kwargs)(args[0])
         else:
-            return njit(cache=True, fastmath=True, nogil=True, **kwargs)
+            return njit(**default_kwargs)
 else:
     jit = fallback_njit
 
@@ -431,6 +434,70 @@ def create_regression_matrix_arx_compiled(u, y, na, nb, nk, ny, nu, N):
     # This is handled in the calling code now
 
     return Phi, y_matrix
+
+
+@jit(parallel=True, cache=False)
+def create_regression_matrix_arx_mimo_compiled(u, y, na, nb, nk, ny, nu, N):
+    """
+    Compiled version of MIMO ARX regression matrix creation.
+
+    Builds output-specific regression matrices and targets to avoid
+    Python-level nested loops in the ARX algorithm implementation.
+
+    Parameters:
+    -----------
+    u, y : ndarray
+        Input and output data with shapes (nu, N) and (ny, N)
+    na, nb, nk : int
+        Model orders and input delay
+    ny, nu : int
+        Number of outputs and inputs
+    N : int
+        Number of data points
+
+    Returns:
+    --------
+    Phi_per_output : ndarray
+        Regression matrices for each output with shape (ny, N_eff, na * ny + nb * nu)
+    y_targets : ndarray
+        Output targets for each output with shape (ny, N_eff)
+    """
+    max_lag = max(na, nb + nk - 1)
+    N_eff = N - max_lag
+
+    if N_eff <= 0:
+        return np.zeros((ny, 1, 1)), np.zeros((ny, 1))
+
+    n_params = na * ny + nb * nu
+    Phi_per_output = np.zeros((ny, N_eff, n_params))
+    y_targets = np.zeros((ny, N_eff))
+
+    for output_idx in prange(ny):
+        col = 0
+
+        # AR terms: lagged outputs for all channels
+        for lag in range(na):
+            start_idx = max_lag - 1 - lag
+            end_idx = start_idx + N_eff
+            for j in range(ny):
+                Phi_per_output[output_idx, :, col] = y[j, start_idx:end_idx]
+                col += 1
+
+        # X terms: lagged inputs shared across outputs
+        for lag in range(nb):
+            delay_idx = max_lag - 1 - (lag + nk - 1)
+            if delay_idx >= 0 and delay_idx + N_eff <= N:
+                for inp in range(nu):
+                    Phi_per_output[output_idx, :, col] = u[inp, delay_idx : delay_idx + N_eff]
+                    col += 1
+            else:
+                # Insufficient history, keep zeros but advance column index
+                for _ in range(nu):
+                    col += 1
+
+        y_targets[output_idx, :] = y[output_idx, max_lag:N]
+
+    return Phi_per_output, y_targets
 
 
 @jit(parallel=True)
@@ -1302,6 +1369,7 @@ __all__ = [
     "GBN_seq_compiled",
     "information_criterion_compiled",
     "create_regression_matrix_arx_compiled",
+    "create_regression_matrix_arx_mimo_compiled",
     "create_regression_matrix_fir_compiled",
     "create_regression_matrix_bj_compiled",
     "create_regression_matrix_armax_compiled",
