@@ -99,7 +99,7 @@ class HighPassFilter(IFilter):
         filter_tss = tss_seconds * mult_factor
         cutoff = 1 / (2 * filter_tss)
         nyquist_rate = sample_time / 2.0
-        width = self._width_factor / nyquist_rate
+        width = self._width_factor * cutoff  # Width as fraction of cutoff
 
         # Validate filter parameters
         if cutoff <= 0 or cutoff >= nyquist_rate:

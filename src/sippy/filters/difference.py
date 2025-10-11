@@ -92,9 +92,9 @@ class DifferenceFilter(IFilter):
         # Apply difference based on order
         try:
             if self._order == 1:
-                differentiated = processed_data.diff().fillna(method="backfill")
+                differentiated = processed_data.diff().bfill()
             elif self._order == 2:
-                differentiated = processed_data.diff().diff().fillna(method="backfill")
+                differentiated = processed_data.diff().diff().bfill()
             else:
                 raise ValueError(f"Difference order must be 1 or 2, got {self._order}")
         except Exception as e:
