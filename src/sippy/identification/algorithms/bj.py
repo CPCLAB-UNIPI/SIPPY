@@ -121,7 +121,7 @@ class BJAlgorithm(IdentificationAlgorithm):
         nc = getattr(config, "nc", 1)
         nd = getattr(config, "nd", 1)
         nf = getattr(config, "nf", 1)
-        nk = getattr(config, "nk", 0)  # Input delay
+        nk = getattr(config, "nk", 0) or 0  # Input delay (handle None case)
 
         # Validate parameters
         self.validate_parameters(nb=nb, nc=nc, nd=nd, nf=nf)
