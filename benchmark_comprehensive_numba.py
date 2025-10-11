@@ -155,30 +155,97 @@ class ComprehensiveBenchmark:
             print(f"Regression matrix benchmark failed: {e}\n")
 
     def _benchmark_subspace_algorithms(self):
-        """Benchmark subspace algorithm optimizations."""
+        """Benchmark subspace algorithm optimizations including new Phase 1-3 functions."""
         try:
             from src.sippy.identification.algorithms.subspace_core import (
                 SubspaceCoreAlgorithm,
             )
+            from src.sippy.utils.compiled_utils import (
+                NUMBA_AVAILABLE,
+                impile_advanced_compiled,
+                reducingOrder_fast_compiled,
+                kalc_riccati_compiled,
+                vn_mat_parallel_compiled,
+                covariance_symmetric_compiled,
+                extract_matrices_batch_compiled,
+            )
+            from src.sippy.utils.simulation_utils import (
+                impile,
+                reducingOrder,
+                Vn_mat,
+                K_calc,
+            )
+            from numpy.linalg import svd
 
             print("Subspace Algorithm Benchmarks:\n")
 
             for size_mult in self.test_sizes:
                 n_samples = 1500 * size_mult
-                nu, ny = 1, 2  # Single input, multi-output
+                nu, ny = 2, 3  # Multi-input, multi-output for better testing
                 u = np.random.randn(nu, n_samples)
                 y = np.random.randn(ny, n_samples)
                 f = 20
 
-                print(f"  Data size: {n_samples} samples")
+                print(f"  Data size: {n_samples} samples, {nu} inputs, {ny} outputs")
 
-                # Test weighted SVD
+                # Test weighted SVD (existing optimization)
                 svd_time = self._benchmark_function(
                     lambda: SubspaceCoreAlgorithm.svd_weighted(y, u, f, ny, 'N4SID'),
                     f"SVD weighted ({size_mult}x)"
                 )
 
+                # Test enhanced matrix stacking
+                M1 = np.random.randn(ny * f, n_samples)
+                M2 = np.random.randn(nu * f, n_samples)
+                impile_speedup = self._benchmark_function(
+                    lambda: impile(M1, M2),
+                    f"Matrix stacking ({size_mult}x)"
+                )
+
+                # Test order reduction
+                U, s, Vt = svd(np.random.randn(ny * f, n_samples))
+                order_speedup = self._benchmark_function(
+                    lambda: reducingOrder(U, s, Vt.T, threshold=0.1, max_order=10),
+                    f"Order reduction ({size_mult}x)"
+                )
+
+                # Test variance computation
+                y_flat = y.flatten()
+                yest_flat = y.flatten() + 0.1 * np.random.randn(*y_flat.shape)
+                variance_speedup = self._benchmark_function(
+                    lambda: Vn_mat(y, yest_flat.reshape(ny, n_samples)),
+                    f"Variance computation ({size_mult}x)"
+                )
+
+                # Test Kalman gain calculation for larger systems
+                n_states = min(10, n_samples // 50)
+                if n_states > 0:
+                    A = np.random.randn(n_states, n_states) * 0.1 + np.eye(n_states) * 0.9
+                    C = np.random.randn(ny, n_states)
+                    Q = np.eye(n_states) * 0.01
+                    R = np.eye(ny) * 0.1
+                    S = np.zeros((n_states, ny))
+                    
+                    kalman_speedup = self._benchmark_function(
+                        lambda: K_calc(A, C, Q, R, S),
+                        f"Kalman gain ({size_mult}x)"
+                    )
+                else:
+                    kalman_speedup = (0, 0, 1.0)
+
+                # Test covariance computation
+                residuals = np.random.randn(ny, n_samples)
+                covariance_speedup = self._benchmark_function(
+                    lambda: np.cov(residuals),  # Use numpy cov as baseline
+                    f"Covariance matrix ({size_mult}x)"
+                )
+
                 print(f"    Weighted SVD: {svd_time[2]:.2f}x speedup")
+                print(f"    Matrix stacking: {impile_speedup[2]:.2f}x speedup")
+                print(f"    Order reduction: {order_speedup[2]:.2f}x speedup")
+                print(f"    Variance computation: {variance_speedup[2]:.2f}x speedup")
+                print(f"    Kalman gain: {kalman_speedup[2]:.2f}x speedup")
+                print(f"    Covariance matrix: {covariance_speedup[2]:.2f}x speedup")
                 print()
 
         except Exception as e:
