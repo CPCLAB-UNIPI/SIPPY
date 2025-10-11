@@ -4,7 +4,7 @@ Created on Fri Jan 19 2018
 
 @author: Giuseppe Armenise, revised by RBdC
 
-In this test, no error occurs. 
+In this test, no error occurs.
 Using method='N4SID','MOESP' or 'CVA', if the message
 "Kalman filter cannot be calculated" is shown, it means
 that the package slycot is not well-installed.
@@ -12,23 +12,26 @@ that the package slycot is not well-installed.
 """
 # Checking path to access other files
 try:
-    from sippy.identification import system_identification, white_noise_var as white_noise_var_new
+    from sippy.identification import system_identification
 except ImportError:
-    import sys, os
+    import os
+    import sys
     sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
-    from sippy.identification import system_identification, white_noise_var as white_noise_var_new
+    from sippy.identification import system_identification
 
+import matplotlib.pyplot as plt
 import numpy as np
+
 from sippy.utils.signal_utils import GBN_seq, white_noise_var
 from sippy.utils.simulation_utils import simulate_ss_system
-import matplotlib.pyplot as plt
+
 
 # Create compatibility aliases
 class fset:
     @staticmethod
     def GBN_seq(*args, **kwargs):
         return GBN_seq(*args, **kwargs)
-    
+
     @staticmethod
     def white_noise_var(*args, **kwargs):
         return white_noise_var(*args, **kwargs)
@@ -91,6 +94,6 @@ for i in range(len(METHOD)):
     xid, yid = fsetSIM.SS_lsim_process_form(sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0)
     #
     plt.plot(Time, yid[0])
-    lege.append(method) 
-plt.legend(lege) 
+    lege.append(method)
+plt.legend(lege)
 plt.show()

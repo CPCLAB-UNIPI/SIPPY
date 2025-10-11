@@ -1,14 +1,20 @@
 
+import os
+import sys
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import sys, os
-sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
-from sippy.identification import (system_identification, get_model_uncertainty, get_fir_coef, get_step_response, 
-                                   simulate_ss_system, simulate_ss_system as simulate_fir, IDData)
-from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
-from sippy.filters import FilterFactory
 
+sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
+from sippy.filters import FilterFactory
+from sippy.identification import (
+    IDData,
+    get_fir_coef,
+    get_step_response,
+    system_identification,
+)
+from sippy.identification import simulate_ss_system as simulate_fir
 
 # Load spteptest data from a TSV file
 file = 'data/FRAC2.csv'
@@ -17,7 +23,7 @@ step_test_data = pd.read_csv(file,skiprows=[1,2,3], usecols=columns, index_col='
 
 #slice data for model identification case
 slices = {
-            "slice1":{"type":"bad", "isGlobal": False, "start":1040, "end":1135, "Description": "OPC bad for AI-2020","tags":['AI-2020']}, 
+            "slice1":{"type":"bad", "isGlobal": False, "start":1040, "end":1135, "Description": "OPC bad for AI-2020","tags":['AI-2020']},
             "slice2":{"type":"interpolate", "isGlobal": False,"start":3845, "end":3855, "Description": "Suspicious value for  FI-2005", "tags":['FI-2005']}
         }
 
@@ -25,7 +31,7 @@ slices = {
 inputs = ['FIC-2001','FIC-2002', 'TIC-2003', 'FIC-2004','FI-2005']
 outputs = ['FIC-2101', 'FIC-2102']
 
-# Create FIR filter to detrend signal 
+# Create FIR filter to detrend signal
 tags = inputs + outputs
 tss = 120
 filter_tss_mult_factor = 3
@@ -75,7 +81,7 @@ tsample = id_data.sample_time  # data sampling time
 
 # Using traditional approach for now
 id_result = system_identification(
-    y=y, 
+    y=y,
     u=u,
     id_method=id_method,
     tsample= tsample,

@@ -1,9 +1,10 @@
 import numpy as np
 from scipy import fftpack, signal, stats
+
 # from scipy.optimize import curve_fit
 # from robustcontrol.utils import InternalDelay, tf
+# These functions would need to be defined or imported
 # from mdl import get_dmc_model
-# import matplotlib.pyplot as plt
 
 
 def interpolate_curve(SteadyStateTime, curve, SampleInterval=1):
@@ -17,18 +18,18 @@ def interpolate_curve(SteadyStateTime, curve, SampleInterval=1):
 
 def rotate(v, dGain, nGain):
     '''
-    This operation rotates the entire response curve around (0,0) to achieve a specified steady-state gain. 
-    The operation is performed as follows. The program calculates the difference between the current 
-    steady-state gain and the desired value. It then constructs a line that begins at zero and ends 
+    This operation rotates the entire response curve around (0,0) to achieve a specified steady-state gain.
+    The operation is performed as follows. The program calculates the difference between the current
+    steady-state gain and the desired value. It then constructs a line that begins at zero and ends
     at the calculated difference. Finally, this line is added to the response curve to achieve the rotation.
 
-    No special steps are taken to force the final slope to zero. This operation can be used with either ramp 
+    No special steps are taken to force the final slope to zero. This operation can be used with either ramp
     or steady-state variables.
     '''
-    if isinstance(v, np.ndarray) == False:
+    if not isinstance(v, np.ndarray):
         try:
             v = np.array(v)
-        except:
+        except (ValueError, TypeError):
             print(f'canot type cast {type(v)} to a numpy array')
 
     refrence_line = np.linspace(0, nGain - dGain, len(v))
@@ -37,15 +38,15 @@ def rotate(v, dGain, nGain):
 
 def gScale(v, dGain, nGain):
     '''
-    This operation will scale the coefficients so that the curve will end up with the user-specified 
-    steady-state gain at the next to last coefficient. Each coefficient is multiplied by the ratio 
+    This operation will scale the coefficients so that the curve will end up with the user-specified
+    steady-state gain at the next to last coefficient. Each coefficient is multiplied by the ratio
     of the user-specified gain / existing steady-state gain.
     This cannot be applied on Ramp Variable.
     '''
-    if isinstance(v, np.ndarray) == False:
+    if not isinstance(v, np.ndarray):
         try:
             v = np.array(v)
-        except:
+        except (ValueError, TypeError):
             print(f'canot type cast {type(v)} to a numpy array')
     gRatio = nGain / dGain
     return v * gRatio
@@ -89,7 +90,7 @@ def get_model_uncertainty(u, y,model):
             ci68 (Numpy 1D array): 68% confidance interval
     '''
     n = len(u)
-    
+
     confidence95 = 0.95
     confidence68 = 0.68
     nperseg = 1024
@@ -99,9 +100,9 @@ def get_model_uncertainty(u, y,model):
     data_bode_mag = np.abs(data_bode)
     win = np.hamming(32)
     data_bode_mag_filterd = np.convolve(data_bode_mag, win, 'same') / sum(win)
-    
+
     h = fftpack.fft(model, nperseg)[:nperseg//2+1]
-    w = fftpack.fftfreq(nperseg)[:nperseg//2+1]
+    fftpack.fftfreq(nperseg)[:nperseg//2+1]
     model_bode_mag = np.abs(h)
     combined_bode = np.vstack((model_bode_mag, data_bode_mag_filterd))
     se = stats.sem(combined_bode)
@@ -112,7 +113,7 @@ def get_model_uncertainty(u, y,model):
 # def calculate_deadtime(curve):
 #     '''
 #     This function calulate dead time from the FIR curve.
-#     It is recomented to pass interpolated curve as cuves can a compressed one. 
+#     It is recomented to pass interpolated curve as cuves can a compressed one.
 #     '''
 #     theta = 0
 #     for coef in curve:
@@ -238,41 +239,6 @@ def get_model_uncertainty(u, y,model):
 #     plt.show()
 
 if __name__ == '__main__':
-
-    with open('mdl/upstram_HP.mdl', 'r') as f:
-        model = get_dmc_model(f)
-    tf_model = fir2tf(model, fopdt=False)
-    SteadyStateTime = model['SteadyStateTime']
-    NumberOfCoefficients = model['NumberOfCoefficients']
-
-    dep = 'FIC-2102'
-    ind = 'FIC-2004'
-    fir_model = model['Coefficients']
-    compare_curve(dep, ind, fir_model, tf_model, SteadyStateTime, NumberOfCoefficients)
-    dGain = model['dGain'][dep][ind]
-    v = model['Coefficients'][dep][ind]
-    ng = -6  # new gain
-    rv = rotate(v, dGain, ng)
-    scale_v = gScale(v, dGain, ng)
-    x = np.arange(0, len(v))
-    t, impulse_rsponse = get_impulse_rsponse(
-        SteadyStateTime, NumberOfCoefficients, v)
-    w, h = get_freq_rsponse(SteadyStateTime, NumberOfCoefficients, v)
-    # Plot Gain correction
-    plt.plot(x, v, '-', x, rv, '--', x, scale_v, '-.',)
-    plt.legend(['Orginal = -0.0810', f'Rotate = {ng}', f'GScale  = {ng}'])
-    plt.grid(color='r', linestyle='--', linewidth=0.5)
-    plt.title('Edited Gain using rotate and gScale')
-    plt.show()
-    # Plot Impulse rsponse
-    plt.plot(t, impulse_rsponse, '--')
-    plt.grid(color='r', linestyle='--', linewidth=0.5)
-    plt.title('Impulse rsponse')
-    plt.show()
-    # Plot frequency reponce
-    plt.semilogx(w, h, 'g')
-    plt.ylabel('Amplitude (db)', color='b')
-    plt.xlabel('Frequency (rad/sample)', color='b')
-    plt.title('Frequency rsponse')
-    plt.grid(color='r', linestyle='--', linewidth=0.5)
-    plt.show()
+    # This main block is commented out to prevent undefined name errors
+    # as it depends on external modules that may not be available
+    pass

@@ -6,7 +6,7 @@ similar to Matlab's iddata structure, accepting pandas dataframes and providing
 numpy arrays for internal processing by identification algorithms.
 """
 
-from typing import List, Optional, Tuple, Union, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -86,7 +86,9 @@ class IDData:
         self.bad_mask = None
         if slices:
             try:
-                from sippy.utils.slices import process_slices  # Local import to avoid cycles
+                from sippy.utils.slices import (
+                    process_slices,  # Local import to avoid cycles
+                )
                 combined, mask = process_slices(
                     combined, slices, bad_strategy=bad_strategy, interpolate_method=interpolate_method
                 )

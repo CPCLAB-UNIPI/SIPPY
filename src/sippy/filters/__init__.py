@@ -5,20 +5,20 @@ This module provides various signal preprocessing filters including
 high-pass, difference, zero-mean, and pass-through filters.
 """
 
-from .factory import FilterFactory
-from .base import IFilter, FilterConfig, FilterDataManager
-from .high_pass import HighPassFilter
+from .base import FilterConfig, FilterDataManager, IFilter
 from .difference import DifferenceFilter
-from .zero_mean import ZeroMeanFilter
+from .factory import FilterFactory
+from .high_pass import HighPassFilter
 from .none_filter import NoneFilter
+from .zero_mean import ZeroMeanFilter
 
 __all__ = [
     'FilterFactory',
-    'IFilter', 
+    'IFilter',
     'FilterConfig',
     'FilterDataManager',
     'HighPassFilter',
-    'DifferenceFilter', 
+    'DifferenceFilter',
     'ZeroMeanFilter',
     'NoneFilter'
 ]

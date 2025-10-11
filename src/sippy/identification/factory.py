@@ -23,7 +23,8 @@ class AlgorithmFactory:
         if not cls._initialized:
             try:
                 # Import algorithms module to trigger registration
-                from . import algorithms
+                import importlib
+                importlib.import_module('.algorithms', package=__name__.rsplit('.', 1)[0])
                 cls._initialized = True
             except ImportError:
                 cls._initialized = True  # Mark as initialized anyway

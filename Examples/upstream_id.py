@@ -6,20 +6,29 @@
 # ![PFD](upstream_pfd.jpg)
 # %% [markdown]
 # There are three wells feeding the three-phase high-pressure separator. The separator separates the feed into three products; water, oil, and gas. The off-gas is sent to a flash drum and separated again into the gas export and bottoms oil stream, which is mixed with the oil stream from the high-pressure separator.
-# 
+#
 # This mixture enters the low-pressure separator, which also has three products; water, oil, and gas. The water leaving the low-pressure separator is mixed with the water from the high-pressure separator and sent to a de-gasser to remove any gas and discard the water.
-# 
+#
 # The off-gas from the low-pressure separator is sent to a second flash drum and separated again into a recycle stream that is mixed with the off-gas from the high-pressure separator and a bottoms oil stream, which is mixed with the oil stream from the low-pressure separator to become the oil export.
 
 # %%
+import os
+import sys
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import sys, os
+
 sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
-from sippy.identification import system_identification, get_model_uncertainty, get_fir_coef, get_step_response
-from harold import simulate_step_response, simulate_impulse_response, undiscretize, discretize
-from sippy.filters import FilterFactory, FilterConfig
+
+from sippy.filters import FilterFactory
+from sippy.identification import (
+    get_fir_coef,
+    get_model_uncertainty,
+    get_step_response,
+    system_identification,
+)
+
 # %matplotlib widget
 
 
@@ -69,7 +78,7 @@ slices = { "slice1":{"type":"bad", "isGlobal": True, "start":badslice1_start, "e
 tss = 90                   # Process time to steady state
 controller_sampling = 1    # Controller sampling time
 filter_tss_mult_factor = 3 # 3 for self-regulating CIV, 6 for ramp CV
-resampling = 1             # For tss more than 90 use 2, and if grater than 240 use 3 
+resampling = 1             # For tss more than 90 use 2, and if grater than 240 use 3
 id_method='CVA'            # CVA, MOESP, N4SID
 IC = 'AIC'                 # None, AIC, AICc, BIC
 TH = 20                   # The length of time horizon used for regression
@@ -86,12 +95,12 @@ tss = None  # Override tss for zero-mean
 
 
 # %%
-# Create FIR filter to detrend signal 
+# Create FIR filter to detrend signal
 tags = inputs + outputs
 filter_type = 'zeromean' # Use zero-mean instead of high-pass for this data
 d_filter = FilterFactory.create(filter_type)
 d_filter.apply_filter(step_test_data[tags], slices=slices)
-    
+
 idinput = d_filter.data_manager.get_data("output")
 
 

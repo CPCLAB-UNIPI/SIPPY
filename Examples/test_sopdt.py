@@ -1,12 +1,11 @@
 
-import numpy as np
-import pandas as pd
-from scipy import signal
 import matplotlib.pyplot as plt
-import sys
-from sippy import *
+import pandas as pd
 from harold import step_response_plot
-import plots
+from scipy import signal
+
+from sippy import *
+
 # %
 #load spteptest data from a TSV file
 file = r'data\sopdt.csv'
@@ -16,7 +15,7 @@ idinput = pd.read_csv(file,index_col='Time', parse_dates=True, skiprows=[1,2])
 inputs = ['U']
 outputs = ['Y']
 
-# Create FIR filter to detrend signal 
+# Create FIR filter to detrend signal
 
 tsample = pd.Timedelta(idinput.index[1] - idinput.index[0]).total_seconds() # data sampling time
 tss = 300
@@ -39,7 +38,7 @@ u = idinput[inputs].to_numpy()
 y = idinput[outputs].to_numpy()
 print('Output shape:', y.shape)
 print('Input shape:',u.shape)
- 
+
 #specify model identification parameters, reffer the documentation for detais.
 model = 'Precalciner.npz' #model file name
 id_method='CVA'
@@ -53,8 +52,8 @@ req_D = False
 force_A_stable = False
 
 id_result = system_identification(
-    y=y, 
-    u=u, 
+    y=y,
+    u=u,
     id_method=id_method,
     SS_fixed_order=fix_ordr,
     SS_max_order = SS_max_order,

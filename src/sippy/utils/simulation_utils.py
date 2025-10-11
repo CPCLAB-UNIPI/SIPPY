@@ -307,7 +307,7 @@ def K_calc(A, C, Q, R, S):
         K = np.dot(np.dot(A, P), C.T) + S
         K = np.dot(K, np.linalg.inv(np.dot(np.dot(C, P), C.T) + R))
         Calculated = True
-    except:
+    except (ValueError, np.linalg.LinAlgError, IndexError):
         K = []
         warnings.warn("Kalman filter cannot be calculated")
         Calculated = False

@@ -73,7 +73,7 @@ class StateSpaceModel:
         try:
             self.A_K = A - np.dot(K, C)
             self.B_K = B - np.dot(K, D)
-        except:
+        except (ValueError, IndexError, TypeError):
             self.A_K = np.array([])
             self.B_K = np.array([])
 
@@ -82,7 +82,7 @@ class StateSpaceModel:
         try:
             eigenvals = np.linalg.eigvals(self.A)
             return np.all(np.abs(eigenvals) < 1.0)
-        except:
+        except (ValueError, np.linalg.LinAlgError):
             return False
 
     def get_natural_frequencies(self) -> np.ndarray:
@@ -90,7 +90,7 @@ class StateSpaceModel:
         try:
             eigenvals = np.linalg.eigvals(self.A)
             return np.abs(np.angle(eigenvals) / (2 * np.pi * self.ts))
-        except:
+        except (ValueError, np.linalg.LinAlgError, ZeroDivisionError):
             return np.array([])
 
     def get_damping_ratios(self) -> np.ndarray:
@@ -98,7 +98,7 @@ class StateSpaceModel:
         try:
             eigenvals = np.linalg.eigvals(self.A)
             return -np.real(eigenvals) / np.abs(eigenvals)
-        except:
+        except (ValueError, np.linalg.LinAlgError, ZeroDivisionError):
             return np.array([])
 
     def get_fir_coefficients(self, inputs: list, outputs: list,
