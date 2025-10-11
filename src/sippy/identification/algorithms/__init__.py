@@ -4,6 +4,7 @@ Concrete algorithm implementations.
 try:
     # Register all algorithms with the factory
     from ..factory import AlgorithmFactory
+    from .arma import ARMAAlgorithm
     from .armax import ARMAXAlgorithm
     from .arx import ARXAlgorithm
     from .cva import CVAAlgorithm
@@ -25,6 +26,7 @@ try:
     AlgorithmFactory.register('FIR', FIRAlgorithm)
     AlgorithmFactory.register('ARMAX', ARMAXAlgorithm)
     AlgorithmFactory.register('OE', OEAlgorithm)
+    AlgorithmFactory.register('ARMA', ARMAAlgorithm)
 except ImportError:
     # In case sysidbox is not available, we still have the base classes ready
     N4SIDAlgorithm = None
@@ -37,3 +39,4 @@ except ImportError:
     ARMAXAlgorithm = None
     FIRAlgorithm = None
     OEAlgorithm = None
+    ARMAAlgorithm = None

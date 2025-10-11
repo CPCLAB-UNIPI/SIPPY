@@ -18,17 +18,18 @@ except ImportError:
     create_regression_matrix_arx_compiled = None
     NUMBA_AVAILABLE = False
 
+# Import harold for test mocking and availability checking
 try:
     import harold
-    # Check if harold has the required components
+    HAROLD_IMPORTED = True
     if hasattr(harold, 'StateSpace'):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
-        warnings.warn("harold library incomplete. ARX algorithm will be limited.")
 except ImportError:
+    harold = None
+    HAROLD_IMPORTED = False
     HAROLD_AVAILABLE = False
-    warnings.warn("harold library not available. ARX algorithm will be limited.")
 
 
 class ARXAlgorithm(IdentificationAlgorithm):
@@ -114,32 +115,76 @@ class ARXAlgorithm(IdentificationAlgorithm):
         ny, N = y.shape
         nu, _ = u.shape
 
-        # Create regression matrix
+        # Calculate effective data length
+        max_lag = max(na, nb + nk - 1)
+        N_eff = N - max_lag
+
+        if N_eff <= 0:
+            raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
+
+        # Create regression matrix (for SISO case only)
         Phi, y_matrix = self._create_regression_matrix(u, y, na, nb, nk, ny, nu, N)
 
         # Estimate parameters using least squares
         if ny == 1:
             # SISO case
             theta, residuals, rank, s = lstsq(Phi, y_matrix.T.flatten(), rcond=None)
+            # Reshape theta for SISO
+            A_coeffs = theta[:na].reshape(1, na)  # ny=1, na
+            B_coeffs = theta[na:].reshape(1, nb)  # ny=1, nb 
         else:
-            # MIMO case - solve for each output separately
-            theta_list = []
+            # MIMO case - simplifed and correct approach
+            A_coeffs = np.zeros((ny, na))
+            B_coeffs = np.zeros((ny, nb * nu))
             residuals_list = []
+            
             for i in range(ny):
-                theta_i, residuals_i, rank_i, s_i = lstsq(Phi, y_matrix[i, :], rcond=None)
-                theta_list.append(theta_i)
+                # For output i, we need na*ny AR coeffs + nb*nu input coeffs
+                # Construct regression matrix for output i
+                n_params_i = na * ny + nb * nu
+                Phi_i = np.zeros((N_eff, n_params_i))
+                col = 0
+                
+                # AR part: all lagged outputs affect this output
+                for lag in range(na):
+                    for j in range(ny):
+                        Phi_i[:, col] = y[j, max_lag - 1 - lag : max_lag - 1 - lag + N_eff]
+                        col += 1
+                
+                # Input part: all lagged inputs affect this output  
+                for lag in range(nb):
+                    for j in range(nu):
+                        delay_idx = max_lag - 1 - (lag + nk - 1)
+                        if delay_idx >= 0 and delay_idx + N_eff <= N:
+                            Phi_i[:, col] = u[j, delay_idx : delay_idx + N_eff]
+                        else:
+                            Phi_i[:, col] = 0
+                        col += 1
+                
+                # Solve for output i
+                theta_i, residuals_i, rank_i, s_i = lstsq(Phi_i, y_matrix[i, :], rcond=None)
                 residuals_list.append(residuals_i)
-            theta = np.concatenate(theta_list)
+                
+                # Extract AR coefficients for output i (only those corresponding to its own lags)
+                for lag in range(na):
+                    idx = lag * ny + i  # Coefficient for y[i] at this lag
+                    A_coeffs[i, lag] = theta_i[idx]
+                
+                # Extract input coefficients for output i
+                B_coeffs[i, :] = theta_i[na * ny:]
+            
             residuals = np.concatenate(residuals_list) if all(r is not None and r.size > 0 for r in residuals_list) else []
 
-        # Reshape parameters into matrices
-        A_coeffs = theta[:na * ny].reshape(ny, na)
-        B_coeffs = theta[na * ny:].reshape(ny, nb * nu)
-
         # Create state-space representation
-        if HAROLD_AVAILABLE:
+        if HAROLD_AVAILABLE and harold is not None:
             model = self._create_transfer_function(A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time)
         else:
+            # Warn about harold availability only when needed
+            if harold is None:
+                warnings.warn("harold library not available. ARX algorithm will be limited.")
+            else:
+                warnings.warn("harold library not available. ARX algorithm will be limited.")
+            
             # Fallback when harold is not available
             model = self._create_mock_model(A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time)
 
@@ -181,28 +226,10 @@ class ARXAlgorithm(IdentificationAlgorithm):
             if N_eff <= 0:
                 raise ValueError(f"Not enough data points. Need at least {max_lag + 1} samples, got {N}")
 
-            # Initialize regression matrix
-            n_params = na * ny + nb * ny * nu
-            Phi = np.zeros((N_eff, n_params))
-
-            # Fill AR part (lagged outputs)
-            for i in range(na):
-                for j in range(ny):
-                    col_idx = i * ny + j
-                    Phi[:, col_idx] = y[j, max_lag - 1 - i : max_lag - 1 - i + N_eff]
-
-            # Fill X part (lagged inputs)
-            for k in range(nb):
-                for i in range(nu):
-                    # For MIMO, each input affects all outputs
-                    for j in range(ny):
-                        col_idx = na * ny + k * ny * nu + i * ny + j
-                        delay_idx = max_lag - 1 - (k + nk - 1)
-                        if delay_idx >= 0 and delay_idx + N_eff <= N:
-                            Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
-
-            # Output matrix
+            # Output matrix - trimmed for effective length
             y_matrix = y[:, max_lag : N]
+            # Return dummy Phi since we construct per-output matrices in identify()
+            Phi = np.zeros((N_eff, 1))  # Not used in MIMO case
 
             return Phi, y_matrix
 
@@ -321,28 +348,19 @@ class ARXAlgorithm(IdentificationAlgorithm):
         B = np.zeros((n_states, nu))
         if nb > 0:
             # Handle B coefficients properly
-            if len(B_coeffs.shape) == 2:
-                if B_coeffs.shape[0] == ny and B_coeffs.shape[1] == nb:
-                    # Simple case: take first nu columns and reshape
-                    B_flat = B_coeffs[:, :min(nb, nu)]
-                    if B_flat.shape[1] == nu:
-                        B[-ny:, :] = B_flat
-                    else:
-                        # Pad or truncate as needed
-                        B[-ny:, :B_flat.shape[1]] = B_flat
-                else:
-                    # Reshape and pad/truncate as needed
-                    B_flat = B_coeffs.flatten()
-                    if len(B_flat) >= nu * ny:
-                        B[-ny:, :] = B_flat[:nu * ny].reshape(ny, nu)
-                    else:
-                        B[-ny:, :len(B_flat)//ny] = B_flat.reshape(ny, -1)
+            if B_coeffs.shape[0] == ny:
+                # Each output row contains coefficients for all inputs at all nb lags
+                # Extract direct feedthrough (k=0) from the first nu coefficients per output
+                for i in range(ny):
+                    # B_coeffs[i, :] shape = [nb * nu]
+                    # Take the first nu which represent direct feedthrough (k=nk position)
+                    direct_coeffs = B_coeffs[i, :nu] if B_coeffs.shape[1] >= nu else B_coeffs[i, :]
+                    B[-ny + i, :] = direct_coeffs[:nu]
             else:
-                # Handle 3D case if it exists
-                if len(B_coeffs.shape) > 2:
-                    B[-ny:, :] = B_coeffs[:, 0, :nu].T
-                else:
-                    B[-ny:, :] = B_coeffs[:nu * ny].reshape(ny, nu)[:nu, :]
+                # Fallback case
+                B_flat = B_coeffs.flatten()
+                if len(B_flat) >= nu * ny:
+                    B[-ny:, :] = B_flat[:nu * ny].reshape(ny, nu)
 
         # Output matrix C
         C = np.zeros((ny, n_states))

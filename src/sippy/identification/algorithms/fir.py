@@ -63,7 +63,7 @@ class FIRAlgorithm(IdentificationAlgorithm):
         nk = kwargs.get('nk', 1)
 
         if nb <= 0:
-            raise ValueError("Number of FIR coefficients (nb) must be positive")
+            raise ValueError("Number of FIR coefficients must be positive")
         if nk < 0:
             raise ValueError("Input delay (nk) must be non-negative")
 
@@ -100,14 +100,37 @@ class FIRAlgorithm(IdentificationAlgorithm):
         ny, N = y.shape
         nu, _ = u.shape
 
-        # Create regression matrix
-        Phi, y_matrix = self._create_regression_matrix(u, y, nb, nk, ny, nu, N)
+        # Calculate effective data length
+        N_eff = N - nb - nk + 1
 
-        # Estimate parameters using least squares
-        theta, residuals, rank, s = lstsq(Phi, y_matrix.T.flatten(), rcond=None)
+        if N_eff <= 0:
+            raise ValueError(f"Not enough data points. Need at least {nb + nk} samples, got {N}")
 
-        # Reshape parameters into matrices (FIR coefficients)
-        fir_coeffs = theta.reshape(ny, nb * nu)
+        # MIMO case - construct output-specific regression matrices
+        fir_coeffs = np.zeros((ny, nb * nu))
+        residuals_list = []
+
+        for i in range(ny):
+            # For output i, construct regression matrix for this output
+            Phi_i = np.zeros((N_eff, nb * nu))
+            col = 0
+            
+            # Input part: all lagged inputs affect this output  
+            for lag in range(nb):
+                for j in range(nu):
+                    delay_idx = N_eff + nk - 1 - lag
+                    if delay_idx >= 0 and delay_idx + N_eff <= N:
+                        Phi_i[:, col] = u[j, delay_idx - N_eff + 1 : delay_idx - N_eff + N_eff + 1]
+                    else:
+                        Phi_i[:, col] = 0
+                    col += 1
+            
+            # Solve for output i
+            theta_i, residuals_i, rank_i, s_i = lstsq(Phi_i, y[i, nk + nb - 1 : nk + nb - 1 + N_eff], rcond=None)
+            residuals_list.append(residuals_i)
+            
+            # Extract input coefficients for output i
+            fir_coeffs[i, :] = theta_i
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
