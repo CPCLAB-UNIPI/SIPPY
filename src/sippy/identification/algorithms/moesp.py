@@ -15,6 +15,10 @@ if TYPE_CHECKING:
 class MOESPAlgorithm(IdentificationAlgorithm):
     """MOESP (Multivariable Output-Error State Space) algorithm."""
 
+    def get_algorithm_name(self) -> str:
+        """Return algorithm name."""
+        return "MOESP"
+
     def identify(self, y: Optional[np.ndarray] = None, u: Optional[np.ndarray] = None,
                  iddata: Optional['IDData'] = None, **kwargs) -> StateSpaceModel:
         """

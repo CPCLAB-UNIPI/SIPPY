@@ -15,6 +15,10 @@ if TYPE_CHECKING:
 class N4SIDAlgorithm(IdentificationAlgorithm):
     """N4SID (Numerical algorithms for Subspace State Space System Identification) algorithm."""
 
+    def get_algorithm_name(self) -> str:
+        """Return algorithm name."""
+        return "N4SID"
+
     def identify(self, y: Optional[np.ndarray] = None, u: Optional[np.ndarray] = None,
                  iddata: Optional['IDData'] = None, **kwargs) -> StateSpaceModel:
         """

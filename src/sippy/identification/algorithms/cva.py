@@ -15,6 +15,10 @@ if TYPE_CHECKING:
 class CVAAlgorithm(IdentificationAlgorithm):
     """CVA (Canonical Variate Analysis) algorithm."""
 
+    def get_algorithm_name(self) -> str:
+        """Return algorithm name."""
+        return "CVA"
+
     def identify(self, y: Optional[np.ndarray] = None, u: Optional[np.ndarray] = None,
                  iddata: Optional['IDData'] = None, **kwargs) -> StateSpaceModel:
         """
