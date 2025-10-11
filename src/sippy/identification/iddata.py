@@ -6,7 +6,7 @@ similar to Matlab's iddata structure, accepting pandas dataframes and providing
 numpy arrays for internal processing by identification algorithms.
 """
 
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Dict, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -57,7 +57,11 @@ class IDData:
     """
 
     def __init__(self, data: pd.DataFrame, inputs: List[str], outputs: List[str],
-                 tsample: Optional[float] = None, time_index: Optional[str] = None):
+                 tsample: Optional[float] = None, time_index: Optional[str] = None,
+                 slices: Optional[Dict[str, Any]] = None,
+                 bad_strategy: str = 'ffill',
+                 interpolate_method: str = 'linear',
+                 store_mask: bool = True):
         """
         Initialize IDData object.
 
@@ -77,9 +81,23 @@ class IDData:
         if missing_cols:
             raise ValueError(f"Missing columns in DataFrame: {missing_cols}")
 
+        # Optionally apply slice processing on a combined view to keep alignment
+        combined = data[inputs + outputs].copy()
+        self.bad_mask = None
+        if slices:
+            try:
+                from sippy.utils.slices import process_slices  # Local import to avoid cycles
+                combined, mask = process_slices(
+                    combined, slices, bad_strategy=bad_strategy, interpolate_method=interpolate_method
+                )
+                if store_mask:
+                    self.bad_mask = mask
+            except Exception as e:
+                raise ValueError(f"Failed to process slices: {e}")
+
         # Store input and output data
-        self.input_data = data[inputs]
-        self.output_data = data[outputs]
+        self.input_data = combined[inputs]
+        self.output_data = combined[outputs]
         self.input_names = inputs
         self.output_names = outputs
 
@@ -219,12 +237,18 @@ class IDData:
         n_train = int(self.n_samples * train_ratio)
 
         # Split the data
-        train_data = pd.concat([self.input_data, self.output_data], axis=1).iloc[:n_train]
-        test_data = pd.concat([self.input_data, self.output_data], axis=1).iloc[n_train:]
+        combined = pd.concat([self.input_data, self.output_data], axis=1)
+        train_data = combined.iloc[:n_train]
+        test_data = combined.iloc[n_train:]
 
         # Create new IDData objects
         train_iddata = IDData(train_data, self.input_names, self.output_names, self.sample_time)
         test_iddata = IDData(test_data, self.input_names, self.output_names, self.sample_time)
+
+        # Propagate mask if available
+        if self.bad_mask is not None:
+            train_iddata.bad_mask = self.bad_mask.iloc[:n_train]
+            test_iddata.bad_mask = self.bad_mask.iloc[n_train:]
 
         return train_iddata, test_iddata
 
@@ -252,7 +276,18 @@ class IDData:
         # Calculate new sample time
         new_tsample = pd.Timedelta(new_period).total_seconds()
 
-        return IDData(resampled_data, self.input_names, self.output_names, new_tsample)
+        resampled_id = IDData(resampled_data, self.input_names, self.output_names, new_tsample)
+
+        # Resample mask with max (any affected in bin)
+        if self.bad_mask is not None:
+            try:
+                resampled_mask = self.bad_mask.resample(new_period).max()
+                resampled_id.bad_mask = resampled_mask
+            except Exception:
+                # If resample fails, drop mask silently
+                pass
+
+        return resampled_id
 
     def remove_mean(self) -> 'IDData':
         """
@@ -276,6 +311,8 @@ class IDData:
 
         # Create new IDData object
         centered_iddata = IDData(combined_data, self.input_names, self.output_names, self.sample_time)
+        if self.bad_mask is not None:
+            centered_iddata.bad_mask = self.bad_mask.copy()
 
         return centered_iddata
 
@@ -325,3 +362,75 @@ class IDData:
             f"  Sample time: {self.sample_time} seconds"
         ]
         return '\n'.join(info)
+
+    # -------- Slice-aware helpers --------
+    def handle_slices(self,
+                      slices: Optional[Dict[str, Any]] = None,
+                      bad_strategy: str = 'ffill',
+                      interpolate_method: str = 'linear') -> 'IDData':
+        """
+        Return a new IDData with slices applied.
+        """
+        combined = pd.concat([self.input_data, self.output_data], axis=1)
+        if not slices:
+            return IDData(combined, self.input_names, self.output_names, self.sample_time)
+
+        from sippy.utils.slices import process_slices
+        processed, mask = process_slices(combined, slices, bad_strategy=bad_strategy, interpolate_method=interpolate_method)
+        new_obj = IDData(processed, self.input_names, self.output_names, self.sample_time)
+        new_obj.bad_mask = mask
+        return new_obj
+
+    def get_bad_mask(self) -> pd.DataFrame:
+        """Return the boolean mask of affected samples (False if none)."""
+        if self.bad_mask is not None:
+            return self.bad_mask.copy()
+        return pd.DataFrame(False, index=self.input_data.index, columns=self.input_names + self.output_names)
+
+    def drop_masked(self, any_col: bool = True) -> 'IDData':
+        """
+        Drop rows affected by slices based on the stored mask.
+        any_col=True drops rows where any selected column was affected.
+        """
+        if self.bad_mask is None:
+            return IDData(pd.concat([self.input_data, self.output_data], axis=1), self.input_names, self.output_names, self.sample_time)
+
+        mask_subset = self.bad_mask[self.input_names + self.output_names]
+        selector = mask_subset.any(axis=1) if any_col else mask_subset.all(axis=1)
+        kept = ~selector
+        combined = pd.concat([self.input_data, self.output_data], axis=1)[kept]
+        new_obj = IDData(combined, self.input_names, self.output_names, self.sample_time)
+        new_obj.bad_mask = mask_subset[kept]
+        return new_obj
+
+    @classmethod
+    def from_filter(cls,
+                    filter_obj: Any,
+                    dataset: str = 'output',
+                    inputs: Optional[List[str]] = None,
+                    outputs: Optional[List[str]] = None,
+                    tsample: Optional[float] = None,
+                    slices: Optional[Dict[str, Any]] = None,
+                    bad_strategy: str = 'ffill',
+                    interpolate_method: str = 'linear') -> 'IDData':
+        """
+        Build IDData from a filter object's data_manager.
+        """
+        if not hasattr(filter_obj, 'data_manager'):
+            raise ValueError("filter_obj must expose a data_manager with stored DataFrames")
+        df = filter_obj.data_manager.get_data(dataset)
+        if df is None or not isinstance(df, pd.DataFrame):
+            raise ValueError(f"Dataset '{dataset}' not found in filter data_manager")
+
+        # Infer inputs/outputs if not provided
+        if inputs is None or outputs is None:
+            # Try to recover from metadata; otherwise treat all but last as inputs
+            meta = filter_obj.data_manager.get_metadata(dataset)
+            cols = list(df.columns)
+            if inputs is None:
+                inputs = meta.get('inputs') or cols[:-1]
+            if outputs is None:
+                outputs = meta.get('outputs') or cols[-1:]
+
+        return cls(df, inputs, outputs, tsample=tsample, slices=slices,
+                   bad_strategy=bad_strategy, interpolate_method=interpolate_method)

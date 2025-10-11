@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 import numpy as np
 import pandas as pd
+from sippy.utils.slices import process_slices
 
 
 class FilterConfig:
@@ -217,52 +218,9 @@ class IFilter(ABC):
     def _process_slices(self, 
                        data: pd.DataFrame, 
                        slices: Dict[str, Any]) -> pd.DataFrame:
-        """
-        Process data slices for bad data interpolation.
-        
-        Parameters:
-        -----------
-        data : pd.DataFrame
-            Input data
-        slices : dict
-            Slice definitions
-            
-        Returns:
-        --------
-        pd.DataFrame
-            Processed data with slices applied
-        """
-        processed_data = data.copy(deep=True)
-        
-        for slice_info in slices.values():
-            if 'tags' not in slice_info:
-                continue
-                
-            # Check if any tags exist in the data
-            valid_tags = [tag for tag in slice_info['tags'] if tag in processed_data.columns]
-            if not valid_tags:
-                continue
-                
-            start, end = slice_info['start'], slice_info['end']
-            
-            if slice_info['type'] == 'bad':
-                if slice_info.get('isGlobal', False):
-                    # Apply to all tags if global
-                    for col in processed_data.columns:
-                        processed_data.iloc[start:end, processed_data.columns.get_loc(col)] = np.nan
-                else:
-                    # Apply only to specified tags
-                    for tag in valid_tags:
-                        processed_data.iloc[start:end, processed_data.columns.get_loc(tag)] = np.nan
-                # Forward fill
-                processed_data = processed_data.ffill()
-                
-            elif slice_info['type'] == 'interpolate':
-                for tag in valid_tags:
-                    processed_data.iloc[start:end, processed_data.columns.get_loc(tag)] = np.nan
-                    processed_data[tag] = processed_data[tag].interpolate(method='linear')
-                    
-        return processed_data
+        """Delegate slice processing to the shared utility for consistency."""
+        processed, _ = process_slices(data, slices, bad_strategy="ffill", interpolate_method="linear")
+        return processed
     
     def _calculate_sampling_time(self, data: pd.DataFrame) -> float:
         """

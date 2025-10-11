@@ -35,14 +35,10 @@ if filter_type == 'highpass':
     d_filter.apply_filter(step_test_data[tags], tss, filter_tss_mult_factor, slices)
 else:
     d_filter.apply_filter(step_test_data[tags], slices)
-    
-idinput = d_filter.data_manager.get_data("output")
 
-# Resample data
-idinput_resampled = idinput.resample('1min').mean()
-
-# Create IDData object - NEW APPROACH
-id_data = IDData(idinput_resampled, inputs, outputs)
+# Create IDData directly from filter output and resample
+id_data = IDData.from_filter(d_filter, dataset='output', inputs=inputs, outputs=outputs)
+id_data = id_data.resample('1min')
 
 # The IDData object automatically provides data in the correct format
 y = id_data.get_output_array()
@@ -60,7 +56,7 @@ ss_orders = [1, 45] # SS orser min and max, Used if IC = AIC, AICc or BIC
 SS_threshold = 0.1
 req_D = True
 force_A_stable = False
-tsample = pd.Timedelta(idinput_resampled.index[1] - idinput_resampled.index[0]).total_seconds() # data sampling time
+tsample = id_data.sample_time  # data sampling time
 
 # Option 1: Traditional approach with numpy arrays (shown above)
 # Option 2: NEW approach with IDData object directly
