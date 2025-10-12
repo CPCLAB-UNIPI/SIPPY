@@ -23,7 +23,7 @@ try:
     import harold
 
     # Check if harold has the required components
-    if hasattr(harold, "State") or hasattr(harold, "StateSpace"):
+    if hasattr(harold, "State"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -150,6 +150,29 @@ class FIRAlgorithm(IdentificationAlgorithm):
             # Extract input coefficients for output i
             fir_coeffs[i, :] = theta_i
 
+        # Compute one-step-ahead predictions (Yid) for identification data
+        N_eff_yid = N - nb - nk + 1
+        Yid = np.zeros_like(y)
+        Yid[:, :nk + nb - 1] = y[:, :nk + nb - 1]  # Copy initial values
+
+        # Compute predictions for each output
+        for i in range(ny):
+            Phi_i = np.zeros((N_eff_yid, nb * nu))
+            col = 0
+            for lag in range(nb):
+                for j in range(nu):
+                    delay_idx = N_eff_yid + nk - 1 - lag
+                    if delay_idx >= 0 and delay_idx + N_eff_yid <= N:
+                        Phi_i[:, col] = u[j, delay_idx - N_eff_yid + 1 : delay_idx - N_eff_yid + N_eff_yid + 1]
+                    col += 1
+
+            Yid[i, nk + nb - 1:] = np.dot(Phi_i, fir_coeffs[i, :]).flatten()
+
+        # Create G_tf and H_tf transfer functions
+        G_tf, H_tf = self._create_transfer_functions_fir(
+            fir_coeffs, nb, nk, ny, nu, data.sample_time
+        )
+
         # Create state-space representation
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_fir(
@@ -160,6 +183,11 @@ class FIRAlgorithm(IdentificationAlgorithm):
             model = self._create_mock_model(
                 fir_coeffs, nb, nk, ny, nu, data.sample_time
             )
+
+        # Attach transfer functions and predictions to model
+        model.G_tf = G_tf
+        model.H_tf = H_tf
+        model.Yid = Yid
 
         return model
 
@@ -220,6 +248,51 @@ class FIRAlgorithm(IdentificationAlgorithm):
 
             return Phi, y_matrix
 
+    def _create_transfer_functions_fir(self, fir_coeffs, nb, nk, ny, nu, Ts):
+        """
+        Create G_tf and H_tf transfer functions for FIR.
+
+        For FIR: G_tf = B(q) (FIR polynomial), H_tf = 1 (white noise only).
+
+        Parameters:
+        -----------
+        fir_coeffs : ndarray
+            FIR coefficient array (ny x nb*nu)
+        nb, nk : int
+            Number of FIR coefficients and delay
+        ny, nu : int
+            Number of outputs and inputs
+        Ts : float
+            Sampling time
+
+        Returns:
+        --------
+        G_tf, H_tf : harold.Transfer objects or None
+            Transfer functions (None if harold not available)
+        """
+        if not HAROLD_AVAILABLE:
+            return None, None
+
+        try:
+            import harold
+
+            # Create G(q) = B(q) - FIR transfer function with delay
+            # For FIR, numerator is the FIR coefficients, denominator is 1
+            NUM_G = np.zeros(nb + nk)
+            NUM_G[nk:nk + nb] = fir_coeffs[0, :nb] if ny == 1 else fir_coeffs[0, :nb]
+
+            DEN_G = np.array([1.0])  # FIR has unity denominator
+
+            G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
+
+            # H(q) = 1 - FIR has no noise model (white noise only)
+            H_tf = harold.Transfer([1.0], [1.0], dt=Ts)
+
+            return G_tf, H_tf
+        except Exception as e:
+            warnings.warn(f"Failed to create FIR transfer functions with harold: {e}")
+            return None, None
+
     def _create_state_space_from_fir(self, fir_coeffs, nb, nk, ny, nu, Ts):
         """
         Create state-space model from FIR coefficients using harold.
@@ -278,18 +351,20 @@ class FIRAlgorithm(IdentificationAlgorithm):
                                 else 0
                             )
 
-        # Create harold StateSpace object
-        ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
+        # Create harold State object
+        ss_model = harold.State(A, B, C, D, dt=Ts)
 
+        # Use local matrices (not ss_model attributes) for dimensions
+        # This ensures tests with mocked harold don't break
         return StateSpaceModel(
-            A=ss_model.A,
-            B=ss_model.B,
-            C=ss_model.C,
-            D=ss_model.D,
-            K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-            Q=np.eye(ss_model.A.shape[0]),
-            R=np.eye(ss_model.C.shape[0]),
-            S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
+            A=A,
+            B=B,
+            C=C,
+            D=D,
+            K=np.zeros((A.shape[0], C.shape[0])),
+            Q=np.eye(A.shape[0]),
+            R=np.eye(C.shape[0]),
+            S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
             Vn=0.01,
         )

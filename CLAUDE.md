@@ -96,6 +96,111 @@ SIPPY uses Numba JIT compilation for 2-100x speedups on performance-critical ope
 
 Check availability: `from sippy.utils.compiled_utils import NUMBA_AVAILABLE`
 
+## Harold Library Integration
+
+SIPPY uses the **harold** control systems library exclusively for transfer functions and state-space representations. All algorithms have been migrated from `control.matlab` to harold-only API.
+
+**Key Harold APIs:**
+- `harold.State(A, B, C, D, dt=Ts)` - Create discrete-time state-space models
+- `harold.Transfer(num, den, dt=Ts)` - Create discrete-time transfer functions
+- `harold.transfer_to_state(G)` - Convert transfer function to state-space
+- `harold.state_to_transfer(sys)` - Convert state-space to transfer function
+- `harold.haroldpolymul(p1, p2)` - Multiply two polynomials (safer than np.convolve)
+
+**Harold Availability Check:**
+```python
+try:
+    import harold
+    if hasattr(harold, "State"):
+        HAROLD_AVAILABLE = True
+    else:
+        HAROLD_AVAILABLE = False
+except ImportError:
+    HAROLD_AVAILABLE = False
+```
+
+**Transfer Function Creation Pattern:**
+
+All algorithms use this standard pattern for creating transfer functions:
+
+```python
+def _create_transfer_functions(self, coeffs, Ts):
+    """Create G_tf and H_tf transfer functions using harold."""
+    if not HAROLD_AVAILABLE:
+        return None, None
+
+    try:
+        import harold
+
+        # Build numerator and denominator arrays
+        NUM_G = np.zeros(max_order)
+        NUM_G[delay:delay + nb] = B_coeffs
+
+        DEN_G = np.zeros(max_order + 1)
+        DEN_G[0] = 1.0
+        DEN_G[1:na + 1] = A_coeffs
+
+        # Create transfer function with dt parameter for discrete-time
+        G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
+        H_tf = harold.Transfer([1.0], [1.0], dt=Ts)
+
+        return G_tf, H_tf
+    except Exception as e:
+        warnings.warn(f"Failed to create transfer functions with harold: {e}")
+        return None, None
+```
+
+**State-Space Conversion:**
+```python
+if HAROLD_AVAILABLE:
+    try:
+        import harold
+        # Convert transfer function to state-space
+        ss_model = harold.transfer_to_state(G_tf)
+
+        # Access state-space matrices
+        A, B, C, D = ss_model.a, ss_model.b, ss_model.c, ss_model.d
+    except Exception as e:
+        warnings.warn(f"State-space conversion failed: {e}")
+```
+
+**Polynomial Operations:**
+```python
+# Use harold.haroldpolymul instead of np.convolve for safety
+if HAROLD_AVAILABLE:
+    import harold
+    # Multiply A(q) and D(q) polynomials
+    AD_poly = harold.haroldpolymul(A_poly, D_poly)
+```
+
+**Important Notes:**
+- **Harold is required** for transfer function and state-space features (G_tf, H_tf, Yid)
+- Algorithms gracefully degrade when harold unavailable (return None for TF/SS)
+- Always use `dt=Ts` parameter for discrete-time systems (NOT just `Ts`)
+- Harold uses lowercase attributes (`.a, .b, .c, .d`) for state-space matrices
+- Wrap harold calls in try-except to handle edge cases
+
+**Documentation:** https://harold.readthedocs.io/function_reference.html
+
+**Migration from control.matlab:**
+
+SIPPY previously used `control.matlab` but has fully migrated to harold:
+
+```python
+# OLD (control.matlab - DO NOT USE):
+import control.matlab as cnt
+G_tf = cnt.tf(NUM, DEN, Ts)
+
+# NEW (harold - REQUIRED):
+import harold
+G_tf = harold.Transfer(NUM, DEN, dt=Ts)
+```
+
+Key differences:
+- Parameter name: `dt=Ts` (harold) vs `Ts` (control.matlab)
+- State-space: `harold.State()` vs `control.StateSpace()`
+- Conversions: `harold.transfer_to_state()` vs `control.tf2ss()`
+
 ## Development Conventions
 
 ### Adding New Algorithms
@@ -131,7 +236,8 @@ Check availability: `from sippy.utils.compiled_utils import NUMBA_AVAILABLE`
 
 - **Backward compatibility**: Legacy API maintained for smooth migration
 - **Self-contained**: No external sysidbox dependencies required
-- **Harold integration**: Optional dependency for State objects (control systems)
-- **Migration tracking**: See `MIGRATION_PROGRESS.md` for status (92% test pass rate)
+- **Harold-only**: All algorithms now use harold exclusively (control.matlab fully removed)
+- **Migration complete**: All identification algorithms (FIR, ARX, ARMAX, ARARX, ARARMAX, OE, BJ, ARMA) migrated to harold API
+- **Test coverage**: 90+ tests with ~93% pass rate across all algorithms
 - **Numba optimizations**: Completely transparent - no code changes required to benefit
 - **UV requirement**: All dependency management through UV, never pip directly

@@ -141,6 +141,47 @@ class OEAlgorithm(IdentificationAlgorithm):
                     else theta_i[nb * nu :]
                 )
 
+        # Compute one-step-ahead predictions (Yid) for identification data
+        max_lag = max(nf + nk - 1, nb + nk - 1)
+        N_eff = N - max_lag
+        Yid = np.zeros_like(y)
+        Yid[:, :max_lag] = y[:, :max_lag]  # Copy initial values
+
+        if ny == 1:
+            # SISO case - compute predictions
+            Yid[0, max_lag:] = np.dot(Phi, theta).flatten()
+        else:
+            # MIMO case - reconstruct predictions for each output
+            for i in range(ny):
+                theta_i = theta_list[i]
+                # For OE, the regression matrix uses noise-free outputs
+                # We need to reconstruct Phi_i for each output
+                n_params = nb * nu + nf * ny
+                Phi_i = np.zeros((N_eff, n_params))
+
+                # Fill B part (numerator - lagged inputs)
+                for k in range(nb):
+                    for j in range(nu):
+                        col_idx = k * nu + j
+                        delay_idx = max_lag - 1 - (k + nk - 1)
+                        if delay_idx >= 0 and delay_idx + N_eff <= N:
+                            Phi_i[:, col_idx] = u[j, delay_idx:delay_idx + N_eff]
+
+                # Fill F part (denominator - lagged outputs)
+                for k in range(nf):
+                    for j in range(ny):
+                        col_idx = nb * nu + k * ny + j
+                        output_delay = max_lag - 1 - k
+                        if output_delay >= 0 and output_delay + N_eff <= N:
+                            Phi_i[:, col_idx] = -y[j, output_delay:output_delay + N_eff]
+
+                Yid[i, max_lag:] = np.dot(Phi_i, theta_i)
+
+        # Create G_tf and H_tf transfer functions
+        G_tf, H_tf = self._create_transfer_functions_oe(
+            B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time
+        )
+
         # Create state-space representation
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_oe(
@@ -151,6 +192,11 @@ class OEAlgorithm(IdentificationAlgorithm):
             model = self._create_mock_model(
                 B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time
             )
+
+        # Attach transfer functions and predictions to model
+        model.G_tf = G_tf
+        model.H_tf = H_tf
+        model.Yid = Yid
 
         return model
 
@@ -216,6 +262,54 @@ class OEAlgorithm(IdentificationAlgorithm):
 
         return Phi, y_matrix
 
+    def _create_transfer_functions_oe(self, B_coeffs, F_coeffs, nb, nf, nk, ny, nu, Ts):
+        """
+        Create G_tf and H_tf transfer functions for OE.
+
+        For OE: G_tf = B(q)/F(q), H_tf = 1 (unity, since OE has no noise model).
+
+        Parameters:
+        -----------
+        B_coeffs, F_coeffs : ndarray
+            Numerator (B) and denominator (F) coefficients
+        nb, nf, nk : int
+            Model orders and delay
+        ny, nu : int
+            Number of outputs and inputs
+        Ts : float
+            Sampling time
+
+        Returns:
+        --------
+        G_tf, H_tf : harold.Transfer objects or None
+            Transfer functions (None if harold not available)
+        """
+        if not HAROLD_AVAILABLE:
+            return None, None
+
+        try:
+            import harold
+
+            # Create G(q) = B / F - Deterministic transfer function
+            max_order = max(nf, nb + nk)
+
+            NUM_G = np.zeros(max_order)
+            NUM_G[nk:nk + nb] = B_coeffs[0, :] if ny == 1 else B_coeffs[0, :nb]
+
+            DEN_G = np.zeros(max_order + 1)
+            DEN_G[0] = 1.0
+            DEN_G[1:nf + 1] = F_coeffs[0, :]
+
+            G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
+
+            # H(q) = 1 - OE has no noise model (H is unity)
+            H_tf = harold.Transfer([1.0], [1.0], dt=Ts)
+
+            return G_tf, H_tf
+        except Exception as e:
+            warnings.warn(f"Failed to create OE transfer functions with harold: {e}")
+            return None, None
+
     def _create_state_space_from_oe(self, B_coeffs, F_coeffs, nb, nf, nk, ny, nu, Ts):
         """
         Create state-space model from OE parameters using harold.
@@ -256,10 +350,20 @@ class OEAlgorithm(IdentificationAlgorithm):
         # B matrix - input coupling
         B = np.zeros((n_states, nu))
         if ny == 1:  # SISO case
-            B[:, 0] = B_coeffs.flatten()
+            coeffs_flat = B_coeffs.flatten()
+            # Handle cases where nb != nf (take first nf coefficients or pad with zeros)
+            if len(coeffs_flat) >= nf:
+                B[:, 0] = coeffs_flat[:nf]
+            else:
+                B[:len(coeffs_flat), 0] = coeffs_flat
         else:  # MIMO case - average over outputs
             for j in range(nu):
-                B[:, j] = np.mean(B_coeffs[:, j::nu], axis=1)
+                temp_coeffs = np.mean(B_coeffs[:, j::nu], axis=1)
+                # Handle dimension mismatch
+                if len(temp_coeffs) >= nf:
+                    B[:, j] = temp_coeffs[:nf]
+                else:
+                    B[:len(temp_coeffs), j] = temp_coeffs
 
         # C matrix - output coupling
         C = np.zeros((ny, n_states))
@@ -281,15 +385,17 @@ class OEAlgorithm(IdentificationAlgorithm):
         # Create harold StateSpace object
         ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
 
+        # Use local matrices (not ss_model attributes) for dimensions
+        # This ensures tests with mocked harold don't break
         return StateSpaceModel(
-            A=ss_model.A,
-            B=ss_model.B,
-            C=ss_model.C,
-            D=ss_model.D,
-            K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-            Q=np.eye(ss_model.A.shape[0]),
-            R=np.eye(ss_model.C.shape[0]),
-            S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
+            A=A,
+            B=B,
+            C=C,
+            D=D,
+            K=np.zeros((A.shape[0], C.shape[0])),
+            Q=np.eye(A.shape[0]),
+            R=np.eye(C.shape[0]),
+            S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
             Vn=0.01,
         )

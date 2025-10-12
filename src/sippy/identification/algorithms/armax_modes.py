@@ -214,44 +214,41 @@ class ILLSHandler(ARMAXModeHandler):
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from ARMAX parameters."""
         try:
-            # Import control.matlab for transfer functions
-            try:
-                import control.matlab as cnt
-                CNT_AVAILABLE = True
-            except ImportError:
-                CNT_AVAILABLE = False
-
             # Extract coefficients
             A_coeffs = beta_hat[:na]
             B_coeffs = beta_hat[na:na + nb]
             C_coeffs = beta_hat[na + nb:na + nb + nc]
 
-            # Create transfer functions following master branch pattern
+            # Create transfer functions using harold
             G_tf, H_tf = None, None
-            if CNT_AVAILABLE:
-                # Determine maximum order for transfer function arrays
-                max_order = max(na, nb + nk, nc)
+            if HAROLD_AVAILABLE:
+                try:
+                    # Determine maximum order for transfer function arrays
+                    max_order = max(na, nb + nk, nc)
 
-                # G(q) = B / A - Deterministic transfer function
-                NUM_G = np.zeros(max_order)
-                NUM_G[nk:nk + nb] = B_coeffs  # B coefficients with delay
+                    # G(q) = B / A - Deterministic transfer function
+                    NUM_G = np.zeros(max_order)
+                    NUM_G[nk:nk + nb] = B_coeffs  # B coefficients with delay
 
-                DEN_G = np.zeros(max_order + 1)
-                DEN_G[0] = 1.0
-                DEN_G[1:na + 1] = A_coeffs  # A coefficients
+                    DEN_G = np.zeros(max_order + 1)
+                    DEN_G[0] = 1.0
+                    DEN_G[1:na + 1] = A_coeffs  # A coefficients
 
-                G_tf = cnt.tf(NUM_G, DEN_G, Ts)
+                    G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
-                # H(q) = C / A - Noise transfer function
-                NUM_H = np.zeros(max_order + 1)
-                NUM_H[0] = 1.0
-                NUM_H[1:nc + 1] = C_coeffs  # C coefficients
+                    # H(q) = C / A - Noise transfer function
+                    NUM_H = np.zeros(max_order + 1)
+                    NUM_H[0] = 1.0
+                    NUM_H[1:nc + 1] = C_coeffs  # C coefficients
 
-                DEN_H = np.zeros(max_order + 1)
-                DEN_H[0] = 1.0
-                DEN_H[1:na + 1] = A_coeffs  # A coefficients (same as G)
+                    DEN_H = np.zeros(max_order + 1)
+                    DEN_H[0] = 1.0
+                    DEN_H[1:na + 1] = A_coeffs  # A coefficients (same as G)
 
-                H_tf = cnt.tf(NUM_H, DEN_H, Ts)
+                    H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
+                except Exception as e:
+                    warnings.warn(f"Failed to create ARMAX transfer functions with harold: {e}")
+                    G_tf, H_tf = None, None
 
             # Create state-space representation
             n_states = na + nc
@@ -460,13 +457,6 @@ class RLLSHandler(ARMAXModeHandler):
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from RLLS parameters."""
         try:
-            # Import control.matlab for transfer functions
-            try:
-                import control.matlab as cnt
-                CNT_AVAILABLE = True
-            except ImportError:
-                CNT_AVAILABLE = False
-
             # Extract coefficients from theta (same as ILLS)
             # theta contains [-a, b, c] parameters
             pos = 0
@@ -476,32 +466,36 @@ class RLLSHandler(ARMAXModeHandler):
             pos += nb
             C_coeffs = theta[pos:pos + nc]
 
-            # Create transfer functions following master branch pattern
+            # Create transfer functions using harold
             G_tf, H_tf = None, None
-            if CNT_AVAILABLE:
-                # Determine maximum order for transfer function arrays
-                max_order = max(na, nb + nk, nc)
+            if HAROLD_AVAILABLE:
+                try:
+                    # Determine maximum order for transfer function arrays
+                    max_order = max(na, nb + nk, nc)
 
-                # G(q) = B / A - Deterministic transfer function
-                NUM_G = np.zeros(max_order)
-                NUM_G[nk:nk + nb] = B_coeffs  # B coefficients with delay
+                    # G(q) = B / A - Deterministic transfer function
+                    NUM_G = np.zeros(max_order)
+                    NUM_G[nk:nk + nb] = B_coeffs  # B coefficients with delay
 
-                DEN_G = np.zeros(max_order + 1)
-                DEN_G[0] = 1.0
-                DEN_G[1:na + 1] = A_coeffs  # A coefficients
+                    DEN_G = np.zeros(max_order + 1)
+                    DEN_G[0] = 1.0
+                    DEN_G[1:na + 1] = A_coeffs  # A coefficients
 
-                G_tf = cnt.tf(NUM_G, DEN_G, Ts)
+                    G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
-                # H(q) = C / A - Noise transfer function
-                NUM_H = np.zeros(max_order + 1)
-                NUM_H[0] = 1.0
-                NUM_H[1:nc + 1] = C_coeffs  # C coefficients
+                    # H(q) = C / A - Noise transfer function
+                    NUM_H = np.zeros(max_order + 1)
+                    NUM_H[0] = 1.0
+                    NUM_H[1:nc + 1] = C_coeffs  # C coefficients
 
-                DEN_H = np.zeros(max_order + 1)
-                DEN_H[0] = 1.0
-                DEN_H[1:na + 1] = A_coeffs  # A coefficients (same as G)
+                    DEN_H = np.zeros(max_order + 1)
+                    DEN_H[0] = 1.0
+                    DEN_H[1:na + 1] = A_coeffs  # A coefficients (same as G)
 
-                H_tf = cnt.tf(NUM_H, DEN_H, Ts)
+                    H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
+                except Exception as e:
+                    warnings.warn(f"Failed to create RLLS ARMAX transfer functions with harold: {e}")
+                    G_tf, H_tf = None, None
 
             # Use same state-space creation as ILLS
             n_states = na + nc
@@ -791,36 +785,33 @@ class OPTHandler(ARMAXModeHandler):
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from OPT parameters."""
         try:
-            # Import control.matlab for transfer functions
-            try:
-                import control.matlab as cnt
-                CNT_AVAILABLE = True
-            except ImportError:
-                CNT_AVAILABLE = False
-
             # Extract coefficients
             A_coeffs = params[:na]
             B_coeffs = params[na:na + nb]
             C_coeffs = params[na + nb:na + nb + nc]
 
-            # Create transfer functions
+            # Create transfer functions using harold
             G_tf, H_tf = None, None
-            if CNT_AVAILABLE:
-                max_order = max(na, nb + nk, nc)
-                NUM_G = np.zeros(max_order)
-                NUM_G[nk:nk + nb] = B_coeffs
-                DEN_G = np.zeros(max_order + 1)
-                DEN_G[0] = 1.0
-                DEN_G[1:na + 1] = A_coeffs
-                G_tf = cnt.tf(NUM_G, DEN_G, Ts)
+            if HAROLD_AVAILABLE:
+                try:
+                    max_order = max(na, nb + nk, nc)
+                    NUM_G = np.zeros(max_order)
+                    NUM_G[nk:nk + nb] = B_coeffs
+                    DEN_G = np.zeros(max_order + 1)
+                    DEN_G[0] = 1.0
+                    DEN_G[1:na + 1] = A_coeffs
+                    G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
-                NUM_H = np.zeros(max_order + 1)
-                NUM_H[0] = 1.0
-                NUM_H[1:nc + 1] = C_coeffs
-                DEN_H = np.zeros(max_order + 1)
-                DEN_H[0] = 1.0
-                DEN_H[1:na + 1] = A_coeffs
-                H_tf = cnt.tf(NUM_H, DEN_H, Ts)
+                    NUM_H = np.zeros(max_order + 1)
+                    NUM_H[0] = 1.0
+                    NUM_H[1:nc + 1] = C_coeffs
+                    DEN_H = np.zeros(max_order + 1)
+                    DEN_H[0] = 1.0
+                    DEN_H[1:na + 1] = A_coeffs
+                    H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
+                except Exception as e:
+                    warnings.warn(f"Failed to create OPT ARMAX transfer functions with harold: {e}")
+                    G_tf, H_tf = None, None
 
             # Use same state-space creation as ILLS
             n_states = na + nc

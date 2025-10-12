@@ -218,8 +218,14 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
 
     def _fallback_identification(self, u, y, na, nb, nc, nk, sample_time):
         """Fallback identification using basic least squares."""
-        # Use the original basic implementation as fallback
-        N = y.size
+        # Check if MIMO - if so, return minimal model (fallback is SISO-only)
+        if y.ndim > 1 and y.shape[0] > 1:
+            ny = y.shape[0]
+            nu = u.shape[0] if u.ndim > 1 else 1
+            return self._create_minimal_model(ny, nu, sample_time)
+
+        # SISO fallback using basic least squares
+        N = y.size if y.ndim == 1 else y.shape[1]
         max_lag = max(na + nc, nb + nk - 1)
         N_eff = N - max_lag
 

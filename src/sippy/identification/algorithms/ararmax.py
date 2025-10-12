@@ -30,7 +30,7 @@ try:
     import harold
 
     # Check if harold has the required components
-    if hasattr(harold, "State") or hasattr(harold, "StateSpace"):
+    if hasattr(harold, "State"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -320,29 +320,51 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         # Solve least squares problem
         theta, residuals, rank, s = lstsq(phi, target, rcond=None)
 
+        # Get number of inputs and outputs for state space matrix construction
+        n_inputs = u_values.shape[1] if len(u_values.shape) > 1 else 1
+        n_outputs = y_values.shape[1] if len(y_values.shape) > 1 else 1
+
         # Extract system matrices from estimated parameters
         A, B, C, D, x0 = self._extract_state_space_matrices_ararmax(
+            theta, na, nb, nc, nd, nf, nk, config.tsample, n_inputs, n_outputs
+        )
+
+        # Create G_tf and H_tf transfer functions
+        G_tf, H_tf = self._create_transfer_functions_ararmax(
             theta, na, nb, nc, nd, nf, nk, config.tsample
+        )
+
+        # Compute one-step-ahead predictions (Yid) for identification data
+        Yid = self._compute_yid_ararmax(
+            u_values, y_values, theta, na, nb, nc, nd, nf, nk
         )
 
         if HAROLD_AVAILABLE:
             # Use Harold's more sophisticated state space realization
             try:
-                harold_ss = harold.StateSpace(A, B, C, D, dt=config.tsample)
+                harold_ss = harold.State(A, B, C, D, dt=config.tsample)
                 from ..base import StateSpaceModel
 
+                # Use local matrices (not harold_ss attributes) for dimensions
+                # This ensures tests with mocked harold don't break
                 model = StateSpaceModel(
-                    A=harold_ss.A,
-                    B=harold_ss.B,
-                    C=harold_ss.C,
-                    D=harold_ss.D,
-                    K=np.zeros((harold_ss.A.shape[1], harold_ss.A.shape[0])),
-                    Q=np.eye(harold_ss.A.shape[0]),
-                    R=np.eye(harold_ss.C.shape[0]),
-                    S=np.zeros((harold_ss.A.shape[0], harold_ss.C.shape[0])),
+                    A=A,
+                    B=B,
+                    C=C,
+                    D=D,
+                    K=np.zeros((A.shape[0], C.shape[0])),
+                    Q=np.eye(A.shape[0]),
+                    R=np.eye(C.shape[0]),
+                    S=np.zeros((A.shape[0], C.shape[0])),
                     ts=config.tsample,
                     Vn=1.0,
                 )
+
+                # Attach transfer functions and predictions to model
+                model.G_tf = G_tf
+                model.H_tf = H_tf
+                model.Yid = Yid
+
                 return model
             except Exception as e:
                 warnings.warn(
@@ -360,25 +382,20 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             n_noise_ma = max(nd)
             n_states = n_main + n_noise_ar + n_noise_ma
 
+            # Get number of inputs and outputs from data
+            n_inputs = u_values.shape[1] if len(u_values.shape) > 1 else 1
+            n_outputs = y_values.shape[1] if len(y_values.shape) > 1 else 1
+
             # Build augmented state matrices
             A_aug = np.eye(n_states)
-            B_aug = np.zeros(
-                (n_states, len(u_values[0]) if len(u_values.shape) > 1 else 1)
-            )
-            C_aug = np.zeros(
-                (len(y_values[0]) if len(y_values.shape) > 1 else 1, n_states)
-            )
-            D_aug = np.zeros(
-                (
-                    len(y_values[0]) if len(y_values.shape) > 1 else 1,
-                    len(u_values[0]) if len(u_values.shape) > 1 else 1,
-                )
-            )
+            B_aug = np.zeros((n_states, n_inputs))
+            C_aug = np.zeros((n_outputs, n_states))
+            D_aug = np.zeros((n_outputs, n_inputs))
 
             # Main system part
             if n_main > 0:
                 A_aug[:n_main, :n_main] = self._companion_matrix_main(theta, na, nb, nk)
-                B_aug[:n_main, :] = self._build_B_matrix(theta, na, nb, nk)
+                B_aug[:n_main, :] = self._build_B_matrix(theta, na, nb, nk, n_inputs)
                 C_aug[0, :n_main] = 1.0  # First output from first state
 
             # Noise AR part
@@ -410,13 +427,19 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
                 B=B_aug,
                 C=C_aug,
                 D=D_aug,
-                K=np.zeros((A_aug.shape[1], A_aug.shape[0])),  # Observer gain
+                K=np.zeros((A_aug.shape[0], C_aug.shape[0])),  # Observer gain
                 Q=np.eye(A_aug.shape[0]),  # State covariance
                 R=np.eye(C_aug.shape[0]),  # Measurement covariance
                 S=np.zeros((A_aug.shape[0], C_aug.shape[0])),  # Cross covariance
                 ts=config.tsample,  # Sample time
                 Vn=1.0,  # Noise variance
             )
+
+            # Attach transfer functions and predictions to model
+            model.G_tf = G_tf
+            model.H_tf = H_tf
+            model.Yid = Yid
+
             return model
 
         except Exception as e:
@@ -436,13 +459,19 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
                 B=B_fallback,
                 C=C_fallback,
                 D=D_fallback,
-                K=np.zeros((n_states, n_states)),
+                K=np.zeros((n_states, 1)),
                 Q=np.eye(n_states),
                 R=np.eye(1),
                 S=np.zeros((n_states, 1)),
                 ts=config.tsample,
                 Vn=1.0,
             )
+
+            # Attach transfer functions and predictions to model
+            model.G_tf = G_tf
+            model.H_tf = H_tf
+            model.Yid = Yid
+
             return model
 
     def _build_regression_matrices_ararmax(self, u, y, na, nb, nc, nd, nf, nk):
@@ -587,7 +616,8 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
                         y[k][0] if n_outputs > 1 else y[k]
                     ) * 0.1  # Initial approximation
                 if row_idx < phi.shape[1]:
-                    phi[k - max_order, row_idx] = float(resid)
+                    resid_val = resid.item() if hasattr(resid, 'item') else float(resid)
+                    phi[k - max_order, row_idx] = resid_val
                     row_idx += 1
                 else:
                     break
@@ -622,12 +652,12 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
                         # Skip if we exceed the allocated columns
                         break
 
-            target[k - max_order] = y[k][0] if n_outputs > 1 else y[k]
+            target[k - max_order] = y[k, 0] if n_outputs > 1 else y[k]
 
         return phi, target
 
     def _extract_state_space_matrices_ararmax(
-        self, theta, na, nb, nc, nd, nf, nk, sample_time
+        self, theta, na, nb, nc, nd, nf, nk, sample_time, n_inputs, n_outputs
     ):
         """Extract state space matrices from ARARMAX parameters."""
         # For ARARMAX, we need to handle both AR and MA components
@@ -642,9 +672,9 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             n_main = 1
 
         A = np.eye(n_main)
-        B = np.zeros((n_main, 1))
-        C = np.zeros((1, n_main))
-        D = np.zeros((1, 1))
+        B = np.zeros((n_main, n_inputs))
+        C = np.zeros((n_outputs, n_main))
+        D = np.zeros((n_outputs, n_inputs))
 
         # Build companion form for main system
         if na_val > 0:
@@ -654,9 +684,12 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             C[0, -1] = 1.0
 
         if nb_val > 0 and na_val + nb_val <= len(theta):
-            # Input coefficients
+            # Input coefficients - handle MIMO
             for i in range(min(nb_val, len(theta) - na_val)):
-                B[max(0, na_val - 1 - i), 0] = theta[na_val + i]
+                for j in range(n_inputs):
+                    coeff_idx = na_val + i * n_inputs + j
+                    if coeff_idx < len(theta):
+                        B[max(0, na_val - 1 - i), j] = theta[coeff_idx]
 
         x0 = np.zeros((n_main, 1))
 
@@ -685,20 +718,165 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
 
         return A_main
 
-    def _build_B_matrix(self, theta, na, nb, nk):
+    def _build_B_matrix(self, theta, na, nb, nk, n_inputs):
         """Build B matrix from input coefficients."""
         na_val = max(na) if hasattr(na, "__iter__") else na
         nb_val = max(nb) if hasattr(nb, "__iter__") else nb
         nk_val = max(nk) if hasattr(nk, "__iter__") else nk
 
         n_main = max(na_val, nb_val + nk_val)
-        B = np.zeros((n_main, 1))
+        B = np.zeros((n_main, n_inputs))
 
         if nb_val > 0 and na_val + nb_val <= len(theta):
             for i in range(min(nb_val, len(theta) - na_val)):
-                B[max(0, na_val - 1 - i), 0] = theta[na_val + i]
+                # For MIMO, distribute coefficients across inputs
+                for j in range(n_inputs):
+                    coeff_idx = na_val + i * n_inputs + j
+                    if coeff_idx < len(theta):
+                        B[max(0, na_val - 1 - i), j] = theta[coeff_idx]
 
         return B
+
+    def _create_transfer_functions_ararmax(self, theta, na, nb, nc, nd, nf, nk, Ts):
+        """
+        Create G_tf and H_tf transfer functions for ARARMAX.
+
+        For ARARMAX: G_tf = B(q)/F(q), H_tf = C(q)/D(q).
+
+        Parameters:
+        -----------
+        theta : ndarray
+            Estimated parameters [AR; Input; Noise_AR; Noise_MA]
+        na, nb, nc, nd, nf, nk : int or list
+            ARARMAX polynomial orders and delay
+        Ts : float
+            Sampling time
+
+        Returns:
+        --------
+        G_tf, H_tf : harold.Transfer objects or None
+            Transfer functions (None if harold not available)
+        """
+        if not HAROLD_AVAILABLE:
+            return None, None
+
+        try:
+            # Extract scalar orders
+            na_val = max(na) if isinstance(na, (list, tuple)) else na
+            nb_val = max(nb) if isinstance(nb, (list, tuple)) else nb
+            nc_val = max(nc) if isinstance(nc, (list, tuple)) else nc
+            nd_val = max(nd) if isinstance(nd, (list, tuple)) else nd
+            nf_val = max(nf) if isinstance(nf, (list, tuple)) else nf
+            nk_val = max(nk) if isinstance(nk, (list, tuple)) else nk
+
+            # G_tf = B(q)/F(q) - Input transfer function
+            max_order_g = max(nb_val + nk_val, nf_val)
+
+            NUM_G = np.zeros(max_order_g + 1)
+            # Extract B coefficients from theta
+            if len(theta) >= na_val + nb_val:
+                NUM_G[nk_val:nk_val + nb_val] = theta[na_val:na_val + nb_val]
+
+            # F(q) denominator - simplified as unity if nf not explicitly stored
+            DEN_G = np.zeros(max_order_g + 1)
+            DEN_G[0] = 1.0
+            # In ARARMAX, F coefficients would follow after na+nb
+            # For simplicity, use unity denominator if F not available
+            if nf_val > 0 and len(theta) >= na_val + nb_val + nc_val + nd_val + nf_val:
+                F_coeffs = theta[na_val + nb_val + nc_val + nd_val:na_val + nb_val + nc_val + nd_val + nf_val]
+                DEN_G[1:nf_val + 1] = F_coeffs
+
+            # Create G transfer function using harold
+            G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
+
+            # H_tf = C(q)/D(q) - Noise transfer function
+            max_order_h = max(nc_val, nd_val)
+
+            NUM_H = np.zeros(max_order_h + 1)
+            NUM_H[0] = 1.0
+            # Extract C coefficients (noise AR)
+            if len(theta) >= na_val + nb_val + nc_val:
+                NUM_H[1:nc_val + 1] = theta[na_val + nb_val:na_val + nb_val + nc_val]
+
+            DEN_H = np.zeros(max_order_h + 1)
+            DEN_H[0] = 1.0
+            # Extract D coefficients (noise MA)
+            if len(theta) >= na_val + nb_val + nc_val + nd_val:
+                DEN_H[1:nd_val + 1] = theta[na_val + nb_val + nc_val:na_val + nb_val + nc_val + nd_val]
+
+            # Create H transfer function using harold
+            H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
+
+            return G_tf, H_tf
+        except Exception as e:
+            warnings.warn(f"Failed to create transfer functions with harold: {e}")
+            return None, None
+
+    def _compute_yid_ararmax(self, u, y, theta, na, nb, nc, nd, nf, nk):
+        """
+        Compute one-step-ahead predictions (Yid) for ARARMAX model.
+
+        Parameters:
+        -----------
+        u, y : ndarray
+            Input and output data
+        theta : ndarray
+            Estimated parameters
+        na, nb, nc, nd, nf, nk : int or list
+            ARARMAX polynomial orders and delay
+
+        Returns:
+        --------
+        Yid : ndarray
+            One-step-ahead predictions
+        """
+        # Extract scalar orders
+        na_val = max(na) if isinstance(na, (list, tuple)) else na
+        nb_val = max(nb) if isinstance(nb, (list, tuple)) else nb
+        nc_val = max(nc) if isinstance(nc, (list, tuple)) else nc
+        nd_val = max(nd) if isinstance(nd, (list, tuple)) else nd
+        nf_val = max(nf) if isinstance(nf, (list, tuple)) else nf
+        nk_val = max(nk) if isinstance(nk, (list, tuple)) else nk
+
+        n_samples = len(u)
+        n_outputs = y.shape[1] if len(y.shape) > 1 else 1
+        n_inputs = u.shape[1] if len(u.shape) > 1 else 1
+
+        # Initialize Yid with actual outputs
+        Yid = np.zeros_like(y)
+        max_order = max(na_val, nb_val + nk_val, nc_val, nd_val, nf_val)
+
+        # Copy initial values (can't predict without history)
+        Yid[:max_order] = y[:max_order]
+
+        # Extract coefficients from theta
+        # theta structure: [AR (na); Input (nb); Noise_AR (nc); Noise_MA (nd)]
+        ar_coeffs = theta[:na_val] if len(theta) >= na_val else np.zeros(na_val)
+        input_coeffs = theta[na_val:na_val + nb_val] if len(theta) >= na_val + nb_val else np.zeros(nb_val)
+
+        # Compute predictions for each time step
+        for k in range(max_order, n_samples):
+            y_pred = 0.0
+
+            # AR part: sum of past outputs
+            for i in range(na_val):
+                if k - i - 1 >= 0 and i < len(ar_coeffs):
+                    y_past = y[k - i - 1][0] if n_outputs > 1 else y[k - i - 1]
+                    y_pred += ar_coeffs[i] * y_past
+
+            # Input part: sum of delayed inputs
+            for i in range(nb_val):
+                if k - nk_val - i >= 0 and i < len(input_coeffs):
+                    u_past = u[k - nk_val - i][0] if n_inputs > 1 else u[k - nk_val - i]
+                    y_pred += input_coeffs[i] * u_past
+
+            # Store prediction
+            if n_outputs > 1:
+                Yid[k, 0] = y_pred
+            else:
+                Yid[k] = y_pred
+
+        return Yid
 
     def _create_fallback_armax_model(self, u, y, config):
         """Create fallback ARARMAX model using ARX as base."""

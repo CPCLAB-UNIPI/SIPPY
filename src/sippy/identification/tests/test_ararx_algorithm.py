@@ -26,22 +26,23 @@ class TestARARXAlgorithm:
         u = np.random.normal(0, 1, self.n_samples)
         y = np.zeros(self.n_samples)
 
-        # Generate ARARX process: y[k] = B(q)/D(q)*u[k] + C(q)e(k]
-        # ARARX(2,1,1,1) model as example
+        # Generate ARARX process: A(q) y[k] = B(q)/D(q)*u[k-theta] + e[k]
+        # ARARX(na=1, nb=2, nd=1, theta=1) model as example
         e_white = np.random.normal(0, 0.1, self.n_samples)
 
         for k in range(2, self.n_samples):
-            # Input part: B(q)/D(q) * u[k]
+            # Input part: B(q)/D(q) * u[k-theta]
+            input_part = 0.0
             if k >= 1:
                 input_part = 0.4 * u[k - 1] + 0.2 * u[k - 2]
-                # Simplified D(q): y[k-1]  (for example)
-                input_part -= 0.3 * y[k - 1]
+                # D(q) denominator effect
+                if k >= 2:
+                    input_part -= 0.3 * y[k - 1]
 
-            # Noise AR part: C(q)*e[k] (simplified example with nc=1)
+            # AR part: A(q) y[k] with white noise
+            y[k] = input_part + e_white[k]
             if k >= 1:
-                noise_part = e_white[k] + 0.3 * e_white[k - 1]  # C(q) polynomial
-
-            y[k] = input_part + noise_part
+                y[k] -= 0.2 * y[k - 1]  # A(q) = 1 + 0.2*q^-1
 
         # Create IDData
         time_index = pd.date_range("2023-01-01", periods=self.n_samples, freq="1s")
@@ -50,12 +51,10 @@ class TestARARXAlgorithm:
         self.data = IDData(data=data_df, inputs=["u1"], outputs=["y1"], tsample=1.0)
 
         self.config = SystemIdentificationConfig(method="ARARX")
+        self.config.na = 1  # Output AR polynomial order
         self.config.nb = 2  # Input transfer function order
-        self.config.nc = 1  # Noise AR polynomial order
-        self.config.nd = 1  # D polynomial order
-        self.config.nf = 1  # F polynomial order
-        self.config.nk = 1  # Input delay
-        self.config.na = 0  # AR part (ARARX has na=0, unlike ARX)
+        self.config.nd = 1  # Denominator polynomial order
+        self.config.theta = 1  # Input delay (replaces nk)
 
     def test_ararx_algorithm_initialization(self):
         """Test ARARX algorithm can be initialized."""
@@ -84,14 +83,12 @@ class TestARARXAlgorithm:
         """Test ARARX with different model orders."""
         algorithm = ARARXAlgorithm()
 
-        # Test ARARX(3,2,1,1)
+        # Test ARARX(na=2, nb=3, nd=1, theta=1)
         config = SystemIdentificationConfig(method="ARARX")
+        config.na = 2  # Output AR polynomial order
         config.nb = 3  # Input transfer function order
-        config.nc = 2  # Noise AR polynomial order
-        config.nd = 1  # D polynomial order
-        config.nf = 1  # F polynomial order
-        config.nk = 1  # Input delay
-        config.na = 0  # AR part (ARARX has na=0)
+        config.nd = 1  # Denominator polynomial order
+        config.theta = 1  # Input delay
 
         result = algorithm.identify(self.data, config)
         assert result is not None
@@ -101,37 +98,44 @@ class TestARARXAlgorithm:
         """Test ARARX parameter validation."""
         algorithm = ARARXAlgorithm()
 
+        # Test with negative output AR order
+        invalid_config = SystemIdentificationConfig(method="ARARX")
+        invalid_config.na = -1
+        invalid_config.nb = 1
+        invalid_config.nd = 1
+        invalid_config.theta = 1
+
+        with pytest.raises(ValueError, match="Output AR order .* must be non-negative"):
+            algorithm.identify(self.data, invalid_config)
+
         # Test with zero input order
         invalid_config = SystemIdentificationConfig(method="ARARX")
+        invalid_config.na = 1
         invalid_config.nb = 0
-        invalid_config.nc = 1
         invalid_config.nd = 1
-        invalid_config.nf = 1
-        invalid_config.na = 0
+        invalid_config.theta = 1
 
         with pytest.raises(ValueError, match="Input order .* must be positive"):
             algorithm.identify(self.data, invalid_config)
 
-        # Test with zero noise AR order
+        # Test with zero denominator order
         invalid_config = SystemIdentificationConfig(method="ARARX")
+        invalid_config.na = 1
         invalid_config.nb = 1
-        invalid_config.nc = 0
-        invalid_config.nd = 1
-        invalid_config.nf = 1
-        invalid_config.na = 0
+        invalid_config.nd = 0
+        invalid_config.theta = 1
 
-        with pytest.raises(ValueError, match="Noise AR order .* must be positive"):
+        with pytest.raises(ValueError, match="Denominator order .* must be positive"):
             algorithm.identify(self.data, invalid_config)
 
-        # Test with zero noise MA orders
+        # Test with negative input delay
         invalid_config = SystemIdentificationConfig(method="ARARX")
+        invalid_config.na = 1
         invalid_config.nb = 1
-        invalid_config.nc = 1
-        invalid_config.nd = 0
-        invalid_config.nf = 0
-        invalid_config.na = 0
+        invalid_config.nd = 1
+        invalid_config.theta = -1
 
-        with pytest.raises(ValueError, match="Noise MA orders must be positive"):
+        with pytest.raises(ValueError, match="Input delay .* must be non-negative"):
             algorithm.identify(self.data, invalid_config)
 
     def test_ararx_mimo_system(self):
@@ -166,11 +170,10 @@ class TestARARXAlgorithm:
         )
 
         config = SystemIdentificationConfig(method="ARARX")
+        config.na = 1
         config.nb = 1
-        config.nc = 1
         config.nd = 1
-        config.nf = 1
-        config.na = 0
+        config.theta = 1
 
         algorithm = ARARXAlgorithm()
         result = algorithm.identify(data, config)
@@ -203,11 +206,10 @@ class TestARARXAlgorithm:
         data = IDData(data=data_df, inputs=["u1"], outputs=["y1"], tsample=1.0)
 
         config = SystemIdentificationConfig(method="ARARX")
+        config.na = 2
         config.nb = 4  # This will require at least 4 samples
-        config.nc = 2
         config.nd = 3
-        config.nf = 2
-        config.na = 0
+        config.theta = 1
 
         with pytest.raises(ValueError, match="Not enough data"):
             algorithm.identify(data, config)
@@ -241,26 +243,25 @@ class TestARARXAlgorithm:
         assert algorithm.get_algorithm_name() == "ARARX"
 
     @pytest.mark.parametrize(
-        "nb,nc,nd,nf",
+        "na,nb,nd",
         [
-            (1, 1, 1, 1),  # Minimal ARARX model
-            (2, 1, 1, 1),  # Higher input order
-            (1, 2, 1, 1),  # Higher noise AR
-            (1, 1, 2, 1),  # Higher D polynomial
-            (1, 1, 1, 2),  # Higher F polynomial
-            (2, 2, 2, 2),  # Complex ARARX model
+            (0, 1, 1),  # Minimal ARARX model (na=0)
+            (1, 1, 1),  # With output AR
+            (1, 2, 1),  # Higher input order
+            (2, 1, 1),  # Higher output AR
+            (1, 1, 2),  # Higher D polynomial
+            (2, 2, 2),  # Complex ARARX model
         ],
     )
-    def test_ararx_various_orders(self, nb, nc, nd, nf):
+    def test_ararx_various_orders(self, na, nb, nd):
         """Test ARARX with various order combinations."""
         algorithm = ARARXAlgorithm()
 
         config = SystemIdentificationConfig(method="ARARX")
+        config.na = na
         config.nb = nb
-        config.nc = nc
         config.nd = nd
-        config.nf = nf
-        config.na = 0  # ARARX always has na=0
+        config.theta = 1
 
         result = algorithm.identify(self.data, config)
         assert result is not None
@@ -292,12 +293,10 @@ class TestARARXAlgorithm:
         data = IDData(data=data_df, inputs=["u1"], outputs=["y1"], tsample=1.0)
 
         config = SystemIdentificationConfig(method="ARARX")
+        config.na = 2
         config.nb = 2
-        config.nc = 2
         config.nd = 2
-        config.nf = 2
-
-        config.na = 0
+        config.theta = 1
 
         result = algorithm.identify(data, config)
         assert result is not None
@@ -307,69 +306,73 @@ class TestARARXAlgorithm:
         """Test ARARX order calculations are consistent with expected structure."""
         algorithm = ARARXAlgorithm()
 
-        # For ARARX, na should always be 0
         config = SystemIdentificationConfig(method="ARARX")
+        config.na = 1
         config.nb = 2
-        config.nc = 1
         config.nd = 1
-        config.nf = 1
-        config.na = 0
+        config.theta = 1
 
         result = algorithm.identify(self.data, config)
 
         # The algorithm should create a model with appropriate state dimension
         A_state_dim = result.A.shape[0]
 
-        # For ARARX, state dimension should reflect input and noise dynamics
-        expected_min_states = max(config.nb, config.nc, config.nd, config.nf)
+        # For ARARX, state dimension should reflect input and output dynamics
+        expected_min_states = max(config.na, config.nb, config.nd)
         assert A_state_dim >= expected_min_states
 
     @pytest.mark.parametrize(
-        "nk,nc,nd,nf",
+        "theta,na,nd",
         [
-            (1, 1, 1, 1),  # Standard delay
-            (2, 1, 1, 1),  # Longer delay
-            (1, 2, 1, 1),  # Higher noise AR order
-            (1, 1, 2, 1),  # Higher D polynomial
-            (1, 1, 1, 2),  # Higher F polynomial
+            (1, 1, 1),  # Standard delay
+            (2, 1, 1),  # Longer delay
+            (1, 2, 1),  # Higher output AR order
+            (1, 1, 2),  # Higher D polynomial
+            (2, 2, 2),  # Complex model
         ],
     )
-    def test_ararx_various_delays_and_orders(self, nk, nc, nd, nf):
+    def test_ararx_various_delays_and_orders(self, theta, na, nd):
         """Test ARARX with various input delays and polynomial orders."""
         algorithm = ARARXAlgorithm()
 
         config = SystemIdentificationConfig(method="ARARX")
+        config.na = na
         config.nb = 2
-        config.nc = 1
-        config.nd = 1
-        config.nf = 1
-        config.nk = nk
-        config.na = 0
+        config.nd = nd
+        config.theta = theta
 
         result = algorithm.identify(self.data, config)
         assert result is not None
         assert isinstance(result, StateSpaceModel)
 
-    def test_ararx_comparison_with_arma(self):
-        """Test ARARX produces different results than ARMA, ARMAX, or ARX."""
+    def test_ararx_comparison_with_different_orders(self):
+        """Test ARARX produces different results with different model orders."""
         algorithm = ARARXAlgorithm()
 
-        # Compare with ARMA (should be different due to structure differences)
-        config_arma = SystemIdentificationConfig(method="ARMA")
-        config_arma.nc = 1  # ARMA equivalent nc
-        config_arma.nd = 1  # ARMA equivalent nd
-        config_arma.nf = 1  # ARMA equivalent nf
+        # Compare two different ARARX configurations
+        config_1 = SystemIdentificationConfig(method="ARARX")
+        config_1.na = 1
+        config_1.nb = 1
+        config_1.nd = 1
+        config_1.theta = 1
 
-        result_arma = algorithm.identify(self.data, config_arma)
-        result_ararx = algorithm.identify(self.data, self.config)
+        config_2 = SystemIdentificationConfig(method="ARARX")
+        config_2.na = 2
+        config_2.nb = 2
+        config_2.nd = 2
+        config_2.theta = 1
 
-        # Results should be different unless using mock implementations
-        assert result_arma is not None
-        assert result_ararx is not None
+        result_1 = algorithm.identify(self.data, config_1)
+        result_2 = algorithm.identify(self.data, config_2)
+
+        # Results should be different with different orders
+        assert result_1 is not None
+        assert result_2 is not None
 
         # Compare models (they should differ structurally)
-        assert not np.allclose(result_arma.A, result_ararx.A, rtol=1e-10)
-        assert not np.allclose(result_arma.B, result_ararx.B, rtol=1e-10)
+        assert result_1.A.shape != result_2.A.shape or not np.allclose(
+            result_1.A, result_2.A, rtol=1e-10
+        )
 
     def test_ararx_algorithm_with_mock_fallback(self):
         """Test ARARX algorithm works with mock fallback when real implementation unavailable."""
@@ -401,22 +404,25 @@ class TestARARXAlgorithm:
             assert hasattr(result, "B")
             assert mock_method.called
 
-    def test_ararx_compatibility_with_arma(self):
-        """Test ARARX maintains backward compatibility with ARMA API."""
+    def test_ararx_with_zero_na(self):
+        """Test ARARX works with na=0 (no output AR component)."""
         algorithm = ARARXAlgorithm()
 
-        # Should work with ARMA-style parameters if needed
-        config_arma1 = SystemIdentificationConfig(method="ARMA")
-        config_arma1.nc = self.config.nc  # Match noise AR order
+        # Should work with na=0
+        config_no_ar = SystemIdentificationConfig(method="ARARX")
+        config_no_ar.na = 0  # No output AR
+        config_no_ar.nb = 2
+        config_no_ar.nd = 1
+        config_no_ar.theta = 1
 
-        result_arma1 = algorithm.identify(self.data, config_arma1)
-        assert result_arma1 is not None
-        assert isinstance(result_arma1, StateSpaceModel)
+        result_no_ar = algorithm.identify(self.data, config_no_ar)
+        assert result_no_ar is not None
+        assert isinstance(result_no_ar, StateSpaceModel)
 
-        # Should also support direct ARARX parameters
-        result_ararx1 = algorithm.identify(self.data, self.config)
-        assert result_ararx1 is not None
-        assert isinstance(result_ararx1, StateSpaceModel)
+        # Should also work with non-zero na
+        result_with_ar = algorithm.identify(self.data, self.config)
+        assert result_with_ar is not None
+        assert isinstance(result_with_ar, StateSpaceModel)
 
     def test_ararx_harold_integration(self):
         """Test ARARX algorithm with harold integration when available."""
@@ -426,25 +432,26 @@ class TestARARXAlgorithm:
             patch("sippy.identification.algorithms.ararx.HAROLD_AVAILABLE", True),
             patch("sippy.identification.algorithms.ararx.harold") as mock_harold,
         ):
-            # Mock harold StateSpace and TransferFunction
-            mock_ss = mock_harold.StateSpace.return_value
-            mock_tf = mock_harold.TransferFunction.return_value
-            mock_tf.NumberOfInputs = 1
-            mock_tf.NumberOfOutputs = 1
-            mock_tf.SamplingPeriod = 1.0
+            # Mock harold.Transfer and harold.transfer_to_state
+            mock_tf = mock_harold.Transfer.return_value
+            mock_ss = mock_harold.transfer_to_state.return_value
 
-            mock_ss.A = np.eye(2)
-            mock_ss.B = np.eye(2, 1)
-            mock_ss.C = np.array([[1, 0]])
-            mock_ss.D = np.zeros((1, 1))
+            # Mock haroldpolymul to return a simple array
+            mock_harold.haroldpolymul.return_value = np.array([1.0, 0.5, 0.2])
+
+            # Mock state-space matrices (lowercase for harold.State)
+            mock_ss.a = np.eye(2)
+            mock_ss.b = np.eye(2, 1)
+            mock_ss.c = np.array([[1, 0]])
+            mock_ss.d = np.zeros((1, 1))
 
             result = algorithm.identify(self.data, self.config)
 
             assert result is not None
             assert isinstance(result, StateSpaceModel)
             # Integration test - harold should be called in successful case
-            assert mock_harold.StateSpace.called
-            assert mock_harold.TransferFunction.called
+            assert mock_harold.Transfer.called
+            assert mock_harold.transfer_to_state.called
 
     def test_ararx_simulation_and_prediction(self):
         """Test ARARX can simulate and predict outputs."""
@@ -521,9 +528,16 @@ class TestARARXAlgorithm:
 
         # Test with different config objects
         config1 = SystemIdentificationConfig(method="ARARX")
+        config1.na = 1
         config1.nb = 1
+        config1.nd = 1
+        config1.theta = 1
+
         config2 = SystemIdentificationConfig(method="ARARX")
+        config2.na = 2
         config2.nb = 2
+        config2.nd = 2
+        config2.theta = 1
 
         result1 = algorithm.identify(self.data, config1)
         result2 = algorithm.identify(self.data, config2)
@@ -549,27 +563,50 @@ class TestARARXAlgorithm:
         )
 
         config = SystemIdentificationConfig(method="ARARX")
+        config.na = 1
         config.nb = 1
-        config.nc = 1
         config.nd = 1
-        config.nf = 1
-        config.na = 0
+        config.theta = 1
 
         # Should handle dimension errors gracefully
         with pytest.raises(ValueError):
             algorithm.identify(invalid_data, config)
 
-        # Test with negative orders (invalid for any positive order)
-        for param in ["nb", "nc", "nd", "nf"]:
-            invalid_config = SystemIdentificationConfig(method="ARARX")
-            setattr(invalid_config, param, 0)
+        # Test with zero/negative orders (invalid for nb and nd)
+        invalid_config = SystemIdentificationConfig(method="ARARX")
+        invalid_config.na = 1
+        invalid_config.nb = 0
+        invalid_config.nd = 1
+        invalid_config.theta = 1
 
-            with pytest.raises(ValueError, match="must be positive"):
-                algorithm.identify(self.data, invalid_config)
+        with pytest.raises(ValueError, match="must be positive"):
+            algorithm.identify(self.data, invalid_config)
+
+        invalid_config = SystemIdentificationConfig(method="ARARX")
+        invalid_config.na = 1
+        invalid_config.nb = 1
+        invalid_config.nd = 0
+        invalid_config.theta = 1
+
+        with pytest.raises(ValueError, match="must be positive"):
+            algorithm.identify(self.data, invalid_config)
+
+        # Test with negative na
+        invalid_config = SystemIdentificationConfig(method="ARARX")
+        invalid_config.na = -1
+        invalid_config.nb = 1
+        invalid_config.nd = 1
+        invalid_config.theta = 1
+
+        with pytest.raises(ValueError, match="must be non-negative"):
+            algorithm.identify(self.data, invalid_config)
 
         # Test with negative delay
         invalid_config = SystemIdentificationConfig(method="ARARX")
-        invalid_config.nk = -1
+        invalid_config.na = 1
+        invalid_config.nb = 1
+        invalid_config.nd = 1
+        invalid_config.theta = -1
 
         with pytest.raises(ValueError, match="must be non-negative"):
             algorithm.identify(self.data, invalid_config)

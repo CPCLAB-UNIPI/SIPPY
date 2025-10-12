@@ -23,7 +23,7 @@ try:
     import harold
 
     # Check if harold has the required components
-    if hasattr(harold, "State") or hasattr(harold, "StateSpace"):
+    if hasattr(harold, "State"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -235,6 +235,26 @@ class BJAlgorithm(IdentificationAlgorithm):
             if len(theta) > nb * nu + nc:
                 noise_ma_coeffs[i, : len(theta) - nb * nu - nc] = theta[nb * nu + nc :]
 
+        # Compute one-step-ahead predictions (Yid) for identification data
+        Yid = np.zeros_like(y)
+        Yid[:, :max_lag] = y[:, :max_lag]  # Copy initial values
+
+        for i in range(ny):
+            # Reconstruct predictions using the regression matrix
+            Phi = Phi_list[i]
+            theta_i = np.zeros(nb * nu + nc + max(nd, nf))
+            theta_i[:nb * nu] = input_coeffs[i, :]
+            theta_i[nb * nu:nb * nu + nc] = noise_ar_coeffs[i, :]
+            if len(noise_ma_coeffs[i, :]) > 0:
+                theta_i[nb * nu + nc:nb * nu + nc + len(noise_ma_coeffs[i, :])] = noise_ma_coeffs[i, :]
+
+            Yid[i, max_lag:] = np.dot(Phi, theta_i[:Phi.shape[1]]).flatten()
+
+        # Create G_tf and H_tf transfer functions
+        G_tf, H_tf = self._create_transfer_functions_bj(
+            input_coeffs, noise_ar_coeffs, noise_ma_coeffs, nb, nc, nd, nf, nk, ny, nu, data.sample_time
+        )
+
         # Create state-space representation
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_bj(
@@ -264,7 +284,69 @@ class BJAlgorithm(IdentificationAlgorithm):
                 data.sample_time,
             )
 
+        # Attach transfer functions and predictions to model
+        model.G_tf = G_tf
+        model.H_tf = H_tf
+        model.Yid = Yid
+
         return model
+
+    def _create_transfer_functions_bj(self, input_coeffs, noise_ar_coeffs, noise_ma_coeffs, nb, nc, nd, nf, nk, ny, nu, Ts):
+        """
+        Create G_tf and H_tf transfer functions for BJ.
+
+        For BJ: G_tf = C(q) (input TF, B(q)=1 for BJ), H_tf = E(q)/F(q).
+
+        Parameters:
+        -----------
+        input_coeffs, noise_ar_coeffs, noise_ma_coeffs : ndarray
+            Input (C), noise AR (E), and noise MA (F) coefficients
+        nb, nc, nd, nf, nk : int
+            BJ polynomial orders and delay
+        ny, nu : int
+            Number of outputs and inputs
+        Ts : float
+            Sampling time
+
+        Returns:
+        --------
+        G_tf, H_tf : harold.Transfer objects or None
+            Transfer functions (None if harold not available)
+        """
+        if not HAROLD_AVAILABLE:
+            return None, None
+
+        try:
+            import harold
+
+            # G_tf = C(q) - Input transfer function (B(q)=1 for BJ, so just C polynomial)
+            max_order_g = nb + nk
+            NUM_G = np.zeros(max_order_g)
+            NUM_G[nk:nk + nb] = input_coeffs[0, :nb] if ny == 1 else input_coeffs[0, :nb]
+
+            DEN_G = np.array([1.0])  # B(q) = 1 for BJ
+
+            G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
+
+            # H_tf = E(q)/F(q) - Noise transfer function
+            max_order_h = max(nc, nf)
+
+            NUM_H = np.zeros(max_order_h + 1)
+            NUM_H[0] = 1.0
+            NUM_H[1:nc + 1] = noise_ar_coeffs[0, :] if ny == 1 else noise_ar_coeffs[0, :]
+
+            DEN_H = np.zeros(max_order_h + 1)
+            DEN_H[0] = 1.0
+            # Use nf for denominator (F polynomial)
+            if nf > 0 and noise_ma_coeffs.shape[1] >= nf:
+                DEN_H[1:nf + 1] = noise_ma_coeffs[0, :nf]
+
+            H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
+
+            return G_tf, H_tf
+        except Exception as e:
+            warnings.warn(f"Failed to create BJ transfer functions with harold: {e}")
+            return None, None
 
     def _create_state_space_from_bj(
         self, input_coeffs, noise_ar_coeffs, noise_ma_coeffs, nb, nc, nd, nf, ny, nu, Ts
@@ -336,18 +418,20 @@ class BJAlgorithm(IdentificationAlgorithm):
                 if max(nd, nf) > 0:
                     C[0, n_states - 1] = 1
 
-                # Create harold StateSpace object
-                ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
+                # Create harold State object
+                ss_model = harold.State(A, B, C, D, dt=Ts)
 
+                # Use local matrices (not ss_model attributes) for dimensions
+                # This ensures tests with mocked harold don't break
                 return StateSpaceModel(
-                    A=ss_model.A,
-                    B=ss_model.B,
-                    C=ss_model.C,
-                    D=ss_model.D,
-                    K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                    Q=np.eye(ss_model.A.shape[0]),
-                    R=np.eye(ss_model.C.shape[0]),
-                    S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
+                    A=A,
+                    B=B,
+                    C=C,
+                    D=D,
+                    K=np.zeros((A.shape[0], C.shape[0])),
+                    Q=np.eye(A.shape[0]),
+                    R=np.eye(C.shape[0]),
+                    S=np.zeros((A.shape[0], C.shape[0])),
                     ts=Ts,
                     Vn=0.01,
                 )

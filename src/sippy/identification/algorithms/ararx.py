@@ -13,7 +13,7 @@ try:
     import harold
 
     # Check if harold has the required components
-    if hasattr(harold, "State") or hasattr(harold, "StateSpace"):
+    if hasattr(harold, "State"):
         HAROLD_AVAILABLE = True
     else:
         HAROLD_AVAILABLE = False
@@ -28,21 +28,26 @@ class ARARXAlgorithm(IdentificationAlgorithm):
     ARARX (Auto-Regressive Auto-Regressive X) identification algorithm.
 
     The ARARX model structure is:
-    A(q) y(k) = B(q)/D(q) F(q) u(k-nk) + C(q) e(k)
+    A(q) y(k) = B(q)/D(q) * u(k-theta) + e(k)
 
     where:
-    - A(q) = 1 + a1*q^-1 + ... + ana*q^-na (auto-regressive part, na=0 for ARARX)
-    - B(q)/D(q) = input transfer function polynomials
-    - F(q) = input filter polynomial
-    - C(q) = 1 + c1*q^-1 + ... + cnc*q^-nc (noise AR polynomial)
+    - A(q) = 1 + a1*q^-1 + ... + ana*q^-na (output auto-regressive polynomial)
+    - B(q) = b0 + b1*q^-1 + ... + bnb*q^-nb (input numerator polynomial)
+    - D(q) = 1 + d1*q^-1 + ... + dnd*q^-nd (denominator polynomial in input path)
+    - theta is the input delay (number of samples)
     - e(k) is white noise
-    - nk is the input delay
+    - NO C(q) polynomial (no MA component in noise model)
+    - NO F(q) polynomial (no additional filtering)
 
-    ARARX models are used for systems with colored noise,
-    where the noise dynamics need to be explicitly modeled.
+    ARARX extends ARX by adding a denominator D(q) in the input transfer function,
+    allowing modeling of systems with more complex input dynamics.
 
-    The algorithm uses extended least-squares methods to estimate
-    the input and noise parameters simultaneously.
+    Transfer functions:
+    - G(q) = B(q) / (A(q) * D(q))  (deterministic transfer function)
+    - H(q) = 1 / A(q)  (noise transfer function - simple AR)
+
+    The algorithm uses an iterative auxiliary variable method with two
+    auxiliary variables V and W to estimate A, B, and D polynomials.
     """
 
     def __init__(self):
@@ -60,207 +65,382 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         Parameters:
         -----------
         **kwargs : dict
-            Parameters to validate including nb, nc, nd, nf, nk
+            Parameters to validate including na, nb, nd, theta
 
         Returns:
         --------
         bool
             True if parameters are valid
         """
+        na = kwargs.get("na")
         nb = kwargs.get("nb")
-        nc = kwargs.get("nc")
         nd = kwargs.get("nd")
-        nf = kwargs.get("nf")
-        nk = kwargs.get("nk")
+        theta = kwargs.get("theta")
 
         # Check if parameters are explicitly set to invalid values
+        if na is not None and na < 0:
+            raise ValueError("Output AR order (na) must be non-negative")
         if nb is not None and nb <= 0:
             raise ValueError("Input order (nb) must be positive")
-        if nc is not None and nc <= 0:
-            raise ValueError("Noise AR order (nc) must be positive")
         if nd is not None and nd <= 0:
-            raise ValueError("Noise MA orders must be positive")
-        if nf is not None and nf <= 0:
-            raise ValueError("Noise MA orders must be positive")
-        if nk is not None and nk < 0:
-            raise ValueError("Input delay (nk) must be non-negative")
+            raise ValueError("Denominator order (nd) must be positive")
+        if theta is not None and theta < 0:
+            raise ValueError("Input delay (theta) must be non-negative")
 
         return True
 
     def identify(self, data, config):
         """
-        Identify ARARX model from input-output data.
+        Identify ARARX model from input-output data using auxiliary variable method.
 
         Parameters:
         -----------
         data : IDData
             Input-output data
         config : SystemIdentificationConfig
-            Configuration parameters including nb, nc, nd, nf, nk, na
+            Configuration parameters including na, nb, nd, theta
 
         Returns:
         --------
         model : StateSpaceModel
-            Identified state-space model
+            Identified state-space model with G_tf, H_tf, and Yid attributes
         """
         # Extract data from IDData object
         u = data.get_input_array()
         y = data.get_output_array()
         ts = data.ts if hasattr(data, 'ts') else 1.0
 
-        # Extract configuration parameters (ARARX specific)
-        nb = getattr(config, "nb", None)
-        nc = getattr(config, "nc", None)
-        nd = getattr(config, "nd", None)
-        nf = getattr(config, "nf", None)
-        nk = getattr(config, "nk", None)
+        # Extract configuration parameters (ARARX uses na, nb, nd, theta)
+        na = getattr(config, "na", 1)      # Output AR order
+        nb = getattr(config, "nb", 1)      # Input numerator order
+        nd = getattr(config, "nd", 1)      # Denominator order
+        theta = getattr(config, "theta", 1)  # Input delay (replaces nk)
 
-        # Validate parameters before handling None cases
-        self.validate_parameters(nb=nb, nc=nc, nd=nd, nf=nf, nk=nk)
-
-        # Handle None cases (but keep 0 if explicitly set for validation)
-        nb = nb or 1
-        nc = nc or 1
-        nd = nd or 1
-        nf = nf or 1
-        nk = nk or 0
+        # Validate parameters
+        self.validate_parameters(na=na, nb=nb, nd=nd, theta=theta)
 
         # Get data dimensions
         ny, N = y.shape
         nu, _ = u.shape
 
-        # Calculate effective data length considering all lags
-        max_input_lag = nk + max(nb, nd, nf) - 1
-        max_noise_lag = nc - 1
-        max_lag = max(max_input_lag, max_noise_lag)
+        # Calculate effective data length
+        max_lag = max(na, nb + theta, nd)
         N_eff = N - max_lag
 
-        # Check if we have enough data for parameter estimation
-        n_params = (nb + nd + nf) + nc  # Total number of parameters
-        if N_eff <= 0 or N <= n_params:
+        # Check if we have enough data
+        n_params = na + nb + nd
+        if N_eff <= 0:
             raise ValueError(
-                f"Not enough data. Need at least {max_lag + 1} samples and more than {n_params} total data points, got {N}"
+                f"Not enough data. Need at least {max_lag + 1} samples, got {N}"
+            )
+        if N_eff <= n_params:
+            raise ValueError(
+                f"Not enough data for parameter estimation. Need more than {n_params} samples, got {N_eff}"
             )
 
-        # Initialize coefficient storage for MIMO case
-        if nu > 1 or ny > 1:
-            # For MIMO, estimate each input-output pair separately for simplicity
-            # In a more advanced implementation, we'd estimate all parameters jointly
-            B_coeffs = np.zeros((ny, nu, nb + nd + nf))
-            C_coeffs = np.zeros((ny, nc))
-        else:
-            # SISO case
-            B_coeffs = np.zeros((ny, nb + nd + nf))
-            C_coeffs = np.zeros((ny, nc))
+        # Step 1: Initialize with ARX estimate (A and B, D=1 initially)
+        A_coeffs, B_coeffs = self._initialize_with_arx(u, y, na, nb, theta, N, max_lag)
+        D_coeffs = np.zeros((ny, nd))
 
-        residuals_list = []
+        # Step 2: Iterative optimization using auxiliary variables
+        max_iter = 10
+        tol = 1e-6
 
-        for i in range(ny):  # For each output
-            for j in range(nu):  # For each input (SISO case will have j=0 only)
-                # Construct regression matrix for ARARX estimation
-                n_params = (nb + nd + nf) + nc  # Input part + noise AR part
-                Phi = np.zeros((N_eff, n_params))
-                col = 0
+        for iteration in range(max_iter):
+            A_prev = A_coeffs.copy()
+            B_prev = B_coeffs.copy()
+            D_prev = D_coeffs.copy()
 
-                # Input part: B(q)/D(q)F(q)u[k-nk]
-                # For simplicity, use delayed inputs and outputs as regressors
-                # B(q) terms: delayed inputs
-                for lag in range(nb):
-                    input_idx = max_lag - nk - lag
-                    Phi[:, col] = u[j, input_idx : input_idx + N_eff]
-                    col += 1
+            # Compute auxiliary variable V = y - B/D * u
+            V = self._compute_auxiliary_V(y, u, B_coeffs, D_coeffs, nb, nd, theta, N, max_lag)
 
-                # D(q) terms: delayed outputs
-                for lag in range(nd):
-                    output_idx = max_lag - 1 - lag
-                    if output_idx >= 0 and output_idx + N_eff <= N:
-                        Phi[:, col] = y[i, output_idx : output_idx + N_eff]
-                    else:
-                        Phi[:, col] = 0
-                    col += 1
+            # Update A using [y, V] regression
+            A_coeffs = self._update_A_coefficients(y, V, na, N, max_lag)
 
-                # F(q) terms: additional filtered inputs (simplified as delayed inputs)
-                for lag in range(nf):
-                    input_idx = max_lag - nk - lag
-                    if input_idx >= 0 and input_idx + N_eff <= N:
-                        Phi[:, col] = u[j, input_idx : input_idx + N_eff]
-                    else:
-                        Phi[:, col] = 0
-                    col += 1
+            # Compute auxiliary variable W = A * y
+            W = self._compute_auxiliary_W(y, A_coeffs, na, N, max_lag)
 
-                # Noise AR part: C(q) terms
-                # We'll use iterative approach for noise terms
-                if nc > 0:
-                    # Initial estimate without noise correlation
-                    Phi_input = Phi[:, : (nb + nd + nf)]
-                    theta_input, _, _, _ = lstsq(
-                        Phi_input, y[i, max_lag : max_lag + N_eff], rcond=None
-                    )
-                    y_pred = Phi_input @ theta_input
+            # Update B and D using [u, W] regression
+            B_coeffs, D_coeffs = self._update_BD_coefficients(u, W, nb, nd, theta, N, max_lag)
 
-                    # Add noise correlation terms
-                    for lag in range(nc):
-                        if lag == 0:
-                            # Current residual not available
-                            Phi[:, col] = 0
-                        else:
-                            noise_idx = max_lag - 1 - lag
-                            if noise_idx >= 0:
-                                Phi[:, col] = (
-                                    y[i, noise_idx : noise_idx + N_eff] - y_pred[:N_eff]
-                                )
-                            else:
-                                Phi[:, col] = 0
-                        col += 1
-                else:
-                    # No noise correlation
-                    pass
+            # Check convergence
+            delta_A = np.linalg.norm(A_coeffs - A_prev)
+            delta_B = np.linalg.norm(B_coeffs - B_prev)
+            delta_D = np.linalg.norm(D_coeffs - D_prev)
 
-                # Solve for ARARX parameters
-                theta, residuals_i, rank, s = lstsq(
-                    Phi, y[i, max_lag : max_lag + N_eff], rcond=None
-                )
-                residuals_list.append(residuals_i)
+            if delta_A + delta_B + delta_D < tol:
+                break
 
-                # Extract input and noise coefficients
-                if nu == 1 and ny == 1:
-                    # SISO case
-                    B_coeffs[i, :] = theta[: nb + nd + nf]
-                    if nc > 0:
-                        C_coeffs[i, :] = theta[nb + nd + nf :]
-                else:
-                    # MIMO case - handle differently
-                    pass
+        # Step 3: Compute Yid (one-step-ahead predictions)
+        Yid = self._compute_yid_ararx(u, y, A_coeffs, B_coeffs, D_coeffs,
+                                      na, nb, nd, theta, N, max_lag)
 
-        # Create state-space representation
+        # Step 4: Create transfer functions using harold
+        G_tf, H_tf = self._create_transfer_functions_ararx(
+            A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, ts
+        )
+
+        # Step 5: Create state-space model
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_ararx(
-                B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, ts
+                A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, ts
             )
         else:
-            # Fallback when harold is not available
             model = self._create_mock_model(
-                B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, ts
+                A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, ts
             )
+
+        # Attach attributes
+        model.G_tf = G_tf
+        model.H_tf = H_tf
+        model.Yid = Yid
 
         return model
 
-    def _create_state_space_from_ararx(
-        self, B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, Ts
-    ):
+    def _initialize_with_arx(self, u, y, na, nb, theta, N, max_lag):
+        """Initialize A and B coefficients using ARX estimation."""
+        ny = y.shape[0]
+        nu = u.shape[0]
+        N_eff = N - max_lag
+
+        # For MIMO, estimate separately for each output
+        A_coeffs = np.zeros((ny, na)) if na > 0 else np.zeros((ny, 0))
+        B_coeffs = np.zeros((ny, nb))
+
+        for out_idx in range(ny):
+            # Construct regression matrix [y_lags, u_lags] for this output
+            Phi = np.zeros((N_eff, na + nb * nu))
+
+            # Add output lags for A polynomial (own output only for SISO structure)
+            for i in range(na):
+                Phi[:, i] = y[out_idx, max_lag - 1 - i : max_lag - 1 - i + N_eff]
+
+            # Add input lags for B polynomial (all inputs)
+            for inp_idx in range(nu):
+                for i in range(nb):
+                    col = na + inp_idx * nb + i
+                    Phi[:, col] = u[inp_idx, max_lag - theta - i : max_lag - theta - i + N_eff]
+
+            # Solve least squares for this output
+            target = y[out_idx, max_lag : max_lag + N_eff]
+            theta_arx, _, _, _ = np.linalg.lstsq(Phi, target, rcond=None)
+
+            # Extract coefficients
+            if na > 0:
+                A_coeffs[out_idx, :] = theta_arx[:na]
+            # For B, use first input coefficients (SISO-like for now)
+            B_coeffs[out_idx, :] = theta_arx[na:na + nb]
+
+        return A_coeffs, B_coeffs
+
+    def _compute_auxiliary_V(self, y, u, B_coeffs, D_coeffs, nb, nd, theta, N, max_lag):
+        """Compute V = y - B/D * u (auxiliary variable for A estimation)."""
+        ny = y.shape[0]
+        N_eff = N - max_lag
+        V = np.zeros((ny, N_eff))
+
+        for i in range(ny):
+            for k in range(N_eff):
+                k_abs = k + max_lag
+
+                # Compute B * u term
+                b_u = 0
+                for j in range(nb):
+                    if k_abs - theta - j >= 0:
+                        b_u += B_coeffs[i, j] * u[0, k_abs - theta - j]
+
+                # Compute D denominator effect (simplified recursive filtering)
+                d_denom = 1.0
+                for j in range(nd):
+                    if k - j - 1 >= 0:
+                        d_denom += D_coeffs[i, j] * V[i, k - j - 1]
+
+                # V = y - B/D * u
+                V[i, k] = y[i, k_abs] - b_u / max(abs(d_denom), 0.1)
+
+        return V
+
+    def _update_A_coefficients(self, y, V, na, N, max_lag):
+        """Update A coefficients using regression on [y, V]."""
+        if na == 0:
+            return np.zeros((y.shape[0], 0))
+
+        N_eff = V.shape[1]
+        ny = y.shape[0]
+        A_coeffs = np.zeros((ny, na))
+
+        # Estimate A separately for each output
+        for out_idx in range(ny):
+            # Build regression matrix with lagged V for this output
+            Phi = np.zeros((N_eff, na))
+            for i in range(na):
+                # Use V lags (since V = y - B/D*u, we're regressing on corrected output)
+                if i == 0:
+                    # No lag - use all of V
+                    Phi[:, i] = -V[out_idx, :]
+                else:
+                    # i-step lag - shift V by i steps
+                    Phi[i:, i] = -V[out_idx, :N_eff - i]
+                    Phi[:i, i] = 0  # Pad with zeros at the beginning
+
+            target = y[out_idx, max_lag : max_lag + N_eff]
+            A_new, _, _, _ = np.linalg.lstsq(Phi, target, rcond=None)
+            A_coeffs[out_idx, :] = A_new
+
+        return A_coeffs
+
+    def _compute_auxiliary_W(self, y, A_coeffs, na, N, max_lag):
+        """Compute W = A * y (auxiliary variable for B, D estimation)."""
+        ny = y.shape[0]
+        N_eff = N - max_lag
+        W = np.zeros((ny, N_eff))
+
+        for i in range(ny):
+            for k in range(N_eff):
+                k_abs = k + max_lag
+                W[i, k] = y[i, k_abs]
+
+                # Add AR terms: A(q) * y
+                for j in range(na):
+                    if k_abs - j - 1 >= 0:
+                        W[i, k] += A_coeffs[i, j] * y[i, k_abs - j - 1]
+
+        return W
+
+    def _update_BD_coefficients(self, u, W, nb, nd, theta, N, max_lag):
+        """Update B and D coefficients using regression on [u, W]."""
+        nu = u.shape[0]
+        ny = W.shape[0]
+        N_eff = W.shape[1]
+
+        B_coeffs = np.zeros((ny, nb))
+        D_coeffs = np.zeros((ny, nd))
+
+        # Estimate B and D separately for each output
+        for out_idx in range(ny):
+            # Build regression for B and D for this output
+            Phi = np.zeros((N_eff, nb * nu + nd))
+
+            # Input lags for B (all inputs)
+            for inp_idx in range(nu):
+                for i in range(nb):
+                    col = inp_idx * nb + i
+                    Phi[:, col] = u[inp_idx, max_lag - theta - i : max_lag - theta - i + N_eff]
+
+            # W lags for D (denominator)
+            for i in range(nd):
+                if i == 0:
+                    # Current W not available, use previous
+                    Phi[1:, nb * nu + i] = -W[out_idx, :N_eff - 1]
+                    Phi[0, nb * nu + i] = 0
+                else:
+                    Phi[i:, nb * nu + i] = -W[out_idx, :N_eff - i]
+                    Phi[:i, nb * nu + i] = 0
+
+            target = W[out_idx, :N_eff]
+            theta_bd, _, _, _ = np.linalg.lstsq(Phi, target, rcond=None)
+
+            # Extract coefficients (use first input's B coefficients for SISO-like structure)
+            B_coeffs[out_idx, :] = theta_bd[:nb]
+            D_coeffs[out_idx, :] = theta_bd[nb * nu:]
+
+        return B_coeffs, D_coeffs
+
+    def _compute_yid_ararx(self, u, y, A_coeffs, B_coeffs, D_coeffs,
+                           na, nb, nd, theta, N, max_lag):
+        """Compute one-step-ahead predictions for ARARX model."""
+        ny = y.shape[0]
+        Yid = np.zeros_like(y)
+        Yid[:, :max_lag] = y[:, :max_lag]
+
+        for k in range(max_lag, N):
+            for i in range(ny):
+                # AR part: -A * y
+                y_pred = 0
+                for j in range(na):
+                    if k - j - 1 >= 0:
+                        y_pred -= A_coeffs[i, j] * y[i, k - j - 1]
+
+                # Input part: B * u
+                b_u = 0
+                for j in range(nb):
+                    if k - theta - j >= 0:
+                        b_u += B_coeffs[i, j] * u[0, k - theta - j]
+
+                # D denominator effect (recursive)
+                d_effect = 1.0
+                for j in range(nd):
+                    if k - j - 1 >= 0:
+                        d_effect += D_coeffs[i, j] * Yid[i, k - j - 1]
+
+                # Combine: y = -A*y + B/D*u
+                Yid[i, k] = y_pred + b_u / max(abs(d_effect), 0.1)
+
+        return Yid
+
+    def _create_transfer_functions_ararx(self, A_coeffs, B_coeffs, D_coeffs,
+                                         na, nb, nd, theta, ny, nu, Ts):
         """
-        Create state-space model from ARARX coefficients using harold.
+        Create G_tf and H_tf transfer functions using harold.Transfer.
+
+        For ARARX:
+        - G_tf = B(q) / (A(q) * D(q))
+        - H_tf = 1 / A(q)
 
         Parameters:
         -----------
-        B_coeffs, C_coeffs : ndarray
-            Input and noise coefficients
-        nb, nc, nd, nf : int
-            Polynomial orders
-        ny : int
-            Number of outputs
-        nu : int
-            Number of inputs
+        A_coeffs, B_coeffs, D_coeffs : ndarray
+            Polynomial coefficients
+        na, nb, nd, theta : int
+            Polynomial orders and delay
+        ny, nu : int
+            Number of outputs and inputs
+        Ts : float
+            Sampling time
+
+        Returns:
+        --------
+        G_tf, H_tf : harold.Transfer objects or None
+            Transfer functions (None if harold not available)
+        """
+        if not HAROLD_AVAILABLE:
+            return None, None
+
+        try:
+            import harold
+
+            # Build polynomial arrays (harold uses positive powers, convert from negative)
+            A_poly = np.concatenate(([1.0], A_coeffs.flatten())) if na > 0 else np.array([1.0])
+            B_poly_no_delay = np.concatenate(([0.0] * theta, B_coeffs.flatten()))
+            D_poly = np.concatenate(([1.0], D_coeffs.flatten()))
+
+            # Multiply A * D for denominator using harold.haroldpolymul
+            DEN_G = harold.haroldpolymul(A_poly, D_poly)
+
+            # Create G transfer function: G(q) = B(q) / (A(q) * D(q))
+            G_tf = harold.Transfer(B_poly_no_delay, DEN_G, dt=Ts)
+
+            # Create H transfer function: H(q) = 1 / A(q)
+            H_tf = harold.Transfer([1.0], A_poly, dt=Ts)
+
+            return G_tf, H_tf
+        except Exception as e:
+            warnings.warn(f"Failed to create ARARX transfer functions: {e}")
+            return None, None
+
+    def _create_state_space_from_ararx(self, A_coeffs, B_coeffs, D_coeffs,
+                                       na, nb, nd, theta, ny, nu, Ts):
+        """
+        Create state-space model from ARARX using harold.transfer_to_state.
+
+        Parameters:
+        -----------
+        A_coeffs, B_coeffs, D_coeffs : ndarray
+            Polynomial coefficients
+        na, nb, nd, theta : int
+            Polynomial orders and delay
+        ny, nu : int
+            Number of outputs and inputs
         Ts : float
             Sampling time
 
@@ -269,88 +449,56 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         model : StateSpaceModel
             State-space model representation
         """
-        # For ARARX, create a transfer function representation
-        # A(q) y(k) = B(q)/D(q)F(q)u[k-nk] + C(q)e[k]
-        # With na=0, we have: y(k) = B(q)/D(q)F(q)u[k-nk] + C(q)e[k]
+        import harold
 
-        n_states = max(nb, nc, nd, nf)
-
-        # Create state-space matrices (companion form)
-        A = np.zeros((n_states, n_states))
-        B = np.zeros((n_states, nu))
-        C = np.zeros((ny, n_states))
-        D = np.zeros((ny, nu))
-
-        # Build companion form
-        if ny == 1 and nu == 1:
-            # SISO case
-            # State matrix (companion form for input dynamics)
-            if n_states > 1:
-                A[: n_states - 1, 1:n_states] = np.eye(n_states - 1)
-
-            # Last row reflects the system dynamics (simplified)
-            A[n_states - 1, :] = (
-                -B_coeffs[0, :n_states] if n_states <= len(B_coeffs[0]) else 0
-            )
-
-            # Input matrix
-            B[: min(n_states, len(B_coeffs[0])), 0] = B_coeffs[
-                0, : min(n_states, len(B_coeffs[0]))
-            ]
-
-            # Output matrix (last state is the output)
-            C[0, -1] = 1
-
-            # Noise effects handled through C_coeffs
-            if nc > 0:
-                # For ARARX, noise affects the system dynamics
-                B_noise = np.zeros((n_states, ny))
-                B_noise[: min(nc, n_states), 0] = C_coeffs[0, : min(nc, n_states)]
-                # In a full implementation, this would be handled more sophisticatedly
-        else:
-            # MIMO case - simplified implementation
-            for i in range(ny):
-                for j in range(nu):
-                    # Create separate SISO systems and combine
-                    pass
-
-        # Create TransferFunction first (ARARX often works in transfer function form)
-        # Then convert to StateSpace
-        tf_model = harold.TransferFunction(num=[1], den=[1, 1], dt=Ts)
-        tf_model.NumberOfInputs = nu
-        tf_model.NumberOfOutputs = ny
-        tf_model.SamplingPeriod = Ts
-
-        # Create harold StateSpace object
-        ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
-
-        return StateSpaceModel(
-            A=ss_model.A,
-            B=ss_model.B,
-            C=ss_model.C,
-            D=ss_model.D,
-            K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-            Q=np.eye(ss_model.A.shape[0]),
-            R=np.eye(ss_model.C.shape[0]),
-            S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-            ts=Ts,
-            Vn=0.01,
+        # Create transfer function
+        G_tf, H_tf = self._create_transfer_functions_ararx(
+            A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts
         )
 
-    def _create_mock_model(self, B_coeffs, C_coeffs, nb, nc, nd, nf, ny, nu, Ts):
+        if G_tf is None:
+            # Fallback to mock model
+            return self._create_mock_model(
+                A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts
+            )
+
+        # Convert to state-space using harold
+        try:
+            ss_model = harold.transfer_to_state(G_tf)
+
+            # Extract matrices (harold uses lowercase)
+            A = ss_model.a
+            B = ss_model.b
+            C = ss_model.c
+            D = ss_model.d
+
+            return StateSpaceModel(
+                A=A, B=B, C=C, D=D,
+                K=np.zeros((A.shape[0], C.shape[0])),
+                Q=np.eye(A.shape[0]),
+                R=np.eye(C.shape[0]),
+                S=np.zeros((A.shape[0], C.shape[0])),
+                ts=Ts,
+                Vn=0.01,
+            )
+        except Exception as e:
+            warnings.warn(f"Harold transfer_to_state failed: {e}, using fallback")
+            return self._create_mock_model(
+                A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts
+            )
+
+    def _create_mock_model(self, A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts):
         """
         Create a mock state-space model when harold is not available.
 
         Parameters:
         -----------
-        B_coeffs, C_coeffs : ndarray
-            Input and noise coefficients
-        nb, nc, nd, nf : int
-            Polynomial orders
-        ny : int
-            Number of outputs
-        nu : int
-            Number of inputs
+        A_coeffs, B_coeffs, D_coeffs : ndarray
+            Polynomial coefficients
+        na, nb, nd, theta : int
+            Polynomial orders and delay
+        ny, nu : int
+            Number of outputs and inputs
         Ts : float
             Sampling time
 
@@ -359,62 +507,35 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         model : StateSpaceModel
             Mock state-space model
         """
-        # Create simple companion form state-space representation
-        n_states = max(nb, nc, nd, nf)
+        # Use companion form for A, B, D polynomials
+        n_states = max(na, nb + nd, 1)
 
-        # State matrix A (companion form)
+        # Build A matrix (companion form for output AR)
         A = np.zeros((n_states, n_states))
         if n_states > 1:
-            A[: n_states - 1, 1:n_states] = np.eye(n_states - 1)
+            A[:n_states - 1, 1:] = np.eye(n_states - 1)
+        if na > 0 and na <= n_states:
+            A[n_states - 1, :na] = -A_coeffs.flatten()
 
-        # Set last row based on coefficients (simplified)
-        if ny == 1 and nu == 1:
-            # Use the first n_states coefficients for the state matrix
-            if len(B_coeffs[0]) >= n_states:
-                A[n_states - 1, :n_states] = -B_coeffs[0, :n_states]
-            else:
-                A[n_states - 1, : len(B_coeffs[0])] = -B_coeffs[0, : len(B_coeffs[0])]
-        else:
-            # MIMO simplified implementation
-            A[n_states - 1, 0] = -0.5  # Placeholder
-
-        # Input matrix B
+        # Build B matrix (input with denominator effect)
         B = np.zeros((n_states, nu))
-        if ny == 1 and nu == 1:
-            # Use the first n_states coefficients for the input matrix
-            if len(B_coeffs[0]) >= n_states:
-                B[:n_states, 0] = B_coeffs[0, :n_states]
-            else:
-                B[: len(B_coeffs[0]), 0] = B_coeffs[0, : len(B_coeffs[0])]
-                # Fill remaining states if needed
-                if len(B_coeffs[0]) > 0:
-                    B[len(B_coeffs[0]) : n_states, 0] = B_coeffs[0, 0]
-        else:
-            # MIMO simplified implementation
-            B[0, 0] = 1.0  # Placeholder
+        if nb > 0:
+            n_copy = min(nb, n_states)
+            B[:n_copy, 0] = B_coeffs.flatten()[:n_copy]
 
-        # Output matrix C
+        # Build C matrix
         C = np.zeros((ny, n_states))
-        C[:, -1] = 1  # Last state is the output
+        C[0, n_states - 1] = 1.0
 
-        # Feedthrough matrix D
+        # D matrix
         D = np.zeros((ny, nu))
 
-        # Noise modeling through covariance matrices
-        Vn = 0.01
-        if nc > 0:
-            # Increase noise variance for colored noise
-            Vn = 0.05
-
         return StateSpaceModel(
-            A=A,
-            B=B,
-            C=C,
-            D=D,
+            A=A, B=B, C=C, D=D,
             K=np.zeros((A.shape[0], C.shape[0])),
-            Q=np.eye(A.shape[0]) * Vn,
+            Q=np.eye(A.shape[0]),
             R=np.eye(C.shape[0]),
             S=np.zeros((A.shape[0], C.shape[0])),
             ts=Ts,
-            Vn=Vn,
+            Vn=0.01,
         )
