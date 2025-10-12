@@ -12,15 +12,16 @@ that the package slycot is not well-installed.
 """
 # Checking path to access other files
 try:
-    from sippy.identification import system_identification
+    from sippy.identification import SystemIdentification, IDData
 except ImportError:
     import os
     import sys
     sys.path.append(os.path.join(os.path.dirname(os.getcwd()), 'src'))
-    from sippy.identification import system_identification
+    from sippy.identification import SystemIdentification, IDData
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from sippy.utils.signal_utils import GBN_seq, white_noise_var
 from sippy.utils.simulation_utils import simulate_ss_system
@@ -85,15 +86,26 @@ plt.grid()
 plt.xlabel("Time")
 plt.title("Ytot")
 
-##System identification
+##System identification using new API
+# Create IDData object
+time_index = pd.date_range("2023-01-01", periods=npts, freq=f"{int(ts*1000)}ms")
+data_df = pd.DataFrame({"u": U[0], "y": y_tot[0]}, index=time_index)
+data = IDData(data=data_df, inputs=["u"], outputs=["y"], tsample=ts)
+
 METHOD = ['N4SID', 'CVA', 'MOESP']
 lege = ['System']
 for i in range(len(METHOD)):
     method = METHOD[i]
-    sys_id = system_identification(y_tot, U, method, SS_fixed_order = 2 )
-    xid, yid = fsetSIM.SS_lsim_process_form(sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0)
-    #
-    plt.plot(Time, yid[0])
-    lege.append(method)
+    try:
+        # Create a new SystemIdentification instance for each method
+        identifier = SystemIdentification()
+        sys_id = identifier.identify(y=y_tot, u=U, id_method=method, ss_fixed_order=2)
+        xid, yid = simulate_ss_system(sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0)
+        plt.plot(Time, yid[0])
+        lege.append(method)
+    except Exception as e:
+        print(f"Method {method} failed: {e}")
+        lege.append(f"{method} (failed)")
+
 plt.legend(lege)
 plt.show()
