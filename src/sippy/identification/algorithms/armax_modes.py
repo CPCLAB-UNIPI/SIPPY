@@ -174,11 +174,18 @@ class ILLSHandler(ARMAXModeHandler):
             warnings.warn("ARMAX ILLS: Reached maximum iterations.")
             max_reached = True
 
+        # Compute one-step-ahead predictions for full data
+        Yid = np.hstack((y[:max_order], np.dot(Phi, beta_hat)))
+
         # Create model from parameters
         try:
             model = self._create_state_space_model(beta_hat, na, nb, nc, nk, ny, 1, 1.0)
             if model is None:
                 raise ValueError("Failed to create state-space model")
+
+            # Attach one-step-ahead predictions to model
+            model.Yid = Yid.reshape(1, -1)  # Shape: (1, N) for SISO
+
         except Exception as e:
             return None, {"error": f"Model creation failed: {str(e)}"}
 
@@ -187,7 +194,9 @@ class ILLSHandler(ARMAXModeHandler):
             "iterations": iterations,
             "max_reached": max_reached,
             "final_variance": Vn,
-            "converged": not max_reached and abs(Vn_old - Vn) < convergence_tolerance
+            "converged": not max_reached and abs(Vn_old - Vn) < convergence_tolerance,
+            "predicted_output": Yid,
+            "residuals": noise_hat
         }
 
         return model, info
@@ -205,66 +214,102 @@ class ILLSHandler(ARMAXModeHandler):
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from ARMAX parameters."""
         try:
+            # Import control.matlab for transfer functions
+            try:
+                import control.matlab as cnt
+                CNT_AVAILABLE = True
+            except ImportError:
+                CNT_AVAILABLE = False
+
             # Extract coefficients
             A_coeffs = beta_hat[:na]
             B_coeffs = beta_hat[na:na + nb]
             C_coeffs = beta_hat[na + nb:na + nb + nc]
 
+            # Create transfer functions following master branch pattern
+            G_tf, H_tf = None, None
+            if CNT_AVAILABLE:
+                # Determine maximum order for transfer function arrays
+                max_order = max(na, nb + nk, nc)
+
+                # G(q) = B / A - Deterministic transfer function
+                NUM_G = np.zeros(max_order)
+                NUM_G[nk:nk + nb] = B_coeffs  # B coefficients with delay
+
+                DEN_G = np.zeros(max_order + 1)
+                DEN_G[0] = 1.0
+                DEN_G[1:na + 1] = A_coeffs  # A coefficients
+
+                G_tf = cnt.tf(NUM_G, DEN_G, Ts)
+
+                # H(q) = C / A - Noise transfer function
+                NUM_H = np.zeros(max_order + 1)
+                NUM_H[0] = 1.0
+                NUM_H[1:nc + 1] = C_coeffs  # C coefficients
+
+                DEN_H = np.zeros(max_order + 1)
+                DEN_H[0] = 1.0
+                DEN_H[1:na + 1] = A_coeffs  # A coefficients (same as G)
+
+                H_tf = cnt.tf(NUM_H, DEN_H, Ts)
+
             # Create state-space representation
             n_states = na + nc
 
             # A matrix (companion form)
-            A = np.zeros((n_states, n_states))
+            A_mat = np.zeros((n_states, n_states))
             if na > 1:
                 for i in range(na - 1):
-                    A[i, i + 1] = 1.0
+                    A_mat[i, i + 1] = 1.0
             if na > 0:
-                A[na - 1, :na] = -A_coeffs
+                A_mat[na - 1, :na] = -A_coeffs
 
             # Add MA dynamics
             if nc > 0:
-                A[na:, na:] = np.eye(nc)
-                A[:na, na:] = np.zeros((na, nc))
+                A_mat[na:, na:] = np.eye(nc)
+                A_mat[:na, na:] = np.zeros((na, nc))
 
             # B matrix
-            B = np.zeros((n_states, nu))
+            B_mat = np.zeros((n_states, nu))
             if nu > 0:
-                B[:na, 0] = B_coeffs
+                B_mat[:na, 0] = B_coeffs
 
             # C matrix
-            C = np.zeros((ny, n_states))
+            C_mat = np.zeros((ny, n_states))
             if na > 0:
-                C[0, :na] = 1.0
+                C_mat[0, :na] = 1.0
             if nc > 0:
-                C[0, na:] = C_coeffs
+                C_mat[0, na:] = C_coeffs
 
             # D matrix
-            D = np.zeros((ny, nu))
+            D_mat = np.zeros((ny, nu))
 
-            # Return state-space model
+            # Return state-space model with transfer functions
             if HAROLD_AVAILABLE:
                 # Use Harold for consistent state-space creation
                 try:
-                    ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
+                    ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
                         A=ss_model.A, B=ss_model.B, C=ss_model.C, D=ss_model.D,
                         K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
                         Q=np.eye(ss_model.A.shape[0]) * 0.01,
                         R=np.eye(ss_model.C.shape[0]) * 0.01,
                         S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                        ts=Ts, Vn=0.01
+                        ts=Ts, Vn=0.01,
+                        G_tf=G_tf, H_tf=H_tf
                     )
                 except Exception:
                     pass  # Fall back to manual creation
 
             # Manual state-space creation
             return StateSpaceModel(
-                A=A, B=B, C=C, D=D,
-                K=np.zeros((A.shape[0], C.shape[0])),
-                Q=np.eye(A.shape[0]) * 0.01,
-                R=np.eye(C.shape[0]) * 0.01,
-                S=np.zeros((A.shape[0], C.shape[0])),
-                ts=Ts, Vn=0.01
+                A=A_mat, B=B_mat, C=C_mat, D=D_mat,
+                K=np.zeros((A_mat.shape[0], C_mat.shape[0])),
+                Q=np.eye(A_mat.shape[0]) * 0.01,
+                R=np.eye(C_mat.shape[0]) * 0.01,
+                S=np.zeros((A_mat.shape[0], C_mat.shape[0])),
+                ts=Ts, Vn=0.01,
+                G_tf=G_tf, H_tf=H_tf
             )
 
         except Exception:
@@ -386,6 +431,10 @@ class RLLSHandler(ARMAXModeHandler):
             )
             if model is None:
                 raise ValueError("Failed to create RLLS model")
+
+            # Attach one-step-ahead predictions to model
+            model.Yid = Yp.reshape(1, -1)  # Shape: (1, N) for SISO
+
         except Exception as e:
             return None, {"error": f"RLLS model creation failed: {str(e)}"}
 
@@ -411,6 +460,13 @@ class RLLSHandler(ARMAXModeHandler):
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from RLLS parameters."""
         try:
+            # Import control.matlab for transfer functions
+            try:
+                import control.matlab as cnt
+                CNT_AVAILABLE = True
+            except ImportError:
+                CNT_AVAILABLE = False
+
             # Extract coefficients from theta (same as ILLS)
             # theta contains [-a, b, c] parameters
             pos = 0
@@ -420,60 +476,89 @@ class RLLSHandler(ARMAXModeHandler):
             pos += nb
             C_coeffs = theta[pos:pos + nc]
 
+            # Create transfer functions following master branch pattern
+            G_tf, H_tf = None, None
+            if CNT_AVAILABLE:
+                # Determine maximum order for transfer function arrays
+                max_order = max(na, nb + nk, nc)
+
+                # G(q) = B / A - Deterministic transfer function
+                NUM_G = np.zeros(max_order)
+                NUM_G[nk:nk + nb] = B_coeffs  # B coefficients with delay
+
+                DEN_G = np.zeros(max_order + 1)
+                DEN_G[0] = 1.0
+                DEN_G[1:na + 1] = A_coeffs  # A coefficients
+
+                G_tf = cnt.tf(NUM_G, DEN_G, Ts)
+
+                # H(q) = C / A - Noise transfer function
+                NUM_H = np.zeros(max_order + 1)
+                NUM_H[0] = 1.0
+                NUM_H[1:nc + 1] = C_coeffs  # C coefficients
+
+                DEN_H = np.zeros(max_order + 1)
+                DEN_H[0] = 1.0
+                DEN_H[1:na + 1] = A_coeffs  # A coefficients (same as G)
+
+                H_tf = cnt.tf(NUM_H, DEN_H, Ts)
+
             # Use same state-space creation as ILLS
             n_states = na + nc
 
             # A matrix (companion form)
-            A = np.zeros((n_states, n_states))
+            A_mat = np.zeros((n_states, n_states))
             if na > 1:
                 for i in range(na - 1):
-                    A[i, i + 1] = 1.0
+                    A_mat[i, i + 1] = 1.0
             if na > 0:
-                A[na - 1, :na] = -A_coeffs
+                A_mat[na - 1, :na] = -A_coeffs
 
             # Add MA dynamics
             if nc > 0:
-                A[na:, na:] = np.eye(nc)
-                A[:na, na:] = np.zeros((na, nc))
+                A_mat[na:, na:] = np.eye(nc)
+                A_mat[:na, na:] = np.zeros((na, nc))
 
             # B matrix
-            B = np.zeros((n_states, nu))
+            B_mat = np.zeros((n_states, nu))
             if nu > 0:
-                B[:na, 0] = B_coeffs
+                B_mat[:na, 0] = B_coeffs
 
             # C matrix
-            C = np.zeros((ny, n_states))
+            C_mat = np.zeros((ny, n_states))
             if na > 0:
-                C[0, :na] = 1.0
+                C_mat[0, :na] = 1.0
             if nc > 0:
-                C[0, na:] = C_coeffs
+                C_mat[0, na:] = C_coeffs
 
             # D matrix
-            D = np.zeros((ny, nu))
+            D_mat = np.zeros((ny, nu))
 
-            # Return state-space model
+            # Return state-space model with transfer functions
             if HAROLD_AVAILABLE:
                 try:
-                    ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
+                    ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
                         A=ss_model.A, B=ss_model.B, C=ss_model.C, D=ss_model.D,
                         K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
                         Q=np.eye(ss_model.A.shape[0]) * 0.01,
                         R=np.eye(ss_model.C.shape[0]) * 0.01,
                         S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                        ts=Ts, Vn=0.01
+                        ts=Ts, Vn=0.01,
+                        G_tf=G_tf, H_tf=H_tf
                     )
                 except Exception:
                     pass
 
             # Manual state-space creation
             return StateSpaceModel(
-                A=A, B=B, C=C, D=D,
-                K=np.zeros((A.shape[0], C.shape[0])),
-                Q=np.eye(A.shape[0]) * 0.01,
-                R=np.eye(C.shape[0]) * 0.01,
-                S=np.zeros((A.shape[0], C.shape[0])),
-                ts=Ts, Vn=0.01
+                A=A_mat, B=B_mat, C=C_mat, D=D_mat,
+                K=np.zeros((A_mat.shape[0], C_mat.shape[0])),
+                Q=np.eye(A_mat.shape[0]) * 0.01,
+                R=np.eye(C_mat.shape[0]) * 0.01,
+                S=np.zeros((A_mat.shape[0], C_mat.shape[0])),
+                ts=Ts, Vn=0.01,
+                G_tf=G_tf, H_tf=H_tf
             )
 
         except Exception:
@@ -706,65 +791,93 @@ class OPTHandler(ARMAXModeHandler):
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from OPT parameters."""
         try:
+            # Import control.matlab for transfer functions
+            try:
+                import control.matlab as cnt
+                CNT_AVAILABLE = True
+            except ImportError:
+                CNT_AVAILABLE = False
+
             # Extract coefficients
             A_coeffs = params[:na]
             B_coeffs = params[na:na + nb]
             C_coeffs = params[na + nb:na + nb + nc]
 
+            # Create transfer functions
+            G_tf, H_tf = None, None
+            if CNT_AVAILABLE:
+                max_order = max(na, nb + nk, nc)
+                NUM_G = np.zeros(max_order)
+                NUM_G[nk:nk + nb] = B_coeffs
+                DEN_G = np.zeros(max_order + 1)
+                DEN_G[0] = 1.0
+                DEN_G[1:na + 1] = A_coeffs
+                G_tf = cnt.tf(NUM_G, DEN_G, Ts)
+
+                NUM_H = np.zeros(max_order + 1)
+                NUM_H[0] = 1.0
+                NUM_H[1:nc + 1] = C_coeffs
+                DEN_H = np.zeros(max_order + 1)
+                DEN_H[0] = 1.0
+                DEN_H[1:na + 1] = A_coeffs
+                H_tf = cnt.tf(NUM_H, DEN_H, Ts)
+
             # Use same state-space creation as ILLS
             n_states = na + nc
 
             # A matrix (companion form)
-            A = np.zeros((n_states, n_states))
+            A_mat = np.zeros((n_states, n_states))
             if na > 1:
                 for i in range(na - 1):
-                    A[i, i + 1] = 1.0
+                    A_mat[i, i + 1] = 1.0
             if na > 0:
-                A[na - 1, :na] = -A_coeffs
+                A_mat[na - 1, :na] = -A_coeffs
 
             # Add MA dynamics
             if nc > 0:
-                A[na:, na:] = np.eye(nc)
-                A[:na, na:] = np.zeros((na, nc))
+                A_mat[na:, na:] = np.eye(nc)
+                A_mat[:na, na:] = np.zeros((na, nc))
 
             # B matrix (account for delay)
-            B = np.zeros((n_states, nu))
+            B_mat = np.zeros((n_states, nu))
             if nu > 0 and nb > 0:
-                B[na - 1, 0] = B_coeffs[0]  # Place first B coefficient
+                B_mat[na - 1, 0] = B_coeffs[0]  # Place first B coefficient
 
             # C matrix
-            C = np.zeros((ny, n_states))
+            C_mat = np.zeros((ny, n_states))
             if na > 0:
-                C[0, :na] = 1.0
+                C_mat[0, :na] = 1.0
             if nc > 0:
-                C[0, na:] = C_coeffs
+                C_mat[0, na:] = C_coeffs
 
             # D matrix
-            D = np.zeros((ny, nu))
+            D_mat = np.zeros((ny, nu))
 
-            # Return state-space model
+            # Return state-space model with transfer functions
             if HAROLD_AVAILABLE:
                 try:
-                    ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
+                    ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
                         A=ss_model.A, B=ss_model.B, C=ss_model.C, D=ss_model.D,
                         K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
                         Q=np.eye(ss_model.A.shape[0]) * 0.01,
                         R=np.eye(ss_model.C.shape[0]) * 0.01,
                         S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                        ts=Ts, Vn=0.01
+                        ts=Ts, Vn=0.01,
+                        G_tf=G_tf, H_tf=H_tf
                     )
                 except Exception:
                     pass
 
             # Manual state-space creation
             return StateSpaceModel(
-                A=A, B=B, C=C, D=D,
-                K=np.zeros((A.shape[0], C.shape[0])),
-                Q=np.eye(A.shape[0]) * 0.01,
-                R=np.eye(C.shape[0]) * 0.01,
-                S=np.zeros((A.shape[0], C.shape[0])),
-                ts=Ts, Vn=0.01
+                A=A_mat, B=B_mat, C=C_mat, D=D_mat,
+                K=np.zeros((A_mat.shape[0], C_mat.shape[0])),
+                Q=np.eye(A_mat.shape[0]) * 0.01,
+                R=np.eye(C_mat.shape[0]) * 0.01,
+                S=np.zeros((A_mat.shape[0], C_mat.shape[0])),
+                ts=Ts, Vn=0.01,
+                G_tf=G_tf, H_tf=H_tf
             )
 
         except Exception:

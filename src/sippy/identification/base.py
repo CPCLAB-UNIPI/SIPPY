@@ -63,6 +63,10 @@ class StateSpaceModel:
         S: np.ndarray,
         ts: float,
         Vn: Union[float, np.ndarray],
+        G_tf: Optional[object] = None,
+        H_tf: Optional[object] = None,
+        Yid: Optional[np.ndarray] = None,
+        identification_info: Optional[dict] = None,
     ):
         self.A = A
         self.B = B
@@ -75,6 +79,12 @@ class StateSpaceModel:
         self.ts = ts
         self.Vn = Vn
         self.n = A.shape[0]  # State dimension
+
+        # Transfer functions and identification metadata
+        self.G_tf = G_tf  # Deterministic transfer function G(q) = B/A
+        self.H_tf = H_tf  # Noise transfer function H(q) = C/A
+        self.Yid = Yid  # One-step-ahead predictions from identification
+        self.identification_info = identification_info or {}
 
         # Try to import harold for State object
         try:

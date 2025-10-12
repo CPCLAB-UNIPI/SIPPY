@@ -203,6 +203,50 @@ class ARXAlgorithm(IdentificationAlgorithm):
 
                 B_coeffs[i, :] = theta_i[na * ny :]
 
+        # Compute one-step-ahead predictions (Yid) for identification data
+        Yid = np.zeros_like(y)
+        Yid[:, :max_lag] = y[:, :max_lag]  # Copy initial values
+        if ny == 1:
+            Yid[0, max_lag:] = np.dot(Phi, theta)
+        else:
+            # For MIMO, reconstruct predictions for each output
+            for i in range(ny):
+                if use_compiled_mimo:
+                    Phi_i = np.ascontiguousarray(Phi_batches[i, :, :])
+                    theta_i = np.zeros(na * ny + nb * nu)
+                    for lag in range(na):
+                        idx = lag * ny + i
+                        theta_i[idx] = A_coeffs[i, lag]
+                    theta_i[na * ny:] = B_coeffs[i, :]
+                    Yid[i, max_lag:] = np.dot(Phi_i, theta_i)
+                else:
+                    # Use the same Phi construction as before
+                    n_params_i = na * ny + nb * nu
+                    Phi_i = np.zeros((N_eff, n_params_i))
+                    col = 0
+                    for lag in range(na):
+                        for j in range(ny):
+                            Phi_i[:, col] = y[j, max_lag - 1 - lag: max_lag - 1 - lag + N_eff]
+                            col += 1
+                    for lag in range(nb):
+                        for j in range(nu):
+                            delay_idx = max_lag - 1 - (lag + nk - 1)
+                            if delay_idx >= 0 and delay_idx + N_eff <= N:
+                                Phi_i[:, col] = u[j, delay_idx: delay_idx + N_eff]
+                            col += 1
+
+                    theta_i = np.zeros(n_params_i)
+                    for lag in range(na):
+                        idx = lag * ny + i
+                        theta_i[idx] = A_coeffs[i, lag]
+                    theta_i[na * ny:] = B_coeffs[i, :]
+                    Yid[i, max_lag:] = np.dot(Phi_i, theta_i)
+
+        # Create G_tf and H_tf transfer functions
+        G_tf, H_tf = self._create_transfer_functions_arx(
+            A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time
+        )
+
         # Create state-space representation
         if HAROLD_AVAILABLE and harold is not None:
             model = self._create_transfer_function(
@@ -223,6 +267,11 @@ class ARXAlgorithm(IdentificationAlgorithm):
             model = self._create_mock_model(
                 A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time
             )
+
+        # Attach transfer functions and predictions to model
+        model.G_tf = G_tf
+        model.H_tf = H_tf
+        model.Yid = Yid
 
         return model
 
@@ -270,6 +319,50 @@ class ARXAlgorithm(IdentificationAlgorithm):
             Phi = np.zeros((N_eff, 1))  # Not used in MIMO case
 
             return Phi, y_matrix
+
+    def _create_transfer_functions_arx(self, A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts):
+        """
+        Create G_tf and H_tf transfer functions for ARX.
+
+        For ARX: H_tf = 1 (unity, since ARX has no noise model).
+
+        Parameters:
+        -----------
+        A_coeffs, B_coeffs : ndarray
+            AR and exogenous coefficients
+        na, nb, nk : int
+            Model orders and delay
+        ny, nu : int
+            Number of outputs and inputs
+        Ts : float
+            Sampling time
+
+        Returns:
+        --------
+        G_tf, H_tf : control.matlab.tf objects or None
+            Transfer functions (None if control.matlab not available)
+        """
+        try:
+            import control.matlab as cnt
+        except ImportError:
+            return None, None
+
+        # Create G(q) = B / A - Deterministic transfer function
+        max_order = max(na, nb + nk)
+
+        NUM_G = np.zeros(max_order)
+        NUM_G[nk:nk + nb] = B_coeffs[0, :] if ny == 1 else B_coeffs[0, :nb]
+
+        DEN_G = np.zeros(max_order + 1)
+        DEN_G[0] = 1.0
+        DEN_G[1:na + 1] = A_coeffs[0, :]
+
+        G_tf = cnt.tf(NUM_G, DEN_G, Ts)
+
+        # H(q) = 1 - ARX has no noise model (H is unity)
+        H_tf = cnt.tf([1.0], [1.0], Ts)
+
+        return G_tf, H_tf
 
     def _create_transfer_function(self, A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts):
         """
