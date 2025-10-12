@@ -6,6 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 SIPPY (Systems Identification Package for PYthon) is a library for building linear models of dynamic systems from input-output data. The codebase has been migrated from legacy procedural code to a modern OOP architecture with factory pattern on the `harold` branch.
 
+## Reference Implementation
+
+**CRITICAL**: The **master branch** contains the reference implementation of the original Python package. This is the source of truth for algorithm correctness.
+
+- The master branch should be checked out using `git worktree` for easy reference
+- If not already available, check it out with: `git worktree add ../SIPPY-master master`
+- All algorithm implementations on the `harold` branch **MUST** be 100% adherent to the reference implementation
+- Deviations from the reference implementation are **ONLY** permitted for:
+  - Performance optimizations (e.g., Numba JIT compilation, vectorization)
+  - Code organization improvements (e.g., OOP refactoring, factory patterns)
+- **Numerical accuracy must be preserved**: Any deviation cannot sacrifice correctness
+- When implementing or modifying algorithms, always cross-reference with master branch code
+
 ## Common Commands
 
 ### Setup

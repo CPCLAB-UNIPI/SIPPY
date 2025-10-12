@@ -17,6 +17,16 @@ Algorithms: State-space (N4SID, MOESP, CVA, PARSIM-K/S/P) and input-output (ARX,
 Utilities: Signal processing and simulation tools in `src/sippy/utils/` with Numba-compiled high-performance functions.
 Tests: Comprehensive pytest suite in `src/sippy/identification/tests/`.
 
+# Reference Implementation
+
+**Master branch** = reference implementation (source of truth for correctness).
+
+• Check out via git worktree: `git worktree add ../SIPPY-master master`
+• All algorithms must be 100% adherent to reference implementation
+• Deviations allowed ONLY for performance gains (Numba, vectorization, OOP refactoring)
+• Numerical accuracy cannot be sacrificed
+• Always cross-reference master branch when implementing/modifying algorithms
+
 # Performance
 
 SIPPY leverages Numba JIT compilation for significant performance improvements:
