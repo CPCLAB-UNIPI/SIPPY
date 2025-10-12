@@ -556,33 +556,62 @@ class OPTHandler(ARMAXModeHandler):
                     else:
                         x_part = 0.0
 
-                    # MA part (using residuals)
+                    # MA part (using residuals) - with numerical stability checks
                     residuals = y - predicted
+                    if np.max(np.abs(residuals)) > 1e6:  # Check for residuals explosion
+                        return np.inf
+                    
                     ma_part = np.sum(C_params * residuals[k - 1:k - 1 - nc:-1])
+                    
+                    # Check for overflow in predicted value
+                    if not np.isfinite(-ar_part + x_part + ma_part):
+                        return np.inf
 
                     predicted[k] = -ar_part + x_part + ma_part
 
-                # Return prediction error
+                # Return prediction error with numerical stability
                 error = y[max_order:] - predicted[max_order:]
-                return np.sum(error ** 2)  # Sum of squared errors
+                
+                # Check for overflow before squaring
+                if np.max(np.abs(error)) > 1e6:
+                    return np.inf
+                    
+                cost = np.sum(error ** 2)
+                
+                # Final check for finite cost
+                if not np.isfinite(cost):
+                    return np.inf
+                    
+                return cost
 
             except Exception:
                 return np.inf
 
-        # Initial guess using least squares
+        # Initial guess using least squares - more conservative approach
         try:
             # Get initial guess from simple least squares
             initial_guess = self._get_initial_guess(u, y, na, nb, nc, nk)
-            if initial_guess is None or np.any(np.isnan(initial_guess)):
-                initial_guess = np.random.randn(n_params) * 0.1
+            if initial_guess is None or np.any(np.isnan(initial_guess)) or np.any(np.abs(initial_guess) > 2):
+                # Use small random values if initial guess is problematic
+                initial_guess = np.random.randn(n_params) * 0.01
         except Exception:
-            initial_guess = np.random.randn(n_params) * 0.1
+            # Use very small random values as fallback
+            initial_guess = np.random.randn(n_params) * 0.01
 
-        # Parameter bounds
-        bounds = [(-10, 10)] * n_params  # Reasonable bounds
+        # Parameter bounds - more conservative to prevent overflow
+        bounds = [(-5, 5)] * n_params  # Tighter bounds for numerical stability
 
         # Optimize
         try:
+            # Test cost function with initial guess first
+            try:
+                test_cost = cost_function(initial_guess)
+                if not np.isfinite(test_cost):
+                    return None, {"error": f"Initial cost is infinite: {test_cost}"}
+            except Exception as cost_e:
+                return None, {"error": f"Cost function evaluation failed: {str(cost_e)}"}
+            
+            # Try the requested optimization method first
             result = minimize(
                 cost_function,
                 x0=initial_guess,
@@ -590,8 +619,19 @@ class OPTHandler(ARMAXModeHandler):
                 bounds=bounds,
                 options={'maxiter': max_iterations, 'ftol': convergence_tolerance}
             )
+            
         except Exception as e:
-            return None, {"error": f"Optimization failed: {str(e)}"}
+            # Try a simpler method if the first one fails
+            try:
+                result = minimize(
+                    cost_function,
+                    x0=initial_guess,
+                    method='L-BFGS-B',  # Simpler, more robust method
+                    bounds=bounds,
+                    options={'maxiter': max_iterations//2, 'ftol': convergence_tolerance}
+                )
+            except Exception as e2:
+                return None, {"error": f"Both optimization methods failed: {str(e)}, {str(e2)}"}
 
         if not result.success:
             return None, {"error": f"Optimization failed: {result.message}"}
