@@ -8,6 +8,7 @@ import numpy as np
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
+from .armax_modes import get_armax_handler
 
 # Import compiled utilities for performance
 try:
@@ -49,11 +50,27 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
 
     The ARMAX algorithm estimates parameters using extended least-squares
     or prediction error methods to handle the non-linear dependence on past noise terms.
+
+    Supported modes:
+    - ILLS: Iterative Least Squares (default)
+    - OPT: Optimization-based using scipy.optimize
+    - RLLS: Recursive Least Squares
     """
 
-    def __init__(self):
-        """Initialize ARMAX algorithm."""
+    def __init__(self, mode='ILLS'):
+        """
+        Initialize ARMAX algorithm.
+
+        Parameters:
+        -----------
+        mode : str
+            Algorithm mode: 'ILLS', 'OPT', 'RLLS'
+        """
         super().__init__()
+        self.mode = mode.upper()
+        self.handler = get_armax_handler(self.mode)
+        if self.handler is None:
+            raise ValueError(f"Invalid ARMAX mode: {mode}")
 
     def get_algorithm_name(self) -> str:
         """Return algorithm name."""
@@ -91,14 +108,14 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
 
     def identify(self, data, config):
         """
-        Identify ARMAX model from input-output data.
+        Identify ARMAX model from input-output data using the selected algorithm mode.
 
         Parameters:
         -----------
         data : IDData
             Input-output data
-        config : SystemIdentificationConfig
-            Configuration parameters including na, nb, nc, nk
+        config : SystemIdentificationConfig or dict
+            Configuration parameters including na, nb, nc, nk, armx_mode
 
         Returns:
         --------
@@ -109,69 +126,154 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         u = data.get_input_array()
         y = data.get_output_array()
 
-        # Extract configuration parameters (ARMAX specific)
-        na = getattr(config, "na", 1)
-        nb = getattr(config, "nb", 1)
-        nc = getattr(config, "nc", 1)
-        nk = getattr(config, "nk", 1)
+        # Ensure data is 1D for SISO case (remove dimension if needed)
+        if u.ndim > 1 and u.shape[0] == 1:
+            u = u.flatten()
+        if y.ndim > 1 and y.shape[0] == 1:
+            y = y.flatten()
+
+        # Extract configuration parameters (support both object and dict config)
+        if hasattr(config, '__dict__'):
+            # Object config
+            na = getattr(config, "na", 1)
+            nb = getattr(config, "nb", 1)
+            nc = getattr(config, "nc", 1)
+            nk = getattr(config, "nk", 1)
+            max_iterations = getattr(config, "max_iterations", 200)
+            convergence_tolerance = getattr(config, "convergence_tolerance", 1e-6)
+
+            # Support legacy ARMAX_mod parameter
+            armx_mode = getattr(config, "armx_mode", None)
+            if armx_mode is not None and armx_mode != self.mode:
+                # Override mode if config specifies different one
+                self.mode = armx_mode.upper()
+                self.handler = get_armax_handler(self.mode)
+
+            # Extract mode-specific parameters
+            mode_params = {}
+            if hasattr(config, "forgetting_factor"):
+                mode_params["forgetting_factor"] = config.forgetting_factor
+            if hasattr(config, "optimization_method"):
+                mode_params["optimization_method"] = config.optimization_method
+
+        else:
+            # Dict config
+            na = config.get("na", 1)
+            nb = config.get("nb", 1)
+            nc = config.get("nc", 1)
+            nk = config.get("nk", 1)
+            max_iterations = config.get("max_iterations", 200)
+            convergence_tolerance = config.get("convergence_tolerance", 1e-6)
+
+            # Support legacy ARMAX_mod parameter
+            armx_mode = config.get("armx_mode", None)
+            if armx_mode is not None and armx_mode != self.mode:
+                self.mode = armx_mode.upper()
+                self.handler = get_armax_handler(self.mode)
+
+            # Extract mode-specific parameters
+            mode_params = {k: v for k, v in config.items()
+                          if k in ["forgetting_factor", "optimization_method"]}
 
         # Validate parameters
         self.validate_parameters(na=na, nb=nb, nc=nc, nk=nk)
 
-        # Get data dimensions
-        ny, N = y.shape
-        nu, _ = u.shape
+        # Check data dimensions
+        if y.size != u.size:
+            raise ValueError("Input and output must have same length")
+
+        ny = 1 if y.ndim == 1 else y.shape[0]
+        nu = 1 if u.ndim == 1 else u.shape[0]
+        N = y.size if y.ndim == 1 else y.shape[1]
 
         # Check for insufficient data early
-        max_lag = max(na + nc, nb + nk - 1)
-        N_eff = N - max_lag
-        if N_eff <= 0:
+        max_order = max(na, nb + nk, nc)
+        if N <= max_order:
             # Return minimal model for insufficient data
             return self._create_minimal_model(ny, nu, data.sample_time)
 
-        # Create regression matrices for ARMAX identification
-        Phi, y_matrix = self._create_armax_regression_matrices(
-            u, y, na, nb, nc, nk, ny, nu, N
-        )
-
-        # Estimate parameters using least squares - handle dimensions properly
-        if ny == 1:
-            # SISO case
-            theta, residuals, rank, s = lstsq(Phi, y_matrix.T.flatten(), rcond=None)
-        else:
-            # MIMO case - solve for each output separately
-            theta_list = []
-            residuals_list = []
-            for i in range(ny):
-                theta_i, residuals_i, rank_i, s_i = lstsq(
-                    Phi, y_matrix[i, :], rcond=None
-                )
-                theta_list.append(theta_i)
-                residuals_list.append(residuals_i)
-            theta = np.concatenate(theta_list)
-            np.concatenate(residuals_list) if all(
-                r is not None and r.size > 0 for r in residuals_list
-            ) else []
-
-        # Reshape parameters into matrices
-        A_coeffs = theta[: na * ny].reshape(ny, na)
-        B_coeffs = theta[na * ny : na * ny + nb * ny * nu].reshape(ny, nb * nu)
-        C_coeffs = theta[
-            na * ny + nb * ny * nu : na * ny + nb * ny * nu + nc * ny
-        ].reshape(ny, nc)
-
-        # Create state-space representation
-        if HAROLD_AVAILABLE:
-            model = self._create_state_space_from_armax(
-                A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, data.sample_time
-            )
-        else:
-            # Fallback when harold is not available
-            model = self._create_mock_model(
-                A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, data.sample_time
+        # Use mode handler for identification
+        try:
+            model, info = self.handler.identify(
+                u=u, y=y, na=na, nb=nb, nc=nc, nk=nk,
+                max_iterations=max_iterations,
+                convergence_tolerance=convergence_tolerance,
+                **mode_params
             )
 
-        return model
+            if model is None:
+                # Try fallback to basic identification
+                warnings.warn(f"ARMAX {self.mode} identification failed, trying basic least squares")
+                return self._fallback_identification(u, y, na, nb, nc, nk, data.sample_time)
+
+            # Store identification info in model attributes if possible
+            if hasattr(model, '_identification_info'):
+                model._identification_info = info
+
+            return model
+
+        except Exception as e:
+            warnings.warn(f"ARMAX {self.mode} identification failed: {e}, trying fallback")
+            return self._fallback_identification(u, y, na, nb, nc, nk, data.sample_time)
+
+    def _fallback_identification(self, u, y, na, nb, nc, nk, sample_time):
+        """Fallback identification using basic least squares."""
+        # Use the original basic implementation as fallback
+        N = y.size
+        max_lag = max(na + nc, nb + nk - 1)
+        N_eff = N - max_lag
+
+        if N_eff <= 0:
+            return self._create_minimal_model(1, 1, sample_time)
+
+        # Simple ARX estimation (ignoring MA terms)
+        sum_order = na + nb
+        Phi = np.zeros((N_eff, sum_order))
+
+        for i in range(N_eff):
+            Phi[i, 0:na] = -y[i + max_lag - 1::-1][0:na]
+            Phi[i, na:na + nb] = u[max_lag + i - 1::-1][nk:nb + nk]
+
+        try:
+            theta, residuals, rank, s = lstsq(Phi, y[max_lag:N], rcond=None)
+
+            # Create simple ARX state-space model
+            if HAROLD_AVAILABLE:
+                try:
+                    # Simple companion form
+                    A = np.zeros((na, na))
+                    if na > 1:
+                        for i in range(na - 1):
+                            A[i, i + 1] = 1.0
+                    if na > 0:
+                        A[na - 1, :na] = -theta[:na]
+
+                    B = np.zeros((na, 1))
+                    B[na - 1, 0] = theta[na] if nb > 0 else 0.0
+
+                    C = np.zeros((1, na))
+                    if na > 0:
+                        C[0, :na] = 1.0
+
+                    D = np.zeros((1, 1))
+
+                    ss_model = harold.StateSpace(A, B, C, D, dt=sample_time)
+                    return StateSpaceModel(
+                        A=ss_model.A, B=ss_model.B, C=ss_model.C, D=ss_model.D,
+                        K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
+                        Q=np.eye(ss_model.A.shape[0]) * 0.01,
+                        R=np.eye(ss_model.C.shape[0]) * 0.01,
+                        S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
+                        ts=sample_time, Vn=0.01
+                    )
+                except Exception:
+                    pass
+
+            # Minimal fallback model
+            return self._create_minimal_model(1, 1, sample_time)
+
+        except Exception:
+            return self._create_minimal_model(1, 1, sample_time)
 
     def _create_armax_regression_matrices(self, u, y, na, nb, nc, nk, ny, nu, N):
         """

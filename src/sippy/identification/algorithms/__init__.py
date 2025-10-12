@@ -31,6 +31,13 @@ try:
     AlgorithmFactory.register("ARARMAX", ARARMAXAlgorithm)
     AlgorithmFactory.register("FIR", FIRAlgorithm)
     AlgorithmFactory.register("ARMAX", ARMAXAlgorithm)
+    # Register ARMAX modes with legacy naming compatibility
+    AlgorithmFactory.register("ARMAX_ILS", lambda: ARMAXAlgorithm(mode='ILS'))
+    AlgorithmFactory.register("ARMAX_ILLS", lambda: ARMAXAlgorithm(mode='ILLS'))
+    AlgorithmFactory.register("ARMAX_OPT", lambda: ARMAXAlgorithm(mode='OPT'))
+    AlgorithmFactory.register("ARMAX_RLLS", lambda: ARMAXAlgorithm(mode='RLLS'))
+    # Legacy name compatibility
+    AlgorithmFactory.register("ARMAX_RLS", lambda: ARMAXAlgorithm(mode='RLLS'))
     AlgorithmFactory.register("OE", OEAlgorithm)
     AlgorithmFactory.register("ARMA", ARMAAlgorithm)
     AlgorithmFactory.register("BJ", BJAlgorithm)
