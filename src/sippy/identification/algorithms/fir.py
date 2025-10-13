@@ -382,11 +382,7 @@ class FIRAlgorithm(IdentificationAlgorithm):
                                 else 0
                             )
 
-        # Create harold State object (not used directly, but validates matrices)
-        harold.State(A, B, C, D, dt=Ts)
-
-        # Use local matrices (not ss_model attributes) for dimensions
-        # This ensures tests with mocked harold don't break
+        # Use local matrices for test mocking compatibility
         return StateSpaceModel(
             A=A,
             B=B,

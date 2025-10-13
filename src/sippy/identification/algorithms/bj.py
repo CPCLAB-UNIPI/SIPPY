@@ -38,7 +38,7 @@ except ImportError:
 
 # Check for CasADi availability for NLP-based identification
 try:
-    import casadi
+    import casadi  # noqa: F401
 
     CASADI_AVAILABLE = True
 except ImportError:
@@ -239,7 +239,7 @@ class BJAlgorithm(IdentificationAlgorithm):
         model : StateSpaceModel
             Identified BJ model with G_tf, H_tf, Yid
         """
-        import casadi as ca
+        import casadi as ca  # noqa: F401 - used extensively in this function
 
         # Get data dimensions
         ny, N = y.shape
@@ -901,11 +901,7 @@ class BJAlgorithm(IdentificationAlgorithm):
                 if max(nd, nf) > 0:
                     C[0, n_states - 1] = 1
 
-                # Create harold State object
-                ss_model = harold.State(A, B, C, D, dt=Ts)
-
-                # Use local matrices (not ss_model attributes) for dimensions
-                # This ensures tests with mocked harold don't break
+                # Use local matrices for test mocking compatibility
                 return StateSpaceModel(
                     A=A,
                     B=B,

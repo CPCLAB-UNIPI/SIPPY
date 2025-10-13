@@ -48,7 +48,7 @@ except ImportError:
 
 # Check for CasADi availability for NLP-based identification
 try:
-    import casadi
+    import casadi  # noqa: F401
 
     CASADI_AVAILABLE = True
 except ImportError:
@@ -230,7 +230,7 @@ class GENAlgorithm(IdentificationAlgorithm):
         model : StateSpaceModel
             Identified GEN model with G_tf, H_tf, Yid
         """
-        import casadi as ca
+        import casadi as ca  # noqa: F401 - used extensively in this function
 
         # Get data dimensions
         ny, N = y.shape

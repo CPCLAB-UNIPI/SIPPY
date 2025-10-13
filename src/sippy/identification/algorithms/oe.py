@@ -28,7 +28,7 @@ except ImportError:
 
 # Check for CasADi availability for NLP-based identification
 try:
-    import casadi
+    import casadi  # noqa: F401
 
     CASADI_AVAILABLE = True
 except ImportError:
@@ -354,7 +354,7 @@ class OEAlgorithm(IdentificationAlgorithm):
         model : StateSpaceModel
             Identified OE model with G_tf, H_tf, Yid
         """
-        import casadi as ca
+        import casadi as ca  # noqa: F401 - used extensively in this function
 
         # Get data dimensions
         ny, N = y.shape
@@ -757,11 +757,7 @@ class OEAlgorithm(IdentificationAlgorithm):
         # D matrix - direct feedthrough
         D = np.zeros((ny, nu))
 
-        # Create harold State object
-        ss_model = harold.State(A, B, C, D, dt=Ts)
-
-        # Use local matrices (not ss_model attributes) for dimensions
-        # This ensures tests with mocked harold don't break
+        # Use local matrices for test mocking compatibility
         return StateSpaceModel(
             A=A,
             B=B,

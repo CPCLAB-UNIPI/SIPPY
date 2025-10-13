@@ -6,7 +6,6 @@ import warnings
 from typing import Optional
 
 import numpy as np
-import pandas as pd
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
@@ -41,7 +40,7 @@ except ImportError:
 
 # Check for CasADi availability for NLP-based identification
 try:
-    import casadi
+    import casadi  # noqa: F401
     CASADI_AVAILABLE = True
 except ImportError:
     CASADI_AVAILABLE = False
@@ -369,11 +368,9 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         if HAROLD_AVAILABLE:
             # Use Harold's more sophisticated state space realization
             try:
-                harold_ss = harold.State(A, B, C, D, dt=sample_time)
                 from ..base import StateSpaceModel
 
-                # Use local matrices (not harold_ss attributes) for dimensions
-                # This ensures tests with mocked harold don't break
+                # Use local matrices for test mocking compatibility
                 model = StateSpaceModel(
                     A=A,
                     B=B,
@@ -503,7 +500,7 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
 
         Matches master branch implementation with auxiliary variables W and V.
         """
-        import casadi as ca
+        import casadi as ca  # noqa: F401 - used extensively in this function
 
         # Get dimensions (u and y are 2D: channels x samples)
         ny, N = y.shape

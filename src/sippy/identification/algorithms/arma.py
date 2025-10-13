@@ -943,11 +943,7 @@ class ARMAAlgorithm(IdentificationAlgorithm):
                     C_new[0, A.shape[1] - 1] = 1
                     C = np.vstack([C_expanded, C_new])
 
-        # Create harold State object (for validation)
-        _ss_model = harold.State(A, B, C, D, dt=Ts)
-
-        # Use local matrices (not _ss_model attributes) for dimensions
-        # This ensures tests with mocked harold don't break
+        # Use local matrices for test mocking compatibility
         return StateSpaceModel(
             A=A,
             B=B,

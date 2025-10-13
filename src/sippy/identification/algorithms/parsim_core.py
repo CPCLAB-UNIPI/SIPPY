@@ -188,7 +188,7 @@ class ParsimCoreAlgorithm:
         if l_ * (f - 1) >= n and n > 0:
             try:
                 A_K = np.dot(np.linalg.pinv(Ob_K[0 : l_ * (f - 1), :]), Ob_K[l_:, :])
-            except (np.linalg.LinAlgError, ValueError) as e:
+            except (np.linalg.LinAlgError, ValueError):
                 # Fallback to random initialization on linear algebra errors
                 A_K = np.random.randn(n, n) * 0.1
         else:
@@ -608,7 +608,7 @@ class ParsimCoreAlgorithm:
 
             U_n, S_n, V_n = np.linalg.svd(weighted_matrix, full_matrices=False)
 
-        except (np.linalg.LinAlgError, ValueError) as e:
+        except (np.linalg.LinAlgError, ValueError):
             # Fallback to unweighted SVD on any linear algebra errors
             U_n, S_n, V_n = np.linalg.svd(Gamma_L, full_matrices=False)
 
