@@ -108,12 +108,12 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         # Extract data from IDData object
         u = data.get_input_array()
         y = data.get_output_array()
-        ts = data.ts if hasattr(data, 'ts') else 1.0
+        ts = data.ts if hasattr(data, "ts") else 1.0
 
         # Extract configuration parameters (ARARX uses na, nb, nd, theta)
-        na = getattr(config, "na", 1)      # Output AR order
-        nb = getattr(config, "nb", 1)      # Input numerator order
-        nd = getattr(config, "nd", 1)      # Denominator order
+        na = getattr(config, "na", 1)  # Output AR order
+        nb = getattr(config, "nb", 1)  # Input numerator order
+        nd = getattr(config, "nd", 1)  # Denominator order
         theta = getattr(config, "theta", 1)  # Input delay (replaces nk)
 
         # Validate parameters
@@ -152,7 +152,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             D_prev = D_coeffs.copy()
 
             # Compute auxiliary variable V = y - B/D * u
-            V = self._compute_auxiliary_V(y, u, B_coeffs, D_coeffs, nb, nd, theta, N, max_lag)
+            V = self._compute_auxiliary_V(
+                y, u, B_coeffs, D_coeffs, nb, nd, theta, N, max_lag
+            )
 
             # Update A using [y, V] regression
             A_coeffs = self._update_A_coefficients(y, V, na, N, max_lag)
@@ -161,7 +163,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             W = self._compute_auxiliary_W(y, A_coeffs, na, N, max_lag)
 
             # Update B and D using [u, W] regression
-            B_coeffs, D_coeffs = self._update_BD_coefficients(u, W, nb, nd, theta, N, max_lag)
+            B_coeffs, D_coeffs = self._update_BD_coefficients(
+                u, W, nb, nd, theta, N, max_lag
+            )
 
             # Check convergence
             delta_A = np.linalg.norm(A_coeffs - A_prev)
@@ -172,8 +176,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                 break
 
         # Step 3: Compute Yid (one-step-ahead predictions)
-        Yid = self._compute_yid_ararx(u, y, A_coeffs, B_coeffs, D_coeffs,
-                                      na, nb, nd, theta, N, max_lag)
+        Yid = self._compute_yid_ararx(
+            u, y, A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, N, max_lag
+        )
 
         # Step 4: Create transfer functions using harold
         G_tf, H_tf = self._create_transfer_functions_ararx(
@@ -219,7 +224,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             for inp_idx in range(nu):
                 for i in range(nb):
                     col = na + inp_idx * nb + i
-                    Phi[:, col] = u[inp_idx, max_lag - theta - i : max_lag - theta - i + N_eff]
+                    Phi[:, col] = u[
+                        inp_idx, max_lag - theta - i : max_lag - theta - i + N_eff
+                    ]
 
             # Solve least squares for this output
             target = y[out_idx, max_lag : max_lag + N_eff]
@@ -229,7 +236,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             if na > 0:
                 A_coeffs[out_idx, :] = theta_arx[:na]
             # For B, use first input coefficients (SISO-like for now)
-            B_coeffs[out_idx, :] = theta_arx[na:na + nb]
+            B_coeffs[out_idx, :] = theta_arx[na : na + nb]
 
         return A_coeffs, B_coeffs
 
@@ -280,7 +287,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                     Phi[:, i] = -V[out_idx, :]
                 else:
                     # i-step lag - shift V by i steps
-                    Phi[i:, i] = -V[out_idx, :N_eff - i]
+                    Phi[i:, i] = -V[out_idx, : N_eff - i]
                     Phi[:i, i] = 0  # Pad with zeros at the beginning
 
             target = y[out_idx, max_lag : max_lag + N_eff]
@@ -325,16 +332,18 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             for inp_idx in range(nu):
                 for i in range(nb):
                     col = inp_idx * nb + i
-                    Phi[:, col] = u[inp_idx, max_lag - theta - i : max_lag - theta - i + N_eff]
+                    Phi[:, col] = u[
+                        inp_idx, max_lag - theta - i : max_lag - theta - i + N_eff
+                    ]
 
             # W lags for D (denominator)
             for i in range(nd):
                 if i == 0:
                     # Current W not available, use previous
-                    Phi[1:, nb * nu + i] = -W[out_idx, :N_eff - 1]
+                    Phi[1:, nb * nu + i] = -W[out_idx, : N_eff - 1]
                     Phi[0, nb * nu + i] = 0
                 else:
-                    Phi[i:, nb * nu + i] = -W[out_idx, :N_eff - i]
+                    Phi[i:, nb * nu + i] = -W[out_idx, : N_eff - i]
                     Phi[:i, nb * nu + i] = 0
 
             target = W[out_idx, :N_eff]
@@ -342,12 +351,13 @@ class ARARXAlgorithm(IdentificationAlgorithm):
 
             # Extract coefficients (use first input's B coefficients for SISO-like structure)
             B_coeffs[out_idx, :] = theta_bd[:nb]
-            D_coeffs[out_idx, :] = theta_bd[nb * nu:]
+            D_coeffs[out_idx, :] = theta_bd[nb * nu :]
 
         return B_coeffs, D_coeffs
 
-    def _compute_yid_ararx(self, u, y, A_coeffs, B_coeffs, D_coeffs,
-                           na, nb, nd, theta, N, max_lag):
+    def _compute_yid_ararx(
+        self, u, y, A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, N, max_lag
+    ):
         """Compute one-step-ahead predictions for ARARX model."""
         ny = y.shape[0]
         Yid = np.zeros_like(y)
@@ -378,8 +388,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
 
         return Yid
 
-    def _create_transfer_functions_ararx(self, A_coeffs, B_coeffs, D_coeffs,
-                                         na, nb, nd, theta, ny, nu, Ts):
+    def _create_transfer_functions_ararx(
+        self, A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts
+    ):
         """
         Create G_tf and H_tf transfer functions using harold.Transfer.
 
@@ -410,7 +421,11 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             import harold
 
             # Build polynomial arrays (harold uses positive powers, convert from negative)
-            A_poly = np.concatenate(([1.0], A_coeffs.flatten())) if na > 0 else np.array([1.0])
+            A_poly = (
+                np.concatenate(([1.0], A_coeffs.flatten()))
+                if na > 0
+                else np.array([1.0])
+            )
             B_poly_no_delay = np.concatenate(([0.0] * theta, B_coeffs.flatten()))
             D_poly = np.concatenate(([1.0], D_coeffs.flatten()))
 
@@ -428,8 +443,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             warnings.warn(f"Failed to create ARARX transfer functions: {e}")
             return None, None
 
-    def _create_state_space_from_ararx(self, A_coeffs, B_coeffs, D_coeffs,
-                                       na, nb, nd, theta, ny, nu, Ts):
+    def _create_state_space_from_ararx(
+        self, A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts
+    ):
         """
         Create state-space model from ARARX using harold.transfer_to_state.
 
@@ -473,7 +489,10 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             D = ss_model.d
 
             return StateSpaceModel(
-                A=A, B=B, C=C, D=D,
+                A=A,
+                B=B,
+                C=C,
+                D=D,
                 K=np.zeros((A.shape[0], C.shape[0])),
                 Q=np.eye(A.shape[0]),
                 R=np.eye(C.shape[0]),
@@ -487,7 +506,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                 A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts
             )
 
-    def _create_mock_model(self, A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts):
+    def _create_mock_model(
+        self, A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, Ts
+    ):
         """
         Create a mock state-space model when harold is not available.
 
@@ -513,7 +534,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         # Build A matrix (companion form for output AR)
         A = np.zeros((n_states, n_states))
         if n_states > 1:
-            A[:n_states - 1, 1:] = np.eye(n_states - 1)
+            A[: n_states - 1, 1:] = np.eye(n_states - 1)
         if na > 0 and na <= n_states:
             A[n_states - 1, :na] = -A_coeffs.flatten()
 
@@ -531,7 +552,10 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         D = np.zeros((ny, nu))
 
         return StateSpaceModel(
-            A=A, B=B, C=C, D=D,
+            A=A,
+            B=B,
+            C=C,
+            D=D,
             K=np.zeros((A.shape[0], C.shape[0])),
             Q=np.eye(A.shape[0]),
             R=np.eye(C.shape[0]),

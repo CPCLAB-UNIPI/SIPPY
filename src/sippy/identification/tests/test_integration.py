@@ -112,6 +112,7 @@ class TestMasterExamplesIntegration:
         """Set up test fixtures for master examples."""
         # Configure matplotlib for non-interactive testing
         import matplotlib
+
         matplotlib.use("Agg", force=True)
 
     def test_ex_ss_example_from_master(self):
@@ -131,11 +132,13 @@ class TestMasterExamplesIntegration:
 
         # Input sequence using GBN
         from sippy.utils.signal_utils import GBN_seq, white_noise_var
+
         U = np.zeros((1, npts))
         U[0], _, _ = GBN_seq(npts, 0.05)
 
         # Simulate the system
         from sippy.utils.simulation_utils import simulate_ss_system
+
         x, yout = simulate_ss_system(A, B, C, D, U, x0=np.zeros((2, 1)))
 
         # Add measurement noise
@@ -160,11 +163,13 @@ class TestMasterExamplesIntegration:
                 assert model.B is not None
                 assert model.C is not None
                 assert model.D is not None
-                assert hasattr(model, 'n')
+                assert hasattr(model, "n")
 
             except Exception as e:
                 # Some methods may require slycot or other dependencies
-                pytest.skip(f"{method} method failed (possibly due to missing dependencies): {e}")
+                pytest.skip(
+                    f"{method} method failed (possibly due to missing dependencies): {e}"
+                )
 
     def test_ex_cst_example_from_master(self):
         """Test Ex_CST.py from master branch - Continuous Stirred Tank."""
@@ -191,6 +196,7 @@ class TestMasterExamplesIntegration:
         prob_switch_1 = 0.05
         F_min, F_max = 0.4, 0.6
         from sippy.utils.signal_utils import GBN_seq
+
         U[0, :], _, _ = GBN_seq(npts, prob_switch_1, Range=[F_min, F_max])
 
         W_min, W_max = 20, 40
@@ -208,10 +214,20 @@ class TestMasterExamplesIntegration:
             # Simple approximation of CST dynamics
             for i in range(1, npts):
                 # Concentration dynamics (simplified)
-                y[0, i] = 0.85 * y[0, i-1] + 0.05 * U[0, i-1] + 0.1 * U[2, i-1] + 0.01 * np.random.randn()
+                y[0, i] = (
+                    0.85 * y[0, i - 1]
+                    + 0.05 * U[0, i - 1]
+                    + 0.1 * U[2, i - 1]
+                    + 0.01 * np.random.randn()
+                )
 
                 # Temperature dynamics (simplified)
-                y[1, i] = 0.90 * y[1, i-1] + 0.02 * U[1, i-1] + 0.03 * U[3, i-1] + 0.2 * np.random.randn()
+                y[1, i] = (
+                    0.90 * y[1, i - 1]
+                    + 0.02 * U[1, i - 1]
+                    + 0.03 * U[3, i - 1]
+                    + 0.2 * np.random.randn()
+                )
 
             return y
 
@@ -245,15 +261,15 @@ class TestMasterExamplesIntegration:
 
             # Add inputs
             for i in range(m):
-                data_dict[f"u{i+1}"] = U[i, :]
+                data_dict[f"u{i + 1}"] = U[i, :]
 
             # Add outputs
             for i in range(p):
-                data_dict[f"y{i+1}"] = Y[i, :]
+                data_dict[f"y{i + 1}"] = Y[i, :]
 
             data_df = pd.DataFrame(data_dict, index=time_index)
-            inputs = [f"u{i+1}" for i in range(m)]
-            outputs = [f"y{i+1}" for i in range(p)]
+            inputs = [f"u{i + 1}" for i in range(m)]
+            outputs = [f"y{i + 1}" for i in range(p)]
 
             id_data = IDData(data=data_df, inputs=inputs, outputs=outputs, tsample=ts)
             assert id_data is not None
@@ -273,7 +289,7 @@ class TestMasterExamplesIntegration:
         # Simple AR system: y[k] = 0.7*y[k-1] + 0.3*u[k-1] + noise
         y = np.zeros((1, npts))
         for i in range(1, npts):
-            y[0, i] = 0.7 * y[0, i-1] + 0.3 * u[0, i-1] + 0.05 * np.random.randn()
+            y[0, i] = 0.7 * y[0, i - 1] + 0.3 * u[0, i - 1] + 0.05 * np.random.randn()
 
         try:
             # Test ARX (which can be used recursively)
@@ -307,8 +323,18 @@ class TestMasterExamplesIntegration:
         # Simple 2-output system
         y = np.zeros((2, npts))
         for i in range(1, npts):
-            y[0, i] = 0.6 * y[0, i-1] + 0.8 * u[0, i-1] + 0.2 * u[1, i-1] + 0.05 * np.random.randn()
-            y[1, i] = 0.5 * y[1, i-1] + 0.3 * u[0, i-1] + 0.7 * u[1, i-1] + 0.05 * np.random.randn()
+            y[0, i] = (
+                0.6 * y[0, i - 1]
+                + 0.8 * u[0, i - 1]
+                + 0.2 * u[1, i - 1]
+                + 0.05 * np.random.randn()
+            )
+            y[1, i] = (
+                0.5 * y[1, i - 1]
+                + 0.3 * u[0, i - 1]
+                + 0.7 * u[1, i - 1]
+                + 0.05 * np.random.randn()
+            )
 
         try:
             # Test with different methods that could be used for optimization
@@ -360,16 +386,19 @@ class TestMasterExamplesIntegration:
         u_mimo = np.random.randn(3, npts)
         y_mimo = np.random.randn(2, npts)
 
-        data_mimo = pd.DataFrame({
-            "u1": u_mimo[0, :], "u2": u_mimo[1, :], "u3": u_mimo[2, :],
-            "y1": y_mimo[0, :], "y2": y_mimo[1, :]
-        }, index=time_index)
+        data_mimo = pd.DataFrame(
+            {
+                "u1": u_mimo[0, :],
+                "u2": u_mimo[1, :],
+                "u3": u_mimo[2, :],
+                "y1": y_mimo[0, :],
+                "y2": y_mimo[1, :],
+            },
+            index=time_index,
+        )
 
         id_data_mimo = IDData(
-            data=data_mimo,
-            inputs=["u1", "u2", "u3"],
-            outputs=["y1", "y2"],
-            tsample=1.0
+            data=data_mimo, inputs=["u1", "u2", "u3"], outputs=["y1", "y2"], tsample=1.0
         )
         assert id_data_mimo is not None
         assert id_data_mimo.input_data.shape[1] == 3

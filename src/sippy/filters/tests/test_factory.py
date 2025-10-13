@@ -60,7 +60,7 @@ class TestFilterFactory:
         highpass = FilterFactory.create("highpass", config=config)
         # Should be a real HighPassFilter implementation
         assert highpass is not None
-        assert hasattr(highpass, 'apply_filter')
+        assert hasattr(highpass, "apply_filter")
 
         # Test creating with config (config should be passed through)
         assert highpass.config.multiplier == 2.5

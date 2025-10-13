@@ -200,6 +200,7 @@ class TestARXMasterExamples:
         """Set up test fixtures for master examples."""
         # Configure matplotlib for non-interactive testing
         import matplotlib
+
         matplotlib.use("Agg", force=True)
 
     def test_ex_arx_mimo_example_from_master(self):
@@ -220,10 +221,14 @@ class TestARXMasterExamples:
         NUM14 = [-0.9, -0.11, 0.0, 0.0]
         DEN1 = [1.0, -0.3, -0.25, -0.021, 0.0, 0.0]
         na1 = 3
-        nb11 = 2; th11 = 1
-        nb12 = 1; th12 = 2
-        nb13 = 3; th13 = 2
-        nb14 = 2; th14 = 1
+        nb11 = 2
+        th11 = 1
+        nb12 = 1
+        th12 = 2
+        nb13 = 3
+        th13 = 2
+        nb14 = 2
+        th14 = 1
 
         # Output 2 transfer functions
         NUM21 = [-85, -57.5, -27.7]
@@ -232,10 +237,14 @@ class TestARXMasterExamples:
         NUM24 = [0.994, 0.0, 0.0, 0.0]
         DEN2 = [1.0, -0.4, 0.0, 0.0, 0.0]
         na2 = 1
-        nb21 = 3; th21 = 1
-        nb22 = 2; th22 = 2
-        nb23 = 1; th23 = 0
-        nb24 = 1; th24 = 0
+        nb21 = 3
+        th21 = 1
+        nb22 = 2
+        th22 = 2
+        nb23 = 1
+        th23 = 0
+        nb24 = 1
+        th24 = 0
 
         # Output 3 transfer functions
         NUM31 = [0.2, 0.0, 0.0, 0.0]
@@ -244,10 +253,14 @@ class TestARXMasterExamples:
         NUM34 = [0.891, 0.223]
         DEN3 = [1.0, -0.1, -0.3, 0.0, 0.0]
         na3 = 2
-        nb31 = 1; th31 = 0
-        nb32 = 2; th32 = 1
-        nb33 = 1; th33 = 0
-        nb34 = 2; th34 = 2
+        nb31 = 1
+        th31 = 0
+        nb32 = 2
+        th32 = 1
+        nb33 = 1
+        th33 = 0
+        nb34 = 2
+        th34 = 2
 
         # Generate input signals using GBN (Generalize Binary Sequence)
         Usim = np.zeros((4, npts))
@@ -306,17 +319,17 @@ class TestARXMasterExamples:
 
             # Add inputs
             for i in range(4):
-                data_dict[f"u{i+1}"] = Usim[i, :]
+                data_dict[f"u{i + 1}"] = Usim[i, :]
 
             # Add outputs
             for i in range(3):
-                data_dict[f"y{i+1}"] = Ytot[i, :]
+                data_dict[f"y{i + 1}"] = Ytot[i, :]
 
             data_df = pd.DataFrame(data_dict, index=time_index)
 
             # Create IDData for MIMO system
-            inputs = [f"u{i+1}" for i in range(4)]
-            outputs = [f"y{i+1}" for i in range(3)]
+            inputs = [f"u{i + 1}" for i in range(4)]
+            outputs = [f"y{i + 1}" for i in range(3)]
             id_data = IDData(data=data_df, inputs=inputs, outputs=outputs, tsample=1.0)
 
             # Set up ARX orders from master example
@@ -341,6 +354,7 @@ class TestARXMasterExamples:
             config.nk = 1  # Use average delay
 
             from sippy.identification import SystemIdentification
+
             identifier = SystemIdentification(config)
 
             # Test identification

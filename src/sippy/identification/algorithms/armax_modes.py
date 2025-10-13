@@ -14,6 +14,7 @@ from ..base import StateSpaceModel
 # Import Harold if available
 try:
     import harold
+
     HAROLD_AVAILABLE = True
 except ImportError:
     HAROLD_AVAILABLE = False
@@ -33,7 +34,7 @@ class ARMAXModeHandler(ABC):
         nk: int,
         max_iterations: int = 200,
         convergence_tolerance: float = 1e-6,
-        **kwargs
+        **kwargs,
     ) -> Tuple[Optional[StateSpaceModel], dict]:
         """
         Perform ARMAX identification using the specific algorithm mode.
@@ -86,10 +87,12 @@ class ILLSHandler(ARMAXModeHandler):
         nk: int,
         max_iterations: int = 200,
         convergence_tolerance: float = 1e-6,
-        **kwargs
+        **kwargs,
     ) -> Tuple[Optional[StateSpaceModel], dict]:
         """Identify ARMAX using Iterative Least Squares."""
-        return self._identify_ills(u, y, na, nb, nc, nk, max_iterations, convergence_tolerance)
+        return self._identify_ills(
+            u, y, na, nb, nc, nk, max_iterations, convergence_tolerance
+        )
 
     def _identify_ills(
         self,
@@ -100,7 +103,7 @@ class ILLSHandler(ARMAXModeHandler):
         nc: int,
         nk: int,
         max_iterations: int,
-        convergence_tolerance: float
+        convergence_tolerance: float,
     ) -> Tuple[Optional[StateSpaceModel], dict]:
         """Identify ARMAX model using ILLS algorithm."""
 
@@ -140,11 +143,13 @@ class ILLSHandler(ARMAXModeHandler):
             # Update regression matrix with current noise estimate
             for i in range(N_eff):
                 # AR part (lagged outputs)
-                Phi[i, 0:na] = -y[i + max_order - 1::-1][0:na]
+                Phi[i, 0:na] = -y[i + max_order - 1 :: -1][0:na]
                 # X part (lagged inputs)
-                Phi[i, na:na + nb] = u[max_order + i - 1::-1][nk:nb + nk]
+                Phi[i, na : na + nb] = u[max_order + i - 1 :: -1][nk : nb + nk]
                 # MA part (estimated noise terms)
-                Phi[i, na + nb:na + nb + nc] = noise_hat[max_order + i - 1::-1][0:nc]
+                Phi[i, na + nb : na + nb + nc] = noise_hat[max_order + i - 1 :: -1][
+                    0:nc
+                ]
 
             # Least squares solution
             beta_hat = np.dot(np.linalg.pinv(Phi), y[max_order:N])
@@ -154,9 +159,9 @@ class ILLSHandler(ARMAXModeHandler):
             beta_hat_new = beta_hat
             interval_length = 0.5
             while Vn > Vn_old:
-                beta_hat = np.dot(
-                    I_beta * interval_length, beta_hat_new
-                ) + np.dot(I_beta * (1 - interval_length), beta_hat_old)
+                beta_hat = np.dot(I_beta * interval_length, beta_hat_new) + np.dot(
+                    I_beta * (1 - interval_length), beta_hat_old
+                )
                 Vn = np.mean((y[max_order:N] - np.dot(Phi, beta_hat)) ** 2)
 
                 if interval_length < np.finfo(np.float32).eps:
@@ -196,7 +201,7 @@ class ILLSHandler(ARMAXModeHandler):
             "final_variance": Vn,
             "converged": not max_reached and abs(Vn_old - Vn) < convergence_tolerance,
             "predicted_output": Yid,
-            "residuals": noise_hat
+            "residuals": noise_hat,
         }
 
         return model, info
@@ -210,14 +215,14 @@ class ILLSHandler(ARMAXModeHandler):
         nk: int,
         ny: int,
         nu: int,
-        Ts: float
+        Ts: float,
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from ARMAX parameters."""
         try:
             # Extract coefficients
             A_coeffs = beta_hat[:na]
-            B_coeffs = beta_hat[na:na + nb]
-            C_coeffs = beta_hat[na + nb:na + nb + nc]
+            B_coeffs = beta_hat[na : na + nb]
+            C_coeffs = beta_hat[na + nb : na + nb + nc]
 
             # Create transfer functions using harold
             G_tf, H_tf = None, None
@@ -228,26 +233,28 @@ class ILLSHandler(ARMAXModeHandler):
 
                     # G(q) = B / A - Deterministic transfer function
                     NUM_G = np.zeros(max_order)
-                    NUM_G[nk:nk + nb] = B_coeffs  # B coefficients with delay
+                    NUM_G[nk : nk + nb] = B_coeffs  # B coefficients with delay
 
                     DEN_G = np.zeros(max_order + 1)
                     DEN_G[0] = 1.0
-                    DEN_G[1:na + 1] = A_coeffs  # A coefficients
+                    DEN_G[1 : na + 1] = A_coeffs  # A coefficients
 
                     G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
                     # H(q) = C / A - Noise transfer function
                     NUM_H = np.zeros(max_order + 1)
                     NUM_H[0] = 1.0
-                    NUM_H[1:nc + 1] = C_coeffs  # C coefficients
+                    NUM_H[1 : nc + 1] = C_coeffs  # C coefficients
 
                     DEN_H = np.zeros(max_order + 1)
                     DEN_H[0] = 1.0
-                    DEN_H[1:na + 1] = A_coeffs  # A coefficients (same as G)
+                    DEN_H[1 : na + 1] = A_coeffs  # A coefficients (same as G)
 
                     H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
                 except Exception as e:
-                    warnings.warn(f"Failed to create ARMAX transfer functions with harold: {e}")
+                    warnings.warn(
+                        f"Failed to create ARMAX transfer functions with harold: {e}"
+                    )
                     G_tf, H_tf = None, None
 
             # Create state-space representation
@@ -287,26 +294,36 @@ class ILLSHandler(ARMAXModeHandler):
                 try:
                     ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
-                        A=ss_model.A, B=ss_model.B, C=ss_model.C, D=ss_model.D,
+                        A=ss_model.A,
+                        B=ss_model.B,
+                        C=ss_model.C,
+                        D=ss_model.D,
                         K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
                         Q=np.eye(ss_model.A.shape[0]) * 0.01,
                         R=np.eye(ss_model.C.shape[0]) * 0.01,
                         S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                        ts=Ts, Vn=0.01,
-                        G_tf=G_tf, H_tf=H_tf
+                        ts=Ts,
+                        Vn=0.01,
+                        G_tf=G_tf,
+                        H_tf=H_tf,
                     )
                 except Exception:
                     pass  # Fall back to manual creation
 
             # Manual state-space creation
             return StateSpaceModel(
-                A=A_mat, B=B_mat, C=C_mat, D=D_mat,
+                A=A_mat,
+                B=B_mat,
+                C=C_mat,
+                D=D_mat,
                 K=np.zeros((A_mat.shape[0], C_mat.shape[0])),
                 Q=np.eye(A_mat.shape[0]) * 0.01,
                 R=np.eye(C_mat.shape[0]) * 0.01,
                 S=np.zeros((A_mat.shape[0], C_mat.shape[0])),
-                ts=Ts, Vn=0.01,
-                G_tf=G_tf, H_tf=H_tf
+                ts=Ts,
+                Vn=0.01,
+                G_tf=G_tf,
+                H_tf=H_tf,
             )
 
         except Exception:
@@ -333,7 +350,7 @@ class RLLSHandler(ARMAXModeHandler):
         nk: int,
         max_iterations: int = 200,
         convergence_tolerance: float = 1e-6,
-        **kwargs
+        **kwargs,
     ) -> Tuple[Optional[StateSpaceModel], dict]:
         """Identify ARMAX using Recursive Least Squares."""
         return self._identify_rlls(u, y, na, nb, nc, nk, max_iterations, **kwargs)
@@ -348,7 +365,7 @@ class RLLSHandler(ARMAXModeHandler):
         nk: int,
         max_iterations: int,
         convergence_tolerance: float = 1e-6,
-        **kwargs
+        **kwargs,
     ) -> Tuple[Optional[StateSpaceModel], dict]:
         """Identify ARMAX model using RLLS algorithm from master branch."""
 
@@ -380,9 +397,9 @@ class RLLSHandler(ARMAXModeHandler):
         for k in range(N):
             if k > max_order:
                 # Step 1: Build regressor vector
-                vecY = y[k - na:k][::-1]  # Y vector
-                vecU = u[k - nb - nk:k - nk][::-1]  # U vector
-                vecE = E[k - nc:k][::-1]  # E vector
+                vecY = y[k - na : k][::-1]  # Y vector
+                vecU = u[k - nb - nk : k - nk][::-1]  # U vector
+                vecE = E[k - nc : k][::-1]  # E vector
 
                 # ARMAX regressor
                 phi = np.hstack((-vecY, vecU, vecE))
@@ -410,7 +427,8 @@ class RLLSHandler(ARMAXModeHandler):
                 try:
                     P_t = (1.0 / forgetting_factor) * (
                         np.dot(
-                            np.eye(nt - 1) - np.dot(K_t.reshape(-1, 1), phi.T.reshape(1, -1)),
+                            np.eye(nt - 1)
+                            - np.dot(K_t.reshape(-1, 1), phi.T.reshape(1, -1)),
                             P_t,
                         )
                     )
@@ -439,7 +457,7 @@ class RLLSHandler(ARMAXModeHandler):
             "final_variance": Vn,
             "predicted_output": Yp,
             "residuals": E,
-            "final_parameters": theta
+            "final_parameters": theta,
         }
 
         return model, info
@@ -453,18 +471,18 @@ class RLLSHandler(ARMAXModeHandler):
         nk: int,
         ny: int,
         nu: int,
-        Ts: float
+        Ts: float,
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from RLLS parameters."""
         try:
             # Extract coefficients from theta (same as ILLS)
             # theta contains [-a, b, c] parameters
             pos = 0
-            A_coeffs = theta[pos:pos + na]
+            A_coeffs = theta[pos : pos + na]
             pos += na
-            B_coeffs = theta[pos:pos + nb]
+            B_coeffs = theta[pos : pos + nb]
             pos += nb
-            C_coeffs = theta[pos:pos + nc]
+            C_coeffs = theta[pos : pos + nc]
 
             # Create transfer functions using harold
             G_tf, H_tf = None, None
@@ -475,26 +493,28 @@ class RLLSHandler(ARMAXModeHandler):
 
                     # G(q) = B / A - Deterministic transfer function
                     NUM_G = np.zeros(max_order)
-                    NUM_G[nk:nk + nb] = B_coeffs  # B coefficients with delay
+                    NUM_G[nk : nk + nb] = B_coeffs  # B coefficients with delay
 
                     DEN_G = np.zeros(max_order + 1)
                     DEN_G[0] = 1.0
-                    DEN_G[1:na + 1] = A_coeffs  # A coefficients
+                    DEN_G[1 : na + 1] = A_coeffs  # A coefficients
 
                     G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
                     # H(q) = C / A - Noise transfer function
                     NUM_H = np.zeros(max_order + 1)
                     NUM_H[0] = 1.0
-                    NUM_H[1:nc + 1] = C_coeffs  # C coefficients
+                    NUM_H[1 : nc + 1] = C_coeffs  # C coefficients
 
                     DEN_H = np.zeros(max_order + 1)
                     DEN_H[0] = 1.0
-                    DEN_H[1:na + 1] = A_coeffs  # A coefficients (same as G)
+                    DEN_H[1 : na + 1] = A_coeffs  # A coefficients (same as G)
 
                     H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
                 except Exception as e:
-                    warnings.warn(f"Failed to create RLLS ARMAX transfer functions with harold: {e}")
+                    warnings.warn(
+                        f"Failed to create RLLS ARMAX transfer functions with harold: {e}"
+                    )
                     G_tf, H_tf = None, None
 
             # Use same state-space creation as ILLS
@@ -533,26 +553,36 @@ class RLLSHandler(ARMAXModeHandler):
                 try:
                     ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
-                        A=ss_model.A, B=ss_model.B, C=ss_model.C, D=ss_model.D,
+                        A=ss_model.A,
+                        B=ss_model.B,
+                        C=ss_model.C,
+                        D=ss_model.D,
                         K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
                         Q=np.eye(ss_model.A.shape[0]) * 0.01,
                         R=np.eye(ss_model.C.shape[0]) * 0.01,
                         S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                        ts=Ts, Vn=0.01,
-                        G_tf=G_tf, H_tf=H_tf
+                        ts=Ts,
+                        Vn=0.01,
+                        G_tf=G_tf,
+                        H_tf=H_tf,
                     )
                 except Exception:
                     pass
 
             # Manual state-space creation
             return StateSpaceModel(
-                A=A_mat, B=B_mat, C=C_mat, D=D_mat,
+                A=A_mat,
+                B=B_mat,
+                C=C_mat,
+                D=D_mat,
                 K=np.zeros((A_mat.shape[0], C_mat.shape[0])),
                 Q=np.eye(A_mat.shape[0]) * 0.01,
                 R=np.eye(C_mat.shape[0]) * 0.01,
                 S=np.zeros((A_mat.shape[0], C_mat.shape[0])),
-                ts=Ts, Vn=0.01,
-                G_tf=G_tf, H_tf=H_tf
+                ts=Ts,
+                Vn=0.01,
+                G_tf=G_tf,
+                H_tf=H_tf,
             )
 
         except Exception:
@@ -580,7 +610,7 @@ class OPTHandler(ARMAXModeHandler):
         nk: int,
         max_iterations: int = 200,
         convergence_tolerance: float = 1e-6,
-        **kwargs
+        **kwargs,
     ) -> Tuple[Optional[StateSpaceModel], dict]:
         """Identify ARMAX using nonlinear optimization."""
         return self._identify_opt(u, y, na, nb, nc, nk, max_iterations, **kwargs)
@@ -595,7 +625,7 @@ class OPTHandler(ARMAXModeHandler):
         nk: int,
         max_iterations: int,
         convergence_tolerance: float = 1e-6,
-        **kwargs
+        **kwargs,
     ) -> Tuple[Optional[StateSpaceModel], dict]:
         """Identify ARMAX model using optimization from master branch."""
 
@@ -619,19 +649,19 @@ class OPTHandler(ARMAXModeHandler):
             try:
                 # Extract parameters
                 A_params = params[:na]
-                B_params = params[na:na + nb]
-                C_params = params[na + nb:na + nb + nc]
+                B_params = params[na : na + nb]
+                C_params = params[na + nb : na + nb + nc]
 
                 # Simulate model and calculate errors
                 predicted = np.zeros(N)
                 for k in range(max_order, N):
                     # AR part
-                    ar_part = np.sum(A_params * y[k - 1:k - 1 - na:-1])
+                    ar_part = np.sum(A_params * y[k - 1 : k - 1 - na : -1])
 
                     # X part (with delay)
                     start_idx = k - nk
                     if start_idx >= nb - 1:
-                        x_part = np.sum(B_params * u[start_idx:start_idx - nb:-1])
+                        x_part = np.sum(B_params * u[start_idx : start_idx - nb : -1])
                     else:
                         x_part = 0.0
 
@@ -639,9 +669,9 @@ class OPTHandler(ARMAXModeHandler):
                     residuals = y - predicted
                     if np.max(np.abs(residuals)) > 1e6:  # Check for residuals explosion
                         return np.inf
-                    
-                    ma_part = np.sum(C_params * residuals[k - 1:k - 1 - nc:-1])
-                    
+
+                    ma_part = np.sum(C_params * residuals[k - 1 : k - 1 - nc : -1])
+
                     # Check for overflow in predicted value
                     if not np.isfinite(-ar_part + x_part + ma_part):
                         return np.inf
@@ -650,17 +680,17 @@ class OPTHandler(ARMAXModeHandler):
 
                 # Return prediction error with numerical stability
                 error = y[max_order:] - predicted[max_order:]
-                
+
                 # Check for overflow before squaring
                 if np.max(np.abs(error)) > 1e6:
                     return np.inf
-                    
-                cost = np.sum(error ** 2)
-                
+
+                cost = np.sum(error**2)
+
                 # Final check for finite cost
                 if not np.isfinite(cost):
                     return np.inf
-                    
+
                 return cost
 
             except Exception:
@@ -670,7 +700,11 @@ class OPTHandler(ARMAXModeHandler):
         try:
             # Get initial guess from simple least squares
             initial_guess = self._get_initial_guess(u, y, na, nb, nc, nk)
-            if initial_guess is None or np.any(np.isnan(initial_guess)) or np.any(np.abs(initial_guess) > 2):
+            if (
+                initial_guess is None
+                or np.any(np.isnan(initial_guess))
+                or np.any(np.abs(initial_guess) > 2)
+            ):
                 # Use small random values if initial guess is problematic
                 initial_guess = np.random.randn(n_params) * 0.01
         except Exception:
@@ -688,29 +722,36 @@ class OPTHandler(ARMAXModeHandler):
                 if not np.isfinite(test_cost):
                     return None, {"error": f"Initial cost is infinite: {test_cost}"}
             except Exception as cost_e:
-                return None, {"error": f"Cost function evaluation failed: {str(cost_e)}"}
-            
+                return None, {
+                    "error": f"Cost function evaluation failed: {str(cost_e)}"
+                }
+
             # Try the requested optimization method first
             result = minimize(
                 cost_function,
                 x0=initial_guess,
                 method=opt_method,
                 bounds=bounds,
-                options={'maxiter': max_iterations, 'ftol': convergence_tolerance}
+                options={"maxiter": max_iterations, "ftol": convergence_tolerance},
             )
-            
+
         except Exception as e:
             # Try a simpler method if the first one fails
             try:
                 result = minimize(
                     cost_function,
                     x0=initial_guess,
-                    method='L-BFGS-B',  # Simpler, more robust method
+                    method="L-BFGS-B",  # Simpler, more robust method
                     bounds=bounds,
-                    options={'maxiter': max_iterations//2, 'ftol': convergence_tolerance}
+                    options={
+                        "maxiter": max_iterations // 2,
+                        "ftol": convergence_tolerance,
+                    },
                 )
             except Exception as e2:
-                return None, {"error": f"Both optimization methods failed: {str(e)}, {str(e2)}"}
+                return None, {
+                    "error": f"Both optimization methods failed: {str(e)}, {str(e2)}"
+                }
 
         if not result.success:
             return None, {"error": f"Optimization failed: {result.message}"}
@@ -730,19 +771,13 @@ class OPTHandler(ARMAXModeHandler):
             "objective_value": result.fun,
             "iterations": result.nit,
             "final_parameters": result.x,
-            "message": result.message
+            "message": result.message,
         }
 
         return model, info
 
     def _get_initial_guess(
-        self,
-        u: np.ndarray,
-        y: np.ndarray,
-        na: int,
-        nb: int,
-        nc: int,
-        nk: int
+        self, u: np.ndarray, y: np.ndarray, na: int, nb: int, nc: int, nk: int
     ) -> Optional[np.ndarray]:
         """Get initial parameter guess using least squares."""
         try:
@@ -759,15 +794,15 @@ class OPTHandler(ARMAXModeHandler):
             Phi = np.zeros((N_eff, sum_order))
             for i in range(N_eff):
                 # AR part
-                Phi[i, 0:na] = -y[i + max_order - 1::-1][0:na]
+                Phi[i, 0:na] = -y[i + max_order - 1 :: -1][0:na]
                 # X part
-                Phi[i, na:na + nb] = u[max_order + i - 1::-1][nk:nb + nk]
+                Phi[i, na : na + nb] = u[max_order + i - 1 :: -1][nk : nb + nk]
 
             # Least squares solution
             beta_hat = np.dot(np.linalg.pinv(Phi), y[max_order:N])
 
             # Return initial guess with zero MA parameters
-            return np.concatenate([beta_hat[:na], beta_hat[na:na + nb], np.zeros(nc)])
+            return np.concatenate([beta_hat[:na], beta_hat[na : na + nb], np.zeros(nc)])
 
         except Exception:
             return None
@@ -781,14 +816,14 @@ class OPTHandler(ARMAXModeHandler):
         nk: int,
         ny: int,
         nu: int,
-        Ts: float
+        Ts: float,
     ) -> Optional[StateSpaceModel]:
         """Create state-space model from OPT parameters."""
         try:
             # Extract coefficients
             A_coeffs = params[:na]
-            B_coeffs = params[na:na + nb]
-            C_coeffs = params[na + nb:na + nb + nc]
+            B_coeffs = params[na : na + nb]
+            C_coeffs = params[na + nb : na + nb + nc]
 
             # Create transfer functions using harold
             G_tf, H_tf = None, None
@@ -796,21 +831,23 @@ class OPTHandler(ARMAXModeHandler):
                 try:
                     max_order = max(na, nb + nk, nc)
                     NUM_G = np.zeros(max_order)
-                    NUM_G[nk:nk + nb] = B_coeffs
+                    NUM_G[nk : nk + nb] = B_coeffs
                     DEN_G = np.zeros(max_order + 1)
                     DEN_G[0] = 1.0
-                    DEN_G[1:na + 1] = A_coeffs
+                    DEN_G[1 : na + 1] = A_coeffs
                     G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
                     NUM_H = np.zeros(max_order + 1)
                     NUM_H[0] = 1.0
-                    NUM_H[1:nc + 1] = C_coeffs
+                    NUM_H[1 : nc + 1] = C_coeffs
                     DEN_H = np.zeros(max_order + 1)
                     DEN_H[0] = 1.0
-                    DEN_H[1:na + 1] = A_coeffs
+                    DEN_H[1 : na + 1] = A_coeffs
                     H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
                 except Exception as e:
-                    warnings.warn(f"Failed to create OPT ARMAX transfer functions with harold: {e}")
+                    warnings.warn(
+                        f"Failed to create OPT ARMAX transfer functions with harold: {e}"
+                    )
                     G_tf, H_tf = None, None
 
             # Use same state-space creation as ILLS
@@ -849,26 +886,36 @@ class OPTHandler(ARMAXModeHandler):
                 try:
                     ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
-                        A=ss_model.A, B=ss_model.B, C=ss_model.C, D=ss_model.D,
+                        A=ss_model.A,
+                        B=ss_model.B,
+                        C=ss_model.C,
+                        D=ss_model.D,
                         K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
                         Q=np.eye(ss_model.A.shape[0]) * 0.01,
                         R=np.eye(ss_model.C.shape[0]) * 0.01,
                         S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                        ts=Ts, Vn=0.01,
-                        G_tf=G_tf, H_tf=H_tf
+                        ts=Ts,
+                        Vn=0.01,
+                        G_tf=G_tf,
+                        H_tf=H_tf,
                     )
                 except Exception:
                     pass
 
             # Manual state-space creation
             return StateSpaceModel(
-                A=A_mat, B=B_mat, C=C_mat, D=D_mat,
+                A=A_mat,
+                B=B_mat,
+                C=C_mat,
+                D=D_mat,
                 K=np.zeros((A_mat.shape[0], C_mat.shape[0])),
                 Q=np.eye(A_mat.shape[0]) * 0.01,
                 R=np.eye(C_mat.shape[0]) * 0.01,
                 S=np.zeros((A_mat.shape[0], C_mat.shape[0])),
-                ts=Ts, Vn=0.01,
-                G_tf=G_tf, H_tf=H_tf
+                ts=Ts,
+                Vn=0.01,
+                G_tf=G_tf,
+                H_tf=H_tf,
             )
 
         except Exception:
@@ -878,13 +925,15 @@ class OPTHandler(ARMAXModeHandler):
 def get_armax_handler(mode: str) -> ARMAXModeHandler:
     """Get the appropriate ARMAX mode handler."""
     handlers = {
-        'ILLS': ILLSHandler(),
-        'OPT': OPTHandler(),
-        'RLLS': RLLSHandler(),
-        'ILS': ILLSHandler(),  # Alias for legacy compatibility
+        "ILLS": ILLSHandler(),
+        "OPT": OPTHandler(),
+        "RLLS": RLLSHandler(),
+        "ILS": ILLSHandler(),  # Alias for legacy compatibility
     }
 
     if mode not in handlers:
-        raise ValueError(f"Unknown ARMAX mode: {mode}. Available modes: {list(handlers.keys())}")
+        raise ValueError(
+            f"Unknown ARMAX mode: {mode}. Available modes: {list(handlers.keys())}"
+        )
 
     return handlers[mode]

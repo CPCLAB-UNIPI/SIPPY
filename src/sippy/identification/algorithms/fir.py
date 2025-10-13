@@ -153,7 +153,7 @@ class FIRAlgorithm(IdentificationAlgorithm):
         # Compute one-step-ahead predictions (Yid) for identification data
         N_eff_yid = N - nb - nk + 1
         Yid = np.zeros_like(y)
-        Yid[:, :nk + nb - 1] = y[:, :nk + nb - 1]  # Copy initial values
+        Yid[:, : nk + nb - 1] = y[:, : nk + nb - 1]  # Copy initial values
 
         # Compute predictions for each output
         for i in range(ny):
@@ -163,10 +163,16 @@ class FIRAlgorithm(IdentificationAlgorithm):
                 for j in range(nu):
                     delay_idx = N_eff_yid + nk - 1 - lag
                     if delay_idx >= 0 and delay_idx + N_eff_yid <= N:
-                        Phi_i[:, col] = u[j, delay_idx - N_eff_yid + 1 : delay_idx - N_eff_yid + N_eff_yid + 1]
+                        Phi_i[:, col] = u[
+                            j,
+                            delay_idx - N_eff_yid + 1 : delay_idx
+                            - N_eff_yid
+                            + N_eff_yid
+                            + 1,
+                        ]
                     col += 1
 
-            Yid[i, nk + nb - 1:] = np.dot(Phi_i, fir_coeffs[i, :]).flatten()
+            Yid[i, nk + nb - 1 :] = np.dot(Phi_i, fir_coeffs[i, :]).flatten()
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_fir(
@@ -279,7 +285,7 @@ class FIRAlgorithm(IdentificationAlgorithm):
             # Create G(q) = B(q) - FIR transfer function with delay
             # For FIR, numerator is the FIR coefficients, denominator is 1
             NUM_G = np.zeros(nb + nk)
-            NUM_G[nk:nk + nb] = fir_coeffs[0, :nb] if ny == 1 else fir_coeffs[0, :nb]
+            NUM_G[nk : nk + nb] = fir_coeffs[0, :nb] if ny == 1 else fir_coeffs[0, :nb]
 
             DEN_G = np.array([1.0])  # FIR has unity denominator
 

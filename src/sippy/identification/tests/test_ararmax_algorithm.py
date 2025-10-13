@@ -119,7 +119,7 @@ class TestARARMAXAlgorithm:
             [[1, 1], [1, 1]],  # nb (input orders)
             [[1, 0], [1, 0]],  # nc (noise AR orders)
             [[1, 0], [1, 0]],  # nd (noise MA orders)
-            [[1, 0], [1, 0]]   # nf (input TF orders)
+            [[1, 0], [1, 0]],  # nf (input TF orders)
         ]  # theta (delay matrix, auto-calculated in algorithm)
 
         model = algorithm.identify(iddata=self.iddata_mimo, config=config)
@@ -130,9 +130,9 @@ class TestARARMAXAlgorithm:
         output_dims = len(self.iddata_mimo.output_names)
         input_dims = len(self.iddata_mimo.input_names)
         assert model.A.shape[0] == model.A.shape[1]  # Square state matrix
-        assert model.B.shape[0] == model.A.shape[0]   # B rows match A rows
-        assert model.B.shape[1] == input_dims         # B columns match inputs
-        assert model.C.shape[0] == output_dims         # C rows match outputs
+        assert model.B.shape[0] == model.A.shape[0]  # B rows match A rows
+        assert model.B.shape[1] == input_dims  # B columns match inputs
+        assert model.C.shape[0] == output_dims  # C rows match outputs
 
     def test_ararmax_parameter_validation(self):
         """Test ARARMAX algorithm parameter validation."""

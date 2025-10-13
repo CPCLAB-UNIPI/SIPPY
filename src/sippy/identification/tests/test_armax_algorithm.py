@@ -246,6 +246,7 @@ class TestARMAXMasterExamples:
         """Set up test fixtures for master examples."""
         # Configure matplotlib for non-interactive testing
         import matplotlib
+
         matplotlib.use("Agg", force=True)
 
     def test_ex_armax_example_from_master(self):
@@ -273,6 +274,7 @@ class TestARMAXMasterExamples:
 
         # Create the system transfer functions
         import control.matlab as cnt
+
         g_sample = cnt.tf(NUM, DEN, sampling_time)
         h_sample = cnt.tf(NUM_H, DEN, sampling_time)
 
@@ -284,17 +286,23 @@ class TestARMAXMasterExamples:
         h_ss = cnt.ss(h_sample)
 
         # Simulate input response
-        x1_out, Y1 = simulate_ss_system(g_ss.A, g_ss.B, g_ss.C, g_ss.D, Usim.reshape(1, -1), x0=None)
+        x1_out, Y1 = simulate_ss_system(
+            g_ss.A, g_ss.B, g_ss.C, g_ss.D, Usim.reshape(1, -1), x0=None
+        )
 
         # Simulate noise response
-        x2_out, Y2 = simulate_ss_system(h_ss.A, h_ss.B, h_ss.C, h_ss.D, e_t.reshape(1, -1), x0=None)
+        x2_out, Y2 = simulate_ss_system(
+            h_ss.A, h_ss.B, h_ss.C, h_ss.D, e_t.reshape(1, -1), x0=None
+        )
 
         # Total output: Y = Y1 + Y2
         Ytot = Y1 + Y2
 
         # Prepare data for identification using new IDData
         time_index = pd.date_range("2023-01-01", periods=npts, freq="1s")
-        data_df = pd.DataFrame({"u": Usim.flatten(), "y": Ytot.flatten()}, index=time_index)
+        data_df = pd.DataFrame(
+            {"u": Usim.flatten(), "y": Ytot.flatten()}, index=time_index
+        )
         id_data = IDData(data=data_df, inputs=["u"], outputs=["y"], tsample=1.0)
 
         # Test identification with fixed orders (mode="FIXED" from master example)
@@ -302,13 +310,14 @@ class TestARMAXMasterExamples:
         config.na = 4  # na_ord = [4]
         config.nb = 3  # nb_ord = [[3]]
         config.nc = 2  # nc_ord = [2]
-        config.nk = 11 # theta = [[11]]
+        config.nk = 11  # theta = [[11]]
         config.max_iterations = 300
 
         # Test the three ARMAX variants from master example
         try:
             # Test basic ARMAX identification
             from sippy.identification import SystemIdentification
+
             identifier = SystemIdentification(config)
 
             # This should work with the new API
@@ -383,21 +392,39 @@ class TestARMAXMasterExamples:
             for i, u_vec in enumerate(U_stack.T):
                 if i > 0:
                     # Simple approximation for testing
-                    y1_sim[i] = 0.3*y1_sim[i-1] + 0.1*u_vec[0] - 0.05*u_vec[1] + 0.02*u_vec[2] + 0.01*u_vec[3]
+                    y1_sim[i] = (
+                        0.3 * y1_sim[i - 1]
+                        + 0.1 * u_vec[0]
+                        - 0.05 * u_vec[1]
+                        + 0.02 * u_vec[2]
+                        + 0.01 * u_vec[3]
+                    )
             Y_out.append(y1_sim)
 
             # Output 2
             y2_sim = np.zeros(npts)
             for i, u_vec in enumerate(U_stack.T):
                 if i > 0:
-                    y2_sim[i] = 0.2*y2_sim[i-1] - 0.05*u_vec[0] + 0.03*u_vec[1] + 0.01*u_vec[2] + 0.02*u_vec[3]
+                    y2_sim[i] = (
+                        0.2 * y2_sim[i - 1]
+                        - 0.05 * u_vec[0]
+                        + 0.03 * u_vec[1]
+                        + 0.01 * u_vec[2]
+                        + 0.02 * u_vec[3]
+                    )
             Y_out.append(y2_sim)
 
             # Output 3
             y3_sim = np.zeros(npts)
             for i, u_vec in enumerate(U_stack.T):
                 if i > 0:
-                    y3_sim[i] = 0.1*y3_sim[i-1] + 0.01*u_vec[0] + 0.15*u_vec[1] + 0.02*u_vec[2] + 0.05*u_vec[3]
+                    y3_sim[i] = (
+                        0.1 * y3_sim[i - 1]
+                        + 0.01 * u_vec[0]
+                        + 0.15 * u_vec[1]
+                        + 0.02 * u_vec[2]
+                        + 0.05 * u_vec[3]
+                    )
             Y_out.append(y3_sim)
 
             # Create MIMO dataset
@@ -406,17 +433,17 @@ class TestARMAXMasterExamples:
 
             # Add inputs
             for i in range(4):
-                data_dict[f"u{i+1}"] = U_stack[i, :]
+                data_dict[f"u{i + 1}"] = U_stack[i, :]
 
             # Add outputs
             for i in range(3):
-                data_dict[f"y{i+1}"] = Y_out[i]
+                data_dict[f"y{i + 1}"] = Y_out[i]
 
             data_df = pd.DataFrame(data_dict, index=time_index)
 
             # Create IDData for MIMO system
-            inputs = [f"u{i+1}" for i in range(4)]
-            outputs = [f"y{i+1}" for i in range(3)]
+            inputs = [f"u{i + 1}" for i in range(4)]
+            outputs = [f"y{i + 1}" for i in range(3)]
             id_data = IDData(data=data_df, inputs=inputs, outputs=outputs, tsample=1.0)
 
             # Test identification with appropriate parameters
@@ -428,6 +455,7 @@ class TestARMAXMasterExamples:
 
             # Try identification
             from sippy.identification import SystemIdentification
+
             identifier = SystemIdentification(config)
 
             model = identifier.identify(y=id_data.y, u=id_data.u)

@@ -57,7 +57,7 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
     - RLLS: Recursive Least Squares
     """
 
-    def __init__(self, mode='ILLS'):
+    def __init__(self, mode="ILLS"):
         """
         Initialize ARMAX algorithm.
 
@@ -133,7 +133,7 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
             y = y.flatten()
 
         # Extract configuration parameters (support both object and dict config)
-        if hasattr(config, '__dict__'):
+        if hasattr(config, "__dict__"):
             # Object config
             na = getattr(config, "na", 1)
             nb = getattr(config, "nb", 1)
@@ -172,8 +172,11 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
                 self.handler = get_armax_handler(self.mode)
 
             # Extract mode-specific parameters
-            mode_params = {k: v for k, v in config.items()
-                          if k in ["forgetting_factor", "optimization_method"]}
+            mode_params = {
+                k: v
+                for k, v in config.items()
+                if k in ["forgetting_factor", "optimization_method"]
+            }
 
         # Validate parameters
         self.validate_parameters(na=na, nb=nb, nc=nc, nk=nk)
@@ -195,25 +198,36 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         # Use mode handler for identification
         try:
             model, info = self.handler.identify(
-                u=u, y=y, na=na, nb=nb, nc=nc, nk=nk,
+                u=u,
+                y=y,
+                na=na,
+                nb=nb,
+                nc=nc,
+                nk=nk,
                 max_iterations=max_iterations,
                 convergence_tolerance=convergence_tolerance,
-                **mode_params
+                **mode_params,
             )
 
             if model is None:
                 # Try fallback to basic identification
-                warnings.warn(f"ARMAX {self.mode} identification failed, trying basic least squares")
-                return self._fallback_identification(u, y, na, nb, nc, nk, data.sample_time)
+                warnings.warn(
+                    f"ARMAX {self.mode} identification failed, trying basic least squares"
+                )
+                return self._fallback_identification(
+                    u, y, na, nb, nc, nk, data.sample_time
+                )
 
             # Store identification info in model attributes if possible
-            if hasattr(model, '_identification_info'):
+            if hasattr(model, "_identification_info"):
                 model._identification_info = info
 
             return model
 
         except Exception as e:
-            warnings.warn(f"ARMAX {self.mode} identification failed: {e}, trying fallback")
+            warnings.warn(
+                f"ARMAX {self.mode} identification failed: {e}, trying fallback"
+            )
             return self._fallback_identification(u, y, na, nb, nc, nk, data.sample_time)
 
     def _fallback_identification(self, u, y, na, nb, nc, nk, sample_time):
@@ -237,8 +251,8 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         Phi = np.zeros((N_eff, sum_order))
 
         for i in range(N_eff):
-            Phi[i, 0:na] = -y[i + max_lag - 1::-1][0:na]
-            Phi[i, na:na + nb] = u[max_lag + i - 1::-1][nk:nb + nk]
+            Phi[i, 0:na] = -y[i + max_lag - 1 :: -1][0:na]
+            Phi[i, na : na + nb] = u[max_lag + i - 1 :: -1][nk : nb + nk]
 
         try:
             theta, residuals, rank, s = lstsq(Phi, y[max_lag:N], rcond=None)
@@ -265,12 +279,16 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
 
                     ss_model = harold.StateSpace(A, B, C, D, dt=sample_time)
                     return StateSpaceModel(
-                        A=ss_model.A, B=ss_model.B, C=ss_model.C, D=ss_model.D,
+                        A=ss_model.A,
+                        B=ss_model.B,
+                        C=ss_model.C,
+                        D=ss_model.D,
                         K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
                         Q=np.eye(ss_model.A.shape[0]) * 0.01,
                         R=np.eye(ss_model.C.shape[0]) * 0.01,
                         S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                        ts=sample_time, Vn=0.01
+                        ts=sample_time,
+                        Vn=0.01,
                     )
                 except Exception:
                     pass

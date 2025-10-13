@@ -209,7 +209,9 @@ class ARMAAlgorithm(IdentificationAlgorithm):
                             Phi_i[:, col] = 0
                     col += 1
 
-            theta_i = np.concatenate([AR_coeffs[i, :], MA_coeffs[i, :] if nc > 0 else []])
+            theta_i = np.concatenate(
+                [AR_coeffs[i, :], MA_coeffs[i, :] if nc > 0 else []]
+            )
             Yid[i, max_lag:] = np.dot(Phi_i, theta_i).flatten()
 
         # Create G_tf and H_tf transfer functions
@@ -271,11 +273,11 @@ class ARMAAlgorithm(IdentificationAlgorithm):
 
             NUM_H = np.zeros(max_order + 1)
             NUM_H[0] = 1.0
-            NUM_H[1:nc + 1] = MA_coeffs[0, :] if ny == 1 else MA_coeffs[0, :]
+            NUM_H[1 : nc + 1] = MA_coeffs[0, :] if ny == 1 else MA_coeffs[0, :]
 
             DEN_H = np.zeros(max_order + 1)
             DEN_H[0] = 1.0
-            DEN_H[1:na + 1] = AR_coeffs[0, :] if ny == 1 else AR_coeffs[0, :]
+            DEN_H[1 : na + 1] = AR_coeffs[0, :] if ny == 1 else AR_coeffs[0, :]
 
             H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
 
