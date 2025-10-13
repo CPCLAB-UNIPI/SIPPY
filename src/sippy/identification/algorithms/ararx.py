@@ -3,11 +3,15 @@ ARARX (Auto-Regressive Auto-Regressive X) identification algorithm.
 """
 
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
+
+if TYPE_CHECKING:
+    from ..iddata import IDData
 
 try:
     import harold
@@ -89,32 +93,88 @@ class ARARXAlgorithm(IdentificationAlgorithm):
 
         return True
 
-    def identify(self, data, config):
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Identify ARARX model from input-output data using auxiliary variable method.
 
         Parameters:
         -----------
-        data : IDData
-            Input-output data
-        config : SystemIdentificationConfig
-            Configuration parameters including na, nb, nd, theta
+        y : np.ndarray, optional
+            Output data (outputs x time_steps)
+        u : np.ndarray, optional
+            Input data (inputs x time_steps)
+        iddata : IDData, optional
+            Input-output data container
+        **kwargs : dict
+            Configuration parameters including na, nb, nd, theta, tsample
 
         Returns:
         --------
         model : StateSpaceModel
             Identified state-space model with G_tf, H_tf, and Yid attributes
         """
-        # Extract data from IDData object
-        u = data.get_input_array()
-        y = data.get_output_array()
-        ts = data.ts if hasattr(data, "ts") else 1.0
+        # Backward compatibility: detect old API (data, config) vs new API (y, u, **kwargs)
+        from ..base import SystemIdentificationConfig
+        from ..iddata import IDData as IDDataClass
+
+        if y is not None and isinstance(y, IDDataClass) and u is not None and isinstance(u, SystemIdentificationConfig):
+            # Old API: identify(data, config)
+            iddata = y
+            config = u
+            y = None
+            u = None
+            # Extract parameters from config
+            # ARARX uses theta, but also support nk for backward compatibility
+            theta_value = getattr(config, 'theta', None)
+            if theta_value is None:
+                theta_value = getattr(config, 'nk', 1)
+            kwargs = {
+                'na': getattr(config, 'na', 1),
+                'nb': getattr(config, 'nb', 1),
+                'nd': getattr(config, 'nd', 1),
+                'theta': theta_value,
+            }
+
+        # Validate input arguments
+        if iddata is not None and (y is not None or u is not None):
+            raise ValueError("Provide either iddata or (y, u), but not both")
+        if iddata is None and (y is None or u is None):
+            raise ValueError("Must provide either iddata or both y and u")
+
+        # Extract data if IDData is provided
+        if iddata is not None:
+            u = iddata.get_input_array()
+            y = iddata.get_output_array()
+            sample_time = iddata.sample_time
+        else:
+            # Ensure arrays are 2D
+            y = np.atleast_2d(y)
+            u = np.atleast_2d(u)
+            sample_time = kwargs.get("tsample", 1.0)
 
         # Extract configuration parameters (ARARX uses na, nb, nd, theta)
-        na = getattr(config, "na", 1)  # Output AR order
-        nb = getattr(config, "nb", 1)  # Input numerator order
-        nd = getattr(config, "nd", 1)  # Denominator order
-        theta = getattr(config, "theta", 1)  # Input delay (replaces nk)
+        # Handle None values explicitly since kwargs may have key=None
+        na = kwargs.get("na")
+        if na is None:
+            na = 1  # Output AR order default
+        nb = kwargs.get("nb")
+        if nb is None:
+            nb = 1  # Input numerator order default
+        nd = kwargs.get("nd")
+        if nd is None:
+            nd = 1  # Denominator order default
+        # ARARX traditionally uses theta, but also support nk for backward compatibility
+        theta = kwargs.get("theta")
+        if theta is None:
+            theta = kwargs.get("nk")  # Try nk parameter
+        if theta is None:
+            theta = 1  # Default to 1 if neither theta nor nk provided
 
         # Validate parameters
         self.validate_parameters(na=na, nb=nb, nd=nd, theta=theta)
@@ -182,17 +242,17 @@ class ARARXAlgorithm(IdentificationAlgorithm):
 
         # Step 4: Create transfer functions using harold
         G_tf, H_tf = self._create_transfer_functions_ararx(
-            A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, ts
+            A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, sample_time
         )
 
         # Step 5: Create state-space model
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_ararx(
-                A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, ts
+                A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, sample_time
             )
         else:
             model = self._create_mock_model(
-                A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, ts
+                A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, sample_time
             )
 
         # Attach attributes

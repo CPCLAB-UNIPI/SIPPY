@@ -139,15 +139,12 @@ class TestPARSIMVariantDifferentiation:
         )
 
 
-@pytest.mark.skip(
-    reason="ARMAX variants currently have signature incompatibility - will be fixed in next PR"
-)
 class TestARMAXVariantDifferentiation:
     """Test that ARMAX variants produce different results.
 
-    NOTE: These tests are currently skipped because ARMAX algorithms have
-    signature incompatibility with SystemIdentification interface.
-    Once signatures are fixed (following ARX pattern), these tests should pass.
+    NOTE: ARMAX signatures have been fixed (TASK 21 completed 2025-10-12).
+    These tests verify that the three ARMAX modes (ILLS, RLLS, OPT) produce
+    different results as expected based on their different estimation approaches.
     """
 
     def test_armax_ills_vs_rlls(self, test_data_siso):
