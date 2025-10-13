@@ -2,6 +2,7 @@
 PARSIM-P algorithm implementation.
 """
 
+import warnings
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
@@ -19,6 +20,24 @@ class PARSIMPAlgorithm(IdentificationAlgorithm):
 
     This algorithm identifies state-space models from input-output data by
     estimating the predictor form of the system.
+
+    WARNING: REIMPLEMENTATION IN PROGRESS
+    ======================================
+
+    This algorithm has been reimplemented following TDD but needs final integration:
+    - PARSIM-P: 70% tests passing (7/10 unit tests pass)
+    - Expanding window implementation ready, needs final integration
+    - Currently uses wrapper to parsim_s (marked as test failure)
+    - Helper functions implemented: expanding window logic in parsim_p
+
+    See test results in test_parsim_p_reimplementation.py for details.
+    For production use, verify behavior on your specific data.
+
+    Reference:
+    ----------
+    - Investigation: PARSIM_MIGRATION_ISSUES.md
+    - Test Suite: test_parsim_p_reimplementation.py
+    - Implementation: parsim_core.py (helper functions), parsim_p.py
     """
 
     def get_algorithm_name(self) -> str:
@@ -53,6 +72,17 @@ class PARSIMPAlgorithm(IdentificationAlgorithm):
         Note:
             Either (y, u) or iddata should be provided, but not both.
         """
+        # Issue runtime warning about wrapper
+        warnings.warn(
+            "PARSIM-P has been reimplemented but needs final integration "
+            "(70% tests passing). Currently uses wrapper to PARSIM-S. "
+            "Expanding window implementation ready. "
+            "Test on your data before production use. "
+            "See test_parsim_p_reimplementation.py for details.",
+            category=UserWarning,
+            stacklevel=2,
+        )
+
         self.validate_parameters(**kwargs)
 
         # Extract parameters with defaults

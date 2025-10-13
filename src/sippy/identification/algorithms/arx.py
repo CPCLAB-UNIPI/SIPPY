@@ -26,7 +26,7 @@ try:
     import harold
 
     HAROLD_IMPORTED = True
-        # Check for either modern (State) or legacy (StateSpace) API
+    # Check for either modern (State) or legacy (StateSpace) API
     if hasattr(harold, "State") or hasattr(harold, "StateSpace"):
         HAROLD_AVAILABLE = True
     else:
@@ -139,9 +139,7 @@ class ARXAlgorithm(IdentificationAlgorithm):
 
         if ny == 1:
             # SISO case leverages shared compiled builder
-            Phi, y_matrix = self._create_regression_matrix(
-                u, y, na, nb, nk, ny, nu, N
-            )
+            Phi, y_matrix = self._create_regression_matrix(u, y, na, nb, nk, ny, nu, N)
             theta, residuals, rank, s = lstsq(Phi, y_matrix.T.flatten(), rcond=None)
             A_coeffs = theta[:na].reshape(1, na)
             B_coeffs = theta[na:].reshape(1, nb)
@@ -193,9 +191,7 @@ class ARXAlgorithm(IdentificationAlgorithm):
 
                     y_target = y_matrix[i, :]
 
-                theta_i, residuals_i, rank_i, s_i = lstsq(
-                    Phi_i, y_target, rcond=None
-                )
+                theta_i, residuals_i, rank_i, s_i = lstsq(Phi_i, y_target, rcond=None)
 
                 for lag in range(na):
                     idx = lag * ny + i
@@ -217,7 +213,7 @@ class ARXAlgorithm(IdentificationAlgorithm):
                     for lag in range(na):
                         idx = lag * ny + i
                         theta_i[idx] = A_coeffs[i, lag]
-                    theta_i[na * ny:] = B_coeffs[i, :]
+                    theta_i[na * ny :] = B_coeffs[i, :]
                     Yid[i, max_lag:] = np.dot(Phi_i, theta_i)
                 else:
                     # Use the same Phi construction as before
@@ -226,20 +222,22 @@ class ARXAlgorithm(IdentificationAlgorithm):
                     col = 0
                     for lag in range(na):
                         for j in range(ny):
-                            Phi_i[:, col] = y[j, max_lag - 1 - lag: max_lag - 1 - lag + N_eff]
+                            Phi_i[:, col] = y[
+                                j, max_lag - 1 - lag : max_lag - 1 - lag + N_eff
+                            ]
                             col += 1
                     for lag in range(nb):
                         for j in range(nu):
                             delay_idx = max_lag - 1 - (lag + nk - 1)
                             if delay_idx >= 0 and delay_idx + N_eff <= N:
-                                Phi_i[:, col] = u[j, delay_idx: delay_idx + N_eff]
+                                Phi_i[:, col] = u[j, delay_idx : delay_idx + N_eff]
                             col += 1
 
                     theta_i = np.zeros(n_params_i)
                     for lag in range(na):
                         idx = lag * ny + i
                         theta_i[idx] = A_coeffs[i, lag]
-                    theta_i[na * ny:] = B_coeffs[i, :]
+                    theta_i[na * ny :] = B_coeffs[i, :]
                     Yid[i, max_lag:] = np.dot(Phi_i, theta_i)
 
         # Create G_tf and H_tf transfer functions
@@ -320,7 +318,9 @@ class ARXAlgorithm(IdentificationAlgorithm):
 
             return Phi, y_matrix
 
-    def _create_transfer_functions_arx(self, A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts):
+    def _create_transfer_functions_arx(
+        self, A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts
+    ):
         """
         Create G_tf and H_tf transfer functions for ARX.
 
@@ -350,11 +350,11 @@ class ARXAlgorithm(IdentificationAlgorithm):
             max_order = max(na, nb + nk)
 
             NUM_G = np.zeros(max_order)
-            NUM_G[nk:nk + nb] = B_coeffs[0, :] if ny == 1 else B_coeffs[0, :nb]
+            NUM_G[nk : nk + nb] = B_coeffs[0, :] if ny == 1 else B_coeffs[0, :nb]
 
             DEN_G = np.zeros(max_order + 1)
             DEN_G[0] = 1.0
-            DEN_G[1:na + 1] = A_coeffs[0, :]
+            DEN_G[1 : na + 1] = A_coeffs[0, :]
 
             G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
@@ -398,17 +398,23 @@ class ARXAlgorithm(IdentificationAlgorithm):
             # Create transfer function
             try:
                 # Use modern Harold API if available, fallback to legacy
-                if hasattr(harold, 'Transfer'):
+                if hasattr(harold, "Transfer"):
                     tf = harold.Transfer(num_coeffs, den_coeffs, dt=Ts)
                 else:
                     tf = harold.TransferFunction(num_coeffs, den_coeffs, dt=Ts)
 
-                # Convert to state-space
-                ss_model = harold.undiscretize(tf, method="backward euler")
+                # Fixed 2025-10-12: Removed incorrect harold.undiscretize() call
+                # that was identified in migration accuracy investigation
+                # Convert discrete-time transfer function to state-space
+                ss_model = harold.transfer_to_state(tf)
             except Exception as e:
-                warnings.warn(f"Failed to create ARX transfer function with harold: {e}")
+                warnings.warn(
+                    f"Failed to create ARX transfer function with harold: {e}"
+                )
                 # Fall back to mock model
-                return self._create_mock_model(A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts)
+                return self._create_mock_model(
+                    A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts
+                )
             # Extract actual matrices from ss_model
             A = ss_model.A
             B = ss_model.B
@@ -429,7 +435,7 @@ class ARXAlgorithm(IdentificationAlgorithm):
                 if len(B_flat) >= n_states:
                     B[:, 0] = B_flat[:n_states]
                 else:
-                    B[:len(B_flat), 0] = B_flat
+                    B[: len(B_flat), 0] = B_flat
 
                 C = np.zeros((ny, n_states))
                 C[0, -1] = 1.0
@@ -467,7 +473,7 @@ class ARXAlgorithm(IdentificationAlgorithm):
 
             # Create harold StateSpace object
             # Use modern Harold API if available, fallback to legacy
-            if hasattr(harold, 'State'):
+            if hasattr(harold, "State"):
                 ss_model = harold.State(A, B, C, D, dt=Ts)
             else:
                 ss_model = harold.StateSpace(A, B, C, D, dt=Ts)

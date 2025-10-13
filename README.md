@@ -16,8 +16,15 @@ SIPPY provides a modern, object-oriented interface with:
 - **Enhanced maintainability** and type safety
 
 The linear model to be identified can be chosen between:
-* **State-space structures**: N4SID, MOESP, CVA
+* **State-space structures**: N4SID, MOESP, CVA, PARSIM-K, PARSIM-S, PARSIM-P
+* **Input-output methods**: ARX, ARMAX, ARARX, ARARMAX, FIR, OE, BJ
 * Available for both SISO and MIMO cases
+
+**Algorithm Status Notes:**
+- N4SID, MOESP, CVA: Fully validated and production-ready
+- ARX, FIR, ARMAX: Fully validated and production-ready
+- PARSIM family: Reimplemented with TDD, in progress (see PARSIM status in CLAUDE.md for details)
+- OE, BJ, ARARMAX: Simplified implementations for performance (see CLAUDE.md for details)
 
 ## Quick Start
 

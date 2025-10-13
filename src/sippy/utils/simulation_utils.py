@@ -329,6 +329,62 @@ def simulate_ss_system(A, B, C, D, u, x0=None):
         return x, y
 
 
+def ss_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0=None):
+    """
+    Simulate state-space system in predictor form.
+
+    In predictor form, the state equation is:
+        x[i+1] = A_K*x[i] + B_K*u[i] + K*y[i]
+        y_hat[i] = C*x[i] + D*u[i]
+
+    This is the form used in PARSIM-K algorithm where the Kalman gain K
+    provides output feedback to the state update.
+
+    Reference: master/sippy_unipi/functionsetSIM.py lines 122-134
+
+    Parameters:
+    -----------
+    A_K : ndarray
+        State transition matrix in predictor form (n x n)
+    B_K : ndarray
+        Input matrix in predictor form (n x m)
+    C : ndarray
+        Output matrix (l x n)
+    D : ndarray
+        Feedthrough matrix (l x m)
+    K : ndarray
+        Kalman gain matrix (n x l)
+    y : ndarray
+        Measured output data (l x L)
+    u : ndarray
+        Input signals (m x L)
+    x0 : ndarray, optional
+        Initial state (n x 1)
+
+    Returns:
+    --------
+    x : ndarray
+        State trajectory (n x L+1)
+    y_hat : ndarray
+        Predicted output signals (l x L)
+    """
+    m, L = u.shape
+    l, n = C.shape
+    y_hat = np.zeros((l, L))
+    x = np.zeros((n, L + 1))
+
+    if x0 is not None:
+        x[:, 0] = x0[:, 0]
+
+    for i in range(0, L):
+        # Predictor form state update: x[i+1] = A_K*x[i] + B_K*u[i] + K*y[i]
+        x[:, i + 1] = np.dot(A_K, x[:, i]) + np.dot(B_K, u[:, i]) + np.dot(K, y[:, i])
+        # Output equation: y_hat[i] = C*x[i] + D*u[i]
+        y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
+
+    return x, y_hat
+
+
 def ssmatrix(data, axis=1):
     """
     Convert argument to a (possibly empty) state space matrix.
@@ -612,3 +668,7 @@ def simulate_fir(fir_model, data):
         predictions[dep] = predictions[dep] - predictions[dep].mean() + data[dep].mean()
 
     return predictions
+
+
+# Uppercase alias for backward compatibility with master branch naming
+SS_lsim_predictor_form = ss_lsim_predictor_form

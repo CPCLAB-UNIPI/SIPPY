@@ -37,6 +37,25 @@ class BJAlgorithm(IdentificationAlgorithm):
     """
     Box-Jenkins (BJ) identification algorithm.
 
+    ⚠️ SIMPLIFIED IMPLEMENTATION
+
+    This implementation uses simplified single least squares vs reference's
+    dual-path optimization with auxiliary variables.
+
+    Reference (master):
+      - Separate optimization of input (B/F) and noise (C/D) paths
+      - Auxiliary variables W and V
+      - Iterative refinement with IPOPT
+
+    Harold branch:
+      - Combined single least squares solve
+      - Approximated noise terms
+      - Faster but may differ from reference results
+
+    For details see investigation report from Subagent 4.
+
+    Model Structure:
+    ----------------
     The BJ model structure is:
     B(q) y(k) = C(q) u(k-nk) + E(q) F(q) e(k)
 
@@ -243,16 +262,28 @@ class BJAlgorithm(IdentificationAlgorithm):
             # Reconstruct predictions using the regression matrix
             Phi = Phi_list[i]
             theta_i = np.zeros(nb * nu + nc + max(nd, nf))
-            theta_i[:nb * nu] = input_coeffs[i, :]
-            theta_i[nb * nu:nb * nu + nc] = noise_ar_coeffs[i, :]
+            theta_i[: nb * nu] = input_coeffs[i, :]
+            theta_i[nb * nu : nb * nu + nc] = noise_ar_coeffs[i, :]
             if len(noise_ma_coeffs[i, :]) > 0:
-                theta_i[nb * nu + nc:nb * nu + nc + len(noise_ma_coeffs[i, :])] = noise_ma_coeffs[i, :]
+                theta_i[nb * nu + nc : nb * nu + nc + len(noise_ma_coeffs[i, :])] = (
+                    noise_ma_coeffs[i, :]
+                )
 
-            Yid[i, max_lag:] = np.dot(Phi, theta_i[:Phi.shape[1]]).flatten()
+            Yid[i, max_lag:] = np.dot(Phi, theta_i[: Phi.shape[1]]).flatten()
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_bj(
-            input_coeffs, noise_ar_coeffs, noise_ma_coeffs, nb, nc, nd, nf, nk, ny, nu, data.sample_time
+            input_coeffs,
+            noise_ar_coeffs,
+            noise_ma_coeffs,
+            nb,
+            nc,
+            nd,
+            nf,
+            nk,
+            ny,
+            nu,
+            data.sample_time,
         )
 
         # Create state-space representation
@@ -291,7 +322,20 @@ class BJAlgorithm(IdentificationAlgorithm):
 
         return model
 
-    def _create_transfer_functions_bj(self, input_coeffs, noise_ar_coeffs, noise_ma_coeffs, nb, nc, nd, nf, nk, ny, nu, Ts):
+    def _create_transfer_functions_bj(
+        self,
+        input_coeffs,
+        noise_ar_coeffs,
+        noise_ma_coeffs,
+        nb,
+        nc,
+        nd,
+        nf,
+        nk,
+        ny,
+        nu,
+        Ts,
+    ):
         """
         Create G_tf and H_tf transfer functions for BJ.
 
@@ -322,7 +366,9 @@ class BJAlgorithm(IdentificationAlgorithm):
             # G_tf = C(q) - Input transfer function (B(q)=1 for BJ, so just C polynomial)
             max_order_g = nb + nk
             NUM_G = np.zeros(max_order_g)
-            NUM_G[nk:nk + nb] = input_coeffs[0, :nb] if ny == 1 else input_coeffs[0, :nb]
+            NUM_G[nk : nk + nb] = (
+                input_coeffs[0, :nb] if ny == 1 else input_coeffs[0, :nb]
+            )
 
             DEN_G = np.array([1.0])  # B(q) = 1 for BJ
 
@@ -333,13 +379,15 @@ class BJAlgorithm(IdentificationAlgorithm):
 
             NUM_H = np.zeros(max_order_h + 1)
             NUM_H[0] = 1.0
-            NUM_H[1:nc + 1] = noise_ar_coeffs[0, :] if ny == 1 else noise_ar_coeffs[0, :]
+            NUM_H[1 : nc + 1] = (
+                noise_ar_coeffs[0, :] if ny == 1 else noise_ar_coeffs[0, :]
+            )
 
             DEN_H = np.zeros(max_order_h + 1)
             DEN_H[0] = 1.0
             # Use nf for denominator (F polynomial)
             if nf > 0 and noise_ma_coeffs.shape[1] >= nf:
-                DEN_H[1:nf + 1] = noise_ma_coeffs[0, :nf]
+                DEN_H[1 : nf + 1] = noise_ma_coeffs[0, :nf]
 
             H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
 

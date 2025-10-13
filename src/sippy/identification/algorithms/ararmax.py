@@ -44,6 +44,25 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
     """
     ARARMAX (Auto-Regressive ARMAX) identification algorithm.
 
+    ⚠️ SIMPLIFIED IMPLEMENTATION
+
+    This implementation uses approximated noise terms vs reference's true
+    iterative estimation.
+
+    Reference (master):
+      - Simultaneous optimization of all parameters
+      - True prediction error refinement
+      - IPOPT nonlinear optimization
+
+    Harold branch:
+      - Single-pass least squares
+      - Approximated noise with heuristics
+      - Faster but may produce suboptimal parameters
+
+    For details see investigation report from Subagent 4.
+
+    Model Structure:
+    ----------------
     The ARARMAX model structure is:
     A(q) y(k) = B(q)/F(q) u(k-nk) + C(q)/D(q) e(k)
 
@@ -104,8 +123,11 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             ValueError: If required parameters are missing or invalid
         """
         # Extract parameters from master branch style ararmax_orders if needed
-        if (hasattr(config, 'ararmax_orders') and config.ararmax_orders is not None and
-            len(config.ararmax_orders) >= 5):
+        if (
+            hasattr(config, "ararmax_orders")
+            and config.ararmax_orders is not None
+            and len(config.ararmax_orders) >= 5
+        ):
             # Master branch format: [na, nb, nc, nd, nf] where nk is auto-calculated
             orders = config.ararmax_orders
             if not hasattr(config, "na") or config.na is None:
@@ -180,7 +202,9 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
                 # Validate all values
                 for x in flat_param:
                     if not isinstance(x, (int, float)) or x < 0:
-                        raise ValueError(f"All {param_name} values must be non-negative numbers")
+                        raise ValueError(
+                            f"All {param_name} values must be non-negative numbers"
+                        )
                 return max(flat_param) if flat_param else 0
             else:
                 raise ValueError(f"{param_name} must be an integer or list")
@@ -616,7 +640,7 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
                         y[k][0] if n_outputs > 1 else y[k]
                     ) * 0.1  # Initial approximation
                 if row_idx < phi.shape[1]:
-                    resid_val = resid.item() if hasattr(resid, 'item') else float(resid)
+                    resid_val = resid.item() if hasattr(resid, "item") else float(resid)
                     phi[k - max_order, row_idx] = resid_val
                     row_idx += 1
                 else:
@@ -775,7 +799,7 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             NUM_G = np.zeros(max_order_g + 1)
             # Extract B coefficients from theta
             if len(theta) >= na_val + nb_val:
-                NUM_G[nk_val:nk_val + nb_val] = theta[na_val:na_val + nb_val]
+                NUM_G[nk_val : nk_val + nb_val] = theta[na_val : na_val + nb_val]
 
             # F(q) denominator - simplified as unity if nf not explicitly stored
             DEN_G = np.zeros(max_order_g + 1)
@@ -783,8 +807,14 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             # In ARARMAX, F coefficients would follow after na+nb
             # For simplicity, use unity denominator if F not available
             if nf_val > 0 and len(theta) >= na_val + nb_val + nc_val + nd_val + nf_val:
-                F_coeffs = theta[na_val + nb_val + nc_val + nd_val:na_val + nb_val + nc_val + nd_val + nf_val]
-                DEN_G[1:nf_val + 1] = F_coeffs
+                F_coeffs = theta[
+                    na_val + nb_val + nc_val + nd_val : na_val
+                    + nb_val
+                    + nc_val
+                    + nd_val
+                    + nf_val
+                ]
+                DEN_G[1 : nf_val + 1] = F_coeffs
 
             # Create G transfer function using harold
             G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
@@ -796,13 +826,17 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
             NUM_H[0] = 1.0
             # Extract C coefficients (noise AR)
             if len(theta) >= na_val + nb_val + nc_val:
-                NUM_H[1:nc_val + 1] = theta[na_val + nb_val:na_val + nb_val + nc_val]
+                NUM_H[1 : nc_val + 1] = theta[
+                    na_val + nb_val : na_val + nb_val + nc_val
+                ]
 
             DEN_H = np.zeros(max_order_h + 1)
             DEN_H[0] = 1.0
             # Extract D coefficients (noise MA)
             if len(theta) >= na_val + nb_val + nc_val + nd_val:
-                DEN_H[1:nd_val + 1] = theta[na_val + nb_val + nc_val:na_val + nb_val + nc_val + nd_val]
+                DEN_H[1 : nd_val + 1] = theta[
+                    na_val + nb_val + nc_val : na_val + nb_val + nc_val + nd_val
+                ]
 
             # Create H transfer function using harold
             H_tf = harold.Transfer(NUM_H, DEN_H, dt=Ts)
@@ -852,7 +886,11 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         # Extract coefficients from theta
         # theta structure: [AR (na); Input (nb); Noise_AR (nc); Noise_MA (nd)]
         ar_coeffs = theta[:na_val] if len(theta) >= na_val else np.zeros(na_val)
-        input_coeffs = theta[na_val:na_val + nb_val] if len(theta) >= na_val + nb_val else np.zeros(nb_val)
+        input_coeffs = (
+            theta[na_val : na_val + nb_val]
+            if len(theta) >= na_val + nb_val
+            else np.zeros(nb_val)
+        )
 
         # Compute predictions for each time step
         for k in range(max_order, n_samples):

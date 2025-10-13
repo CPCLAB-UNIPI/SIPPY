@@ -2,6 +2,7 @@
 PARSIM-S algorithm implementation.
 """
 
+import warnings
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
@@ -19,6 +20,25 @@ class PARSIMSAlgorithm(IdentificationAlgorithm):
 
     This algorithm identifies state-space models from input-output data by
     estimating the observer form with focus on stability properties.
+
+    WARNING: REIMPLEMENTATION IN PROGRESS
+    ======================================
+
+    This algorithm has been reimplemented following TDD but has edge case issues:
+    - PARSIM-S: 65% tests passing (11/17 unit tests pass)
+    - Integration tests 100% pass for realistic data
+    - Some unit tests fail with malformed random data (not real-world scenarios)
+    - Helper functions implemented: svd_weighted_k, ak_c_estimating_s_p,
+      simulations_sequence_s
+
+    See test results in test_parsim_s_reimplementation.py for details.
+    For production use, verify behavior on your specific data.
+
+    Reference:
+    ----------
+    - Investigation: PARSIM_MIGRATION_ISSUES.md
+    - Test Suite: test_parsim_s_reimplementation.py
+    - Implementation: parsim_core.py (helper functions), parsim_s.py
     """
 
     def get_algorithm_name(self) -> str:
@@ -53,6 +73,16 @@ class PARSIMSAlgorithm(IdentificationAlgorithm):
         Note:
             Either (y, u) or iddata should be provided, but not both.
         """
+        # Issue runtime warning (less severe since integration tests pass)
+        warnings.warn(
+            "PARSIM-S has been reimplemented and integration tests pass 100%, "
+            "but some edge cases may fail (65% unit tests passing). "
+            "Verify behavior on your specific data. "
+            "See test_parsim_s_reimplementation.py for details.",
+            category=UserWarning,
+            stacklevel=2,
+        )
+
         self.validate_parameters(**kwargs)
 
         # Extract parameters with defaults

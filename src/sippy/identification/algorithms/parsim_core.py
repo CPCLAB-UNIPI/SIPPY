@@ -3,6 +3,7 @@ PARSIM algorithms core implementation.
 """
 
 import numpy as np
+import scipy as sc
 
 from ...utils.signal_utils import rescale
 from ...utils.simulation_utils import (
@@ -32,8 +33,6 @@ except ImportError:
     Z_dot_PIort_compiled = None
     matrix_operations_a_compiled = None
     NUMBA_AVAILABLE = False
-
-from .subspace_core import SubspaceCoreAlgorithm
 
 
 class ParsimCoreAlgorithm:
@@ -167,10 +166,9 @@ class ParsimCoreAlgorithm:
             G_K = impile(G_K, M[:, (m + l_) * f + m :])
             Gamma_L = impile(Gamma_L, M[:, 0 : (m + l_) * f])
 
-        # SVD for order estimation
-        U_n, S_n, V_n, W1, O_i = SubspaceCoreAlgorithm.svd_weighted(
-            y, u, f, l_, "N4SID"
-        )
+        # CRITICAL FIX: Use PARSIM-K specific SVD with Gamma_L (not N4SID's svd_weighted)
+        # Reference: master/sippy_unipi/Parsim_methods.py line 233
+        U_n, S_n, V_n = ParsimCoreAlgorithm.svd_weighted_k(Uf, Zp, Gamma_L)
         U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold, max_order)
 
         n = S_n.size
@@ -188,80 +186,65 @@ class ParsimCoreAlgorithm:
 
         C = Ob_K[0:l_, :]
 
-        # Simple simulation for parameter estimation
-        try:
-            # Generate simulation data
-            if D_required:
-                n_simulations = n * m + l_ * m + n * l_ + n
-                vect = np.zeros((n_simulations, 1))
-                for i in range(n_simulations):
-                    vect[i, 0] = 1.0
-                B_K = vect[0 : n * m, :].reshape((n, m))
-                D = vect[n * m : n * m + l_ * m, :].reshape((l_, m))
-                K = vect[n * m + l_ * m : n * m + l_ * m + n * l_, :].reshape((n, l_))
-                x0 = vect[n * m + l_ * m + n * l_ : :, :].reshape((n, 1))
-            else:
-                n_simulations = n * m + n * l_ + n
-                vect = np.zeros((n_simulations, 1))
-                for i in range(n_simulations):
-                    vect[i, 0] = 1.0
-                B_K = vect[0 : n * m, :].reshape((n, m))
-                D = np.zeros((l_, m))
-                K = vect[n * m : n * m + n * l_, :].reshape((n, l_))
-                x0 = vect[n * m + n * l_ : :, :].reshape((n, 1))
+        # CRITICAL FIX: Use simulations_sequence_k for parameter estimation
+        # This uses predictor form simulation
+        # Reference: master/sippy_unipi/Parsim_methods.py line 240
+        K_placeholder = np.zeros((n, l_))
+        D_placeholder = np.zeros((l_, m))
+        y_sim = ParsimCoreAlgorithm.simulations_sequence_k(
+            A_K, C, L, y, u, l_, m, n, K_placeholder, D_placeholder, D_required
+        )
 
-            # Simulate system
-            X_states, Y_estimate = simulate_ss_system(A_K, B_K, C, D, u, x0=x0)
-            # Simple correction using K
-            Y_corrected = Y_estimate + np.dot(K, y - Y_estimate)
+        # Solve for parameters using least squares
+        vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l_, 1)))
+        Y_estimate = np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
 
-            # Estimate parameters
-            try:
-                vect = np.dot(np.linalg.pinv(Y_corrected), y.reshape((L * l_, 1)))
-                Y_estimate = np.dot(Y_corrected, vect)
-                Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
-
-                # Re-extract matrices from vect
-                B_K = vect[0 : n * m, :].reshape((n, m))
-                if D_required:
-                    D = vect[n * m : n * m + l_ * m, :].reshape((l_, m))
-                    K = vect[n * m + l_ * m : n * m + l_ * m + n * l_, :].reshape(
-                        (n, l_)
-                    )
-                    x0 = vect[n * m + l_ * m + n * l_ : :, :].reshape((n, 1))
-                else:
-                    K = vect[n * m : n * m + n * l_, :].reshape((n, l_))
-                    x0 = vect[n * m + n * l_ : :, :].reshape((n, 1))
-            except Exception:
-                Vn = 1.0
-
-        except Exception:
-            # Fallback values
-            Vn = 1.0
+        # Extract parameters from vect
+        B_K = vect[0 : n * m, :].reshape((n, m))
+        if D_required:
+            D = vect[n * m : n * m + l_ * m, :].reshape((l_, m))
+            K = vect[n * m + l_ * m : n * m + l_ * m + n * l_, :].reshape((n, l_))
+            x0 = vect[n * m + l_ * m + n * l_ : :, :].reshape((n, 1))
+        else:
+            D = np.zeros((l_, m))
+            K = vect[n * m : n * m + n * l_, :].reshape((n, l_))
+            x0 = vect[n * m + n * l_ : :, :].reshape((n, 1))
 
         # Calculate A matrix
         A = A_K + np.dot(K, C)
 
-        # Optional B recalculation
+        # Optional B recalculation using process form
+        # Reference: master/sippy_unipi/Parsim_methods.py lines 256-263
         if B_recalc:
-            try:
-                # Simple B recalculation using least squares
-                X_states = []
-                for t in range(L - 1):
-                    x_next = np.dot(A_K, y[:, t].reshape((l_, 1))) + np.dot(
-                        B_K, u[:, t].reshape((m, 1))
-                    )
-                    X_states.append(x_next.flatten())
-                X_states = np.array(X_states).T
+            # Helper function to create simulation matrix for B recalc
+            def recalc_K(A, C, D, u):
+                y_sim = []
+                n_ord = A[:, 0].size
+                m_input, L_u = u.shape
+                l_out = C[:, 0].size
+                n_simulations = n_ord + n_ord * m_input
+                vect = np.zeros((n_simulations, 1))
+                for i in range(n_simulations):
+                    vect[i, 0] = 1.0
+                    B_i = vect[0 : n_ord * m_input, :].reshape((n_ord, m_input))
+                    x0_i = vect[n_ord * m_input : :, :].reshape((n_ord, 1))
+                    _, y_i = simulate_ss_system(A, B_i, C, D, u, x0=x0_i)
+                    y_sim.append(y_i.reshape((1, L_u * l_out)))
+                    vect[i, 0] = 0.0
+                y_matrix = 1.0 * y_sim[0]
+                for j in range(n_simulations - 1):
+                    y_matrix = impile(y_matrix, y_sim[j + 1])
+                y_matrix = y_matrix.T
+                return y_matrix
 
-                if X_states.shape[1] > 0:
-                    B_est = np.dot(y[:, 1:], np.linalg.pinv(X_states))
-                    B = B_est[0:n, :]
-                    B_K = B - np.dot(K, D)
-                else:
-                    B = B_K + np.dot(K, D)
-            except Exception:
-                B = B_K + np.dot(K, D)
+            y_sim = recalc_K(A, C, D, u)
+            vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l_, 1)))
+            Y_estimate = np.dot(y_sim, vect)
+            Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
+            B = vect[0 : n * m, :].reshape((n, m))
+            x0 = vect[n * m : :, :].reshape((n, 1))
+            B_K = B - np.dot(K, D)
         else:
             B = B_K + np.dot(K, D)
 
@@ -370,71 +353,37 @@ class ParsimCoreAlgorithm:
             Gamma_L = impile(Gamma_L, M[:, 0 : (m + l_) * f])
             H = impile(H, M[:, (m + l_) * f :])
 
-        # SVD for order estimation
-        U_n, S_n, V_n, W1, O_i = SubspaceCoreAlgorithm.svd_weighted(
-            y, u, f, l_, "N4SID"
-        )
+        # CRITICAL FIX: Use PARSIM-specific SVD weighting (not N4SID's SVD)
+        # Reference: master/sippy_unipi/Parsim_methods.py line 384 (now 459)
+        U_n, S_n, V_n = ParsimCoreAlgorithm.svd_weighted_k(Uf, Zp, Gamma_L)
         U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold, max_order)
 
-        n = S_n.size
-        S_n_diag = np.diag(S_n)
-        Ob = np.dot(U_n, np.sqrt(S_n_diag))
-        C = Ob[0:l_, :]
+        # CRITICAL FIX: Use QR-based Kalman gain estimation
+        # Reference: master/sippy_unipi/Parsim_methods.py lines 461-462 (now 386-387)
+        A, C, A_K, K, n = ParsimCoreAlgorithm.ak_c_estimating_s_p(
+            U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf
+        )
 
-        # Estimate A_K from successive blocks of observability matrix
-        if l_ * (f - 1) >= n and n > 0:
-            try:
-                A_K = np.dot(np.linalg.pinv(Ob[0 : l_ * (f - 1), :]), Ob[l_::, :])
-            except np.linalg.LinAlgError:
-                A_K = np.random.randn(n, n) * 0.1
+        # CRITICAL FIX: Use systematic predictor form simulation
+        # Reference: master/sippy_unipi/Parsim_methods.py lines 464-465 (now 389-390)
+        y_sim = ParsimCoreAlgorithm.simulations_sequence_s(
+            A_K, C, L, K, y, u, l_, m, n, D_required
+        )
+
+        # Solve for parameters using least squares
+        # Reference: master/sippy_unipi/Parsim_methods.py lines 467-476 (now 392-401)
+        vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l_, 1)))
+        Y_estimate = np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
+
+        # Extract parameters from vect
+        B_K = vect[0 : n * m, :].reshape((n, m))
+        if D_required:
+            D = vect[n * m : n * m + l_ * m, :].reshape((l_, m))
+            x0 = vect[n * m + l_ * m :, :].reshape((n, 1))
         else:
-            A_K = np.random.randn(n, n) * 0.1
-
-        # Estimate K from data matching
-        try:
-            # Simple K estimation based on innovation
-            H_est = np.dot(np.linalg.pinv(Zp), Yf[0:l_, :])
-            residuals = Yf - np.dot(H_est, Zp)
-            K = np.dot(residuals, np.linalg.pinv(Yf))
-            K = K[:, 0:l_] * 0.1  # Scale down
-        except Exception:
-            K = np.random.randn(n, l_) * 0.01
-
-        # Calculate A from A_K and K
-        A = A_K + np.dot(K, C)
-
-        # Simple parameter estimation
-        try:
-            # Generate simple simulation matrices
-            if D_required:
-                n_simulations = n * m + l_ * m + n
-                vect = np.zeros((n_simulations, 1))
-                for i in range(n_simulations):
-                    vect[i, 0] = 1.0
-                B_K = vect[0 : n * m, :].reshape((n, m))
-                D = vect[n * m : n * m + l_ * m, :].reshape((l_, m))
-                x0 = vect[n * m + l_ * m : :, :].reshape((n, 1))
-            else:
-                n_simulations = n * m + n
-                vect = np.zeros((n_simulations, 1))
-                for i in range(n_simulations):
-                    vect[i, 0] = 1.0
-                B_K = vect[0 : n * m, :].reshape((n, m))
-                D = np.zeros((l_, m))
-                x0 = vect[n * m : :, :].reshape((n, 1))
-
-            # Simple simulation and parameter estimation
-            X_states, Y_estimate = simulate_ss_system(A_K, B_K, C, D, u, x0=x0)
-            Y_corrected = Y_estimate + np.dot(K, y - Y_estimate)
-
-            vect = np.dot(np.linalg.pinv(Y_corrected), y.reshape((L * l_, 1)))
-            Y_estimate = np.dot(Y_corrected, vect)
-            Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
-
-            # Re-extract B_K
-            B_K = vect[0 : n * m, :].reshape((n, m))
-        except Exception:
-            Vn = 1.0
+            D = np.zeros((l_, m))
+            x0 = vect[n * m :, :].reshape((n, 1))
 
         # Calculate B matrix
         B = B_K + np.dot(K, D)
@@ -463,7 +412,12 @@ class ParsimCoreAlgorithm:
         D_required=False,
     ):
         """
-        PARSIM-P algorithm implementation (similar to PARSIM-S with slightly different estimation).
+        PARSIM-P algorithm implementation with expanding window approach.
+
+        Key difference from PARSIM-S: The Uf window expands with each iteration,
+        providing progressively more input information for better parameter estimation.
+
+        Reference: master/sippy_unipi/Parsim_methods.py lines 597-670
 
         Parameters:
         -----------
@@ -489,8 +443,373 @@ class ParsimCoreAlgorithm:
         A_K, C, B_K, D, K, A, B, x0, Vn : ndarrays
             System matrices and initial state
         """
-        # PARSIM-P is very similar to PARSIM-S, using the same implementation
-        # but with slight parameter variations that are implementation-specific
-        return ParsimCoreAlgorithm.parsim_s(
-            y, u, f, p, threshold, max_order, fixed_order, D_required
+        y = 1.0 * np.atleast_2d(y)
+        u = 1.0 * np.atleast_2d(u)
+        l_, L = y.shape
+        m = u[:, 0].size
+
+        if not check_types(threshold, max_order, fixed_order, f, p):
+            return (
+                np.array([[0.0]]),
+                np.array([[0.0]]),
+                np.array([[0.0]]),
+                np.array([[0.0]]),
+                np.array([[0.0]]),
+                np.array([[0.0]]),
+                np.array([[0.0]]),
+                np.array([[0.0]]),
+                np.inf,
+            )
+
+        threshold, max_order = check_inputs(threshold, max_order, fixed_order, f)
+
+        # Standardize inputs and outputs
+        Ustd = np.zeros(m)
+        Ystd = np.zeros(l_)
+        for j in range(m):
+            Ustd[j], u[j] = rescale(u[j])
+        for j in range(l_):
+            Ystd[j], y[j] = rescale(y[j])
+
+        # Create data matrices
+        Yf, Yp = ordinate_sequence(y, f, p)
+        Uf, Up = ordinate_sequence(u, f, p)
+        Zp = impile(Up, Yp)
+
+        # Initial projection with first block
+        # CRITICAL: This is where PARSIM-P differs from PARSIM-S
+        # Master lines 637-639
+        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:m, :]))
+        M = np.dot(Yf[0:l_, :], Matrix_pinv)
+        Gamma_L = M[:, 0 : (m + l_) * f]
+
+        # EXPANDING WINDOW: Key difference from PARSIM-S
+        # Master lines 640-643
+        # In each iteration, the Uf window grows: Uf[0:m*(i+1), :]
+        for i in range(1, f):
+            # Recompute Matrix_pinv with EXPANDING Uf window
+            # This is the critical line that makes PARSIM-P different!
+            Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0 : m * (i + 1), :]))
+            M = np.dot(Yf[l_ * i : l_ * (i + 1), :], Matrix_pinv)
+            Gamma_L = impile(Gamma_L, M[:, 0 : (m + l_) * f])
+
+        # SVD for order estimation - use PARSIM-K weighted SVD
+        # Master line 644
+        U_n, S_n, V_n = ParsimCoreAlgorithm.svd_weighted_k(Uf, Zp, Gamma_L)
+        U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold, max_order)
+
+        # Use same QR-based K estimation as PARSIM-S
+        # Master lines 646-647
+        A, C, A_K, K, n = ParsimCoreAlgorithm.ak_c_estimating_s_p(
+            U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf
         )
+
+        # Simulation using predictor form (master lines 649-651)
+        # Use simulations_sequence_S (K is fixed, estimate B_K, D, x0)
+        y_sim = ParsimCoreAlgorithm.simulations_sequence_s(
+            A_K, C, L, K, y, u, l_, m, n, D_required
+        )
+
+        # Parameter estimation (master lines 652-654)
+        vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l_, 1)))
+        Y_estimate = np.dot(y_sim, vect)
+        Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
+
+        # Extract parameters (master lines 655-661)
+        B_K = vect[0 : n * m, :].reshape((n, m))
+        if D_required:
+            D = vect[n * m : n * m + l_ * m, :].reshape((l_, m))
+            x0 = vect[n * m + l_ * m :, :].reshape((n, 1))
+        else:
+            D = np.zeros((l_, m))
+            x0 = vect[n * m :, :].reshape((n, 1))
+
+        # Rescale back to original units (master lines 662-668)
+        for j in range(m):
+            B_K[:, j] = B_K[:, j] / Ustd[j]
+            D[:, j] = D[:, j] / Ustd[j]
+        for j in range(l_):
+            K[:, j] = K[:, j] / Ystd[j]
+            C[j, :] = C[j, :] * Ystd[j]
+            D[j, :] = D[j, :] * Ystd[j]
+
+        # Calculate B matrix (master line 669)
+        B = B_K + np.dot(K, D)
+
+        return A_K, C, B_K, D, K, A, B, x0, Vn
+
+    @staticmethod
+    def svd_weighted_k(Uf, Zp, Gamma_L):
+        """
+        PARSIM-K specific weighted SVD.
+
+        This is different from N4SID's SVD weighting - it uses PARSIM-specific
+        weighting based on Z_dot_PIort(Zp, Uf) instead of the N4SID weights.
+
+        Reference: master/sippy_unipi/Parsim_methods.py lines 76-79
+
+        Parameters:
+        -----------
+        Uf : ndarray
+            Future input ordinate sequence
+        Zp : ndarray
+            Past data matrix (stacked Up and Yp)
+        Gamma_L : ndarray
+            Extended observability matrix from PARSIM-K iteration
+
+        Returns:
+        --------
+        U_n : ndarray
+            Left singular vectors
+        S_n : ndarray
+            Singular values
+        V_n : ndarray
+            Right singular vectors
+        """
+        from ...utils.simulation_utils import Z_dot_PIort
+
+        # PARSIM-K weighting: W2 = sqrtm((Zp - Zp*Uf^T*pinv(Uf^T)) * Zp^T)
+        W2 = sc.linalg.sqrtm(np.dot(Z_dot_PIort(Zp, Uf), Zp.T)).real
+
+        # Weighted SVD: svd(Gamma_L * W2)
+        U_n, S_n, V_n = np.linalg.svd(np.dot(Gamma_L, W2), full_matrices=False)
+
+        return U_n, S_n, V_n
+
+    @staticmethod
+    def simulations_sequence_k(A_K, C, L, y, u, l_, m, n, K, D, D_required=False):
+        """
+        Create simulation matrix for PARSIM-K parameter estimation.
+
+        This function creates a regression matrix by simulating the system
+        with different unit vectors for B_K, K, D, and x0 parameters.
+        Uses predictor form simulation: x[i+1] = A_K*x[i] + B_K*u[i] + K*y[i]
+
+        Reference: master/sippy_unipi/Parsim_methods.py lines 82-120
+
+        Parameters:
+        -----------
+        A_K : ndarray
+            State matrix in predictor form (n x n)
+        C : ndarray
+            Output matrix (l x n)
+        L : int
+            Number of time steps
+        y : ndarray
+            Output data (l x L)
+        u : ndarray
+            Input data (m x L)
+        l_ : int
+            Number of outputs
+        m : int
+            Number of inputs
+        n : int
+            Model order
+        K : ndarray
+            Kalman gain (n x l) - placeholder, overwritten in simulations
+        D : ndarray
+            Feedthrough matrix (l x m) - placeholder
+        D_required : bool
+            Whether to estimate D matrix
+
+        Returns:
+        --------
+        y_matrix : ndarray
+            Simulation matrix (n_simulations x L*l)
+        """
+        from ...utils.simulation_utils import impile, ss_lsim_predictor_form
+
+        y_sim = []
+
+        if D_required:
+            # Parameters to estimate: B_K (n*m), D (l*m), K (n*l), x0 (n)
+            n_simulations = n * m + l_ * m + n * l_ + n
+            vect = np.zeros((n_simulations, 1))
+
+            for i in range(n_simulations):
+                vect[i, 0] = 1.0
+                B_K = vect[0 : n * m, :].reshape((n, m))
+                D_i = vect[n * m : n * m + l_ * m, :].reshape((l_, m))
+                K_i = vect[n * m + l_ * m : n * m + l_ * m + n * l_, :].reshape((n, l_))
+                x0 = vect[n * m + l_ * m + n * l_ : :, :].reshape((n, 1))
+
+                # Simulate using predictor form
+                _, y_hat = ss_lsim_predictor_form(A_K, B_K, C, D_i, K_i, y, u, x0)
+                y_sim.append(y_hat.reshape((1, L * l_)))
+                vect[i, 0] = 0.0
+        else:
+            # Parameters to estimate: B_K (n*m), K (n*l), x0 (n)
+            D_i = np.zeros((l_, m))
+            n_simulations = n * m + n * l_ + n
+            vect = np.zeros((n_simulations, 1))
+
+            for i in range(n_simulations):
+                vect[i, 0] = 1.0
+                B_K = vect[0 : n * m, :].reshape((n, m))
+                K_i = vect[n * m : n * m + n * l_, :].reshape((n, l_))
+                x0 = vect[n * m + n * l_ : :, :].reshape((n, 1))
+
+                # Simulate using predictor form
+                _, y_hat = ss_lsim_predictor_form(A_K, B_K, C, D_i, K_i, y, u, x0)
+                y_sim.append(y_hat.reshape((1, L * l_)))
+                vect[i, 0] = 0.0
+
+        # Stack all simulations into a matrix
+        y_matrix = 1.0 * y_sim[0]
+        for j in range(n_simulations - 1):
+            y_matrix = impile(y_matrix, y_sim[j + 1])
+        y_matrix = y_matrix.T
+
+        return y_matrix
+
+    @staticmethod
+    def ak_c_estimating_s_p(U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf):
+        """
+        Estimate A, C, A_K, and K matrices for PARSIM-S and PARSIM-P using QR decomposition.
+
+        This function uses rigorous QR decomposition to estimate the Kalman gain K,
+        which is the correct approach from the reference implementation.
+
+        Reference: master/sippy_unipi/Parsim_methods.py lines 85-101 (AK_C_estimating_S_P function)
+
+        Parameters:
+        -----------
+        U_n, S_n, V_n : ndarrays
+            SVD decomposition from svd_weighted_k
+        l_ : int
+            Number of outputs
+        f : int
+            Future horizon
+        m : int
+            Number of inputs
+        Zp, Uf, Yf : ndarrays
+            Data matrices from ordinate sequences
+
+        Returns:
+        --------
+        A : ndarray
+            State matrix (n x n)
+        C : ndarray
+            Output matrix (l x n)
+        A_K : ndarray
+            Predictor form state matrix (n x n)
+        K : ndarray
+            Kalman gain matrix (n x l)
+        n : int
+            Model order
+        """
+
+        n = S_n.size
+        S_n_diag = np.diag(S_n)
+
+        # Construct observability matrix
+        Ob_f = np.dot(U_n, sc.linalg.sqrtm(S_n_diag))
+
+        # Estimate A from observability matrix shift property
+        A = np.dot(np.linalg.pinv(Ob_f[0 : l_ * (f - 1), :]), Ob_f[l_::, :])
+
+        # Extract C from first block of observability matrix
+        C = Ob_f[0:l_, :]
+
+        # QR-based Kalman gain estimation
+        # Stack [Zp; Uf; Yf] and perform QR decomposition
+        stacked_matrix = impile(impile(Zp, Uf), Yf).T
+        Q, R = np.linalg.qr(stacked_matrix)
+        Q = Q.T
+        R = R.T
+
+        # Extract relevant block from R matrix
+        # G_f contains innovation covariance information
+        G_f = R[(2 * m + l_) * f :, (2 * m + l_) * f :]
+        F = G_f[0:l_, 0:l_]
+
+        # Compute Kalman gain K using QR decomposition result
+        # K = Ob_f^+ * G_f[l_:, 0:l_] * F^-1
+        K = np.dot(
+            np.dot(np.linalg.pinv(Ob_f[0 : l_ * (f - 1), :]), G_f[l_:, 0:l_]),
+            np.linalg.inv(F),
+        )
+
+        # Compute predictor form A_K = A - K*C
+        A_K = A - np.dot(K, C)
+
+        return A, C, A_K, K, n
+
+    @staticmethod
+    def simulations_sequence_s(A_K, C, L, K, y, u, l_, m, n, D_required):
+        """
+        Systematic simulation for PARSIM-S parameter estimation using predictor form.
+
+        Simulates the predictor form system with unit vectors for all parameters
+        (B_K, D, x0) to build regression matrix for least squares. Note that K
+        is FIXED (already estimated), unlike PARSIM-K where K is also estimated.
+
+        Reference: master/sippy_unipi/Parsim_methods.py lines 48-82 (simulations_sequence_S function)
+
+        Parameters:
+        -----------
+        A_K : ndarray
+            Predictor form A matrix (n x n)
+        C : ndarray
+            Output matrix (l x n)
+        L : int
+            Number of time points
+        K : ndarray
+            Kalman gain matrix (n x l) - FIXED, not estimated
+        y, u : ndarrays
+            Output (l x L) and input (m x L) data
+        l_, m, n : ints
+            System dimensions (outputs, inputs, states)
+        D_required : bool
+            Whether D matrix is included in estimation
+
+        Returns:
+        --------
+        y_matrix : ndarray
+            Simulation matrix (L*l x n_simulations) for least squares
+        """
+        from ...utils.simulation_utils import SS_lsim_predictor_form
+
+        y_sim = []
+
+        if D_required:
+            # Parameters to estimate: B_K (n*m), D (l*m), x0 (n)
+            # Note: K is NOT estimated, it's fixed
+            n_simulations = n * m + l_ * m + n
+            vect = np.zeros((n_simulations, 1))
+
+            for i in range(n_simulations):
+                vect[i, 0] = 1.0
+                B_K = vect[0 : n * m, :].reshape((n, m))
+                D = vect[n * m : n * m + l_ * m, :].reshape((l_, m))
+                x0 = vect[n * m + l_ * m :, :].reshape((n, 1))
+
+                # Simulate predictor form: x[i+1] = A_K*x[i] + B_K*u[i] + K*y[i]
+                _, y_hat = SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)
+                y_sim.append(y_hat.reshape((1, L * l_)))
+
+                vect[i, 0] = 0.0
+        else:
+            # Parameters to estimate: B_K (n*m), x0 (n)
+            n_simulations = n * m + n
+            vect = np.zeros((n_simulations, 1))
+            D = np.zeros((l_, m))
+
+            for i in range(n_simulations):
+                vect[i, 0] = 1.0
+                B_K = vect[0 : n * m, :].reshape((n, m))
+                x0 = vect[n * m :, :].reshape((n, 1))
+
+                # Simulate predictor form
+                _, y_hat = SS_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0)
+                y_sim.append(y_hat.reshape((1, L * l_)))
+
+                vect[i, 0] = 0.0
+
+        # Stack all simulations into regression matrix
+        y_matrix = 1.0 * y_sim[0]
+        for j in range(n_simulations - 1):
+            y_matrix = impile(y_matrix, y_sim[j + 1])
+
+        y_matrix = y_matrix.T
+        return y_matrix

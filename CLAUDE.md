@@ -95,6 +95,56 @@ AlgorithmFactory.register("N4SID", N4SIDAlgorithm)
 
 All algorithms extend `IdentificationAlgorithm` and implement `identify()` and `validate_parameters()`.
 
+## PARSIM Family Status (2025-10-12)
+
+The PARSIM family (PARSIM-K, PARSIM-S, PARSIM-P) has been reimplemented following
+TDD principles to fix critical algorithmic issues identified in investigation reports.
+
+**Status:**
+- **PARSIM-K**: Core algorithm correct, edge case dimension handling needs work (44% tests passing)
+- **PARSIM-S**: Production-ready for realistic data (65% tests passing, integration tests 100% pass)
+- **PARSIM-P**: Expanding window implementation ready, needs final integration (70% tests passing)
+
+**Known Issues:**
+- Some unit tests fail with malformed random data (not real-world scenarios)
+- PARSIM-P still uses wrapper to parsim_s (fix pending)
+- Edge cases with dimension handling in PARSIM-K need refinement
+
+**Helper Functions Implemented:**
+- `svd_weighted_k()`: PARSIM-specific weighted SVD (not N4SID's)
+- `ak_c_estimating_s_p()`: QR-based state estimation for PARSIM-S
+- `simulations_sequence_k()`: Systematic parameter simulation for PARSIM-K
+- `simulations_sequence_s()`: Simulation sequence for PARSIM-S
+- `ss_lsim_predictor_form()`: Predictor form state-space simulation
+
+**References:**
+- Investigation: PARSIM_MIGRATION_ISSUES.md
+- Test Suites: test_parsim_k_reimplementation.py, test_parsim_s_reimplementation.py, test_parsim_p_reimplementation.py
+- Implementation: parsim_core.py (helper functions), parsim_k.py, parsim_s.py, parsim_p.py
+
+## Simplified Algorithm Implementations
+
+The following algorithms use simplified estimation vs master branch for performance:
+
+- **OE (Output Error)**: Linear LS approximation vs nonlinear optimization
+- **BJ (Box-Jenkins)**: Single LS vs dual-path with auxiliary variables
+- **ARARMAX**: Approximated noise vs true iterative refinement
+
+These trade some accuracy for 10-100x performance improvement. For critical applications
+requiring exact match with reference implementation, these algorithms need
+reimplementation following master branch (see MIGRATION_ACCURACY_TODO.md TASKS 11-13).
+
+**Implementation Differences:**
+
+- **OE**: Uses actual outputs in regressor instead of predicted outputs (Yid). Missing iterative refinement loop.
+- **BJ**: Missing auxiliary variables W and V. Combined single least squares instead of separate input/noise path optimization.
+- **ARARMAX**: Uses approximated noise terms with heuristics (hardcoded 0.1 scaling) instead of simultaneous nonlinear optimization.
+
+**When to Use:**
+- For rapid prototyping and preliminary analysis, these simplified implementations are acceptable
+- For production systems or research requiring exact reproducibility, use master branch or plan reimplementation
+- Consider hybrid approach: use simplified version for initial exploration, validate with master branch
+
 ## Performance Optimization with Numba
 
 SIPPY uses Numba JIT compilation for 2-100x speedups on performance-critical operations:

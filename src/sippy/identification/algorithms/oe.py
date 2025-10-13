@@ -27,6 +27,24 @@ class OEAlgorithm(IdentificationAlgorithm):
     """
     OE (Output Error) identification algorithm.
 
+    ⚠️ SIMPLIFIED IMPLEMENTATION
+
+    This implementation uses direct least squares approximation instead of the
+    reference implementation's iterative nonlinear optimization.
+
+    Reference (master):
+      - Uses predicted outputs (Yid) in regressor
+      - Iterative refinement with convergence checking
+      - IPOPT nonlinear optimization
+
+    Harold branch:
+      - Uses actual outputs in single-pass least squares
+      - Faster but may be less accurate for noise-heavy data
+
+    For details see investigation report from Subagent 4.
+
+    Model Structure:
+    ----------------
     The OE model structure is:
     y(k) = B(q)/F(q) * u(k-nk) + e(k)
 
@@ -165,7 +183,7 @@ class OEAlgorithm(IdentificationAlgorithm):
                         col_idx = k * nu + j
                         delay_idx = max_lag - 1 - (k + nk - 1)
                         if delay_idx >= 0 and delay_idx + N_eff <= N:
-                            Phi_i[:, col_idx] = u[j, delay_idx:delay_idx + N_eff]
+                            Phi_i[:, col_idx] = u[j, delay_idx : delay_idx + N_eff]
 
                 # Fill F part (denominator - lagged outputs)
                 for k in range(nf):
@@ -173,7 +191,9 @@ class OEAlgorithm(IdentificationAlgorithm):
                         col_idx = nb * nu + k * ny + j
                         output_delay = max_lag - 1 - k
                         if output_delay >= 0 and output_delay + N_eff <= N:
-                            Phi_i[:, col_idx] = -y[j, output_delay:output_delay + N_eff]
+                            Phi_i[:, col_idx] = -y[
+                                j, output_delay : output_delay + N_eff
+                            ]
 
                 Yid[i, max_lag:] = np.dot(Phi_i, theta_i)
 
@@ -294,11 +314,11 @@ class OEAlgorithm(IdentificationAlgorithm):
             max_order = max(nf, nb + nk)
 
             NUM_G = np.zeros(max_order)
-            NUM_G[nk:nk + nb] = B_coeffs[0, :] if ny == 1 else B_coeffs[0, :nb]
+            NUM_G[nk : nk + nb] = B_coeffs[0, :] if ny == 1 else B_coeffs[0, :nb]
 
             DEN_G = np.zeros(max_order + 1)
             DEN_G[0] = 1.0
-            DEN_G[1:nf + 1] = F_coeffs[0, :]
+            DEN_G[1 : nf + 1] = F_coeffs[0, :]
 
             G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
@@ -355,7 +375,7 @@ class OEAlgorithm(IdentificationAlgorithm):
             if len(coeffs_flat) >= nf:
                 B[:, 0] = coeffs_flat[:nf]
             else:
-                B[:len(coeffs_flat), 0] = coeffs_flat
+                B[: len(coeffs_flat), 0] = coeffs_flat
         else:  # MIMO case - average over outputs
             for j in range(nu):
                 temp_coeffs = np.mean(B_coeffs[:, j::nu], axis=1)
@@ -363,7 +383,7 @@ class OEAlgorithm(IdentificationAlgorithm):
                 if len(temp_coeffs) >= nf:
                     B[:, j] = temp_coeffs[:nf]
                 else:
-                    B[:len(temp_coeffs), j] = temp_coeffs
+                    B[: len(temp_coeffs), j] = temp_coeffs
 
         # C matrix - output coupling
         C = np.zeros((ny, n_states))

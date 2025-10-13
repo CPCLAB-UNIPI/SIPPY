@@ -2,6 +2,7 @@
 PARSIM-K algorithm implementation.
 """
 
+import warnings
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
@@ -19,6 +20,24 @@ class PARSIMKAlgorithm(IdentificationAlgorithm):
 
     This algorithm identifies state-space models from input-output data by
     estimating the observer form directly with Kalman gain estimation.
+
+    WARNING: REIMPLEMENTATION IN PROGRESS
+    ======================================
+
+    This algorithm has been reimplemented following TDD but has edge case issues:
+    - PARSIM-K: 44% tests passing (4/9 unit tests pass)
+    - Core logic correct, edge cases with dimension handling fail
+    - Helper functions implemented: svd_weighted_k, simulations_sequence_k,
+      ss_lsim_predictor_form
+
+    See test results in test_parsim_k_reimplementation.py for details.
+    For production use, verify behavior on your specific data.
+
+    Reference:
+    ----------
+    - Investigation: PARSIM_MIGRATION_ISSUES.md
+    - Test Suite: test_parsim_k_reimplementation.py
+    - Implementation: parsim_core.py (helper functions), parsim_k.py
     """
 
     def get_algorithm_name(self) -> str:
@@ -54,6 +73,15 @@ class PARSIMKAlgorithm(IdentificationAlgorithm):
         Note:
             Either (y, u) or iddata should be provided, but not both.
         """
+        # Issue runtime warning
+        warnings.warn(
+            "PARSIM-K has been reimplemented but may have edge case issues "
+            "(44% tests passing). Test on your data before production use. "
+            "See test_parsim_k_reimplementation.py for details.",
+            category=UserWarning,
+            stacklevel=2,
+        )
+
         self.validate_parameters(**kwargs)
 
         # Extract parameters with defaults
