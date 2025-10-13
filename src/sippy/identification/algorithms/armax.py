@@ -279,14 +279,14 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
 
                     ss_model = harold.StateSpace(A, B, C, D, dt=sample_time)
                     return StateSpaceModel(
-                        A=ss_model.A,
-                        B=ss_model.B,
-                        C=ss_model.C,
-                        D=ss_model.D,
-                        K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-                        Q=np.eye(ss_model.A.shape[0]) * 0.01,
-                        R=np.eye(ss_model.C.shape[0]) * 0.01,
-                        S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
+                        A=ss_model.a,
+                        B=ss_model.b,
+                        C=ss_model.c,
+                        D=ss_model.d,
+                        K=np.zeros((ss_model.a.shape[0], ss_model.c.shape[0])),
+                        Q=np.eye(ss_model.a.shape[0]) * 0.01,
+                        R=np.eye(ss_model.c.shape[0]) * 0.01,
+                        S=np.zeros((ss_model.a.shape[0], ss_model.c.shape[0])),
                         ts=sample_time,
                         Vn=0.01,
                     )
@@ -430,14 +430,14 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
 
         return StateSpaceModel(
-            A=ss_model.A,
-            B=ss_model.B,
-            C=ss_model.C,
-            D=ss_model.D,
-            K=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
-            Q=np.eye(ss_model.A.shape[0]),
-            R=np.eye(ss_model.C.shape[0]),
-            S=np.zeros((ss_model.A.shape[0], ss_model.C.shape[0])),
+            A=ss_model.a,
+            B=ss_model.b,
+            C=ss_model.c,
+            D=ss_model.d,
+            K=np.zeros((ss_model.a.shape[0], ss_model.c.shape[0])),
+            Q=np.eye(ss_model.a.shape[0]),
+            R=np.eye(ss_model.c.shape[0]),
+            S=np.zeros((ss_model.a.shape[0], ss_model.c.shape[0])),
             ts=Ts,
             Vn=0.01,
         )

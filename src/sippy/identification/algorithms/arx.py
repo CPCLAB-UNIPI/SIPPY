@@ -3,11 +3,15 @@ ARX (AutoRegressive with eXogenous inputs) identification algorithm.
 """
 
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
+
+if TYPE_CHECKING:
+    from ..iddata import IDData
 
 # Import compiled utilities for performance
 try:
@@ -88,30 +92,53 @@ class ARXAlgorithm(IdentificationAlgorithm):
 
         return True
 
-    def identify(self, data, config):
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Identify ARX model from input-output data.
 
         Parameters:
         -----------
-        data : IDData
-            Input-output data
-        config : SystemIdentificationConfig
-            Configuration parameters including na, nb, nk
+        y : np.ndarray, optional
+            Output data (outputs x time_steps)
+        u : np.ndarray, optional
+            Input data (inputs x time_steps)
+        iddata : IDData, optional
+            Input-output data container
+        **kwargs : dict
+            Configuration parameters including na, nb, nk, tsample
 
         Returns:
         --------
         model : StateSpaceModel
             Identified state-space model
         """
-        # Extract data from IDData object
-        u = data.get_input_array()
-        y = data.get_output_array()
+        # Validate input arguments
+        if iddata is not None and (y is not None or u is not None):
+            raise ValueError("Provide either iddata or (y, u), but not both")
+        if iddata is None and (y is None or u is None):
+            raise ValueError("Must provide either iddata or both y and u")
+
+        # Extract data if IDData is provided
+        if iddata is not None:
+            u = iddata.get_input_array()
+            y = iddata.get_output_array()
+            sample_time = iddata.sample_time
+        else:
+            # Ensure arrays are 2D
+            y = np.atleast_2d(y)
+            u = np.atleast_2d(u)
+            sample_time = kwargs.get("tsample", 1.0)
 
         # Extract configuration parameters (ARX specific)
-        na = getattr(config, "na", 1)
-        nb = getattr(config, "nb", 1)
-        nk = getattr(config, "nk", 1)
+        na = kwargs.get("na", 1)
+        nb = kwargs.get("nb", 1)
+        nk = kwargs.get("nk", 1)
 
         # Validate parameters
         self.validate_parameters(na=na, nb=nb, nk=nk)
@@ -242,13 +269,13 @@ class ARXAlgorithm(IdentificationAlgorithm):
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_arx(
-            A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time
+            A_coeffs, B_coeffs, na, nb, nk, ny, nu, sample_time
         )
 
         # Create state-space representation
         if HAROLD_AVAILABLE and harold is not None:
             model = self._create_transfer_function(
-                A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time
+                A_coeffs, B_coeffs, na, nb, nk, ny, nu, sample_time
             )
         else:
             # Warn about harold availability only when needed
@@ -263,7 +290,7 @@ class ARXAlgorithm(IdentificationAlgorithm):
 
             # Fallback when harold is not available
             model = self._create_mock_model(
-                A_coeffs, B_coeffs, na, nb, nk, ny, nu, data.sample_time
+                A_coeffs, B_coeffs, na, nb, nk, ny, nu, sample_time
             )
 
         # Attach transfer functions and predictions to model
@@ -349,12 +376,20 @@ class ARXAlgorithm(IdentificationAlgorithm):
             # Create G(q) = B / A - Deterministic transfer function
             max_order = max(na, nb + nk)
 
-            NUM_G = np.zeros(max_order)
-            NUM_G[nk : nk + nb] = B_coeffs[0, :] if ny == 1 else B_coeffs[0, :nb]
+            # Build numerator with delay
+            NUM_G_full = np.zeros(max_order + 1)
+            NUM_G_full[nk : nk + nb] = B_coeffs[0, :] if ny == 1 else B_coeffs[0, :nb]
 
+            # Build denominator
+            # Note: ARX regression returns coefficients for -y[k-1], so we negate
             DEN_G = np.zeros(max_order + 1)
             DEN_G[0] = 1.0
-            DEN_G[1 : na + 1] = A_coeffs[0, :]
+            DEN_G[1 : na + 1] = -A_coeffs[0, :]
+
+            # Strip leading zeros from numerator for harold compatibility
+            NUM_G = np.trim_zeros(NUM_G_full, "f")
+            if len(NUM_G) == 0:
+                NUM_G = np.array([0.0])
 
             G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
@@ -392,8 +427,14 @@ class ARXAlgorithm(IdentificationAlgorithm):
             den_coeffs = np.concatenate(([1], -A_coeffs[0, :]))
 
             # Create numerator polynomial (X part with delay)
-            num_coeffs = np.zeros(nb + nk)
-            num_coeffs[nk:] = B_coeffs[0, :]
+            # Numerator and denominator must have same length for harold
+            num_coeffs_full = np.zeros(len(den_coeffs))
+            num_coeffs_full[nk : nk + nb] = B_coeffs[0, :]
+
+            # Strip leading zeros from numerator (harold requirement)
+            num_coeffs = np.trim_zeros(num_coeffs_full, "f")
+            if len(num_coeffs) == 0:
+                num_coeffs = np.array([0.0])
 
             # Create transfer function
             try:
@@ -416,10 +457,11 @@ class ARXAlgorithm(IdentificationAlgorithm):
                     A_coeffs, B_coeffs, na, nb, nk, ny, nu, Ts
                 )
             # Extract actual matrices from ss_model
-            A = ss_model.A
-            B = ss_model.B
-            C = ss_model.C
-            D = ss_model.D
+            # Harold uses lowercase attributes (.a, .b, .c, .d)
+            A = ss_model.a
+            B = ss_model.b
+            C = ss_model.c
+            D = ss_model.d
 
             # Check if we got real arrays (not mocked objects for testing)
             if not isinstance(A, np.ndarray):
