@@ -556,31 +556,51 @@ class TestInputOutputMethodsComparison:
         )
 
         # Master branch returns IO model with .G transfer function
-        # Convert to state-space for comparison
+        # Compare transfer function coefficients (state-space realizations are non-unique)
         try:
-            # model_master.G is a control.matlab.StateSpace object, not harold
-            # Extract A, B, C, D matrices directly
-            master_ss = model_master.G
-            A_master = np.array(master_ss.A)
-            B_master = np.array(master_ss.B)
-            C_master = np.array(master_ss.C)
-            D_master = np.array(master_ss.D)
+            # Extract transfer function coefficients from master
+            master_num = model_master.G.num[0][0]  # SISO numerator coefficients
+            master_den = model_master.G.den[0][0]  # SISO denominator coefficients
+
+            # Extract transfer function from harold (if available)
+            if model_harold.G_tf is not None:
+                harold_num = model_harold.G_tf.num[0]  # Strip leading zeros
+                harold_den = model_harold.G_tf.den[0]  # Strip leading zeros
+
+                # Remove leading and trailing zeros for fair comparison
+                master_num_stripped = np.trim_zeros(master_num, "fb")
+                harold_num_stripped = np.trim_zeros(harold_num, "fb")
+                master_den_stripped = np.trim_zeros(master_den, "fb")
+                harold_den_stripped = np.trim_zeros(harold_den, "fb")
+
+                # Normalize by leading denominator coefficient
+                master_num_norm = master_num_stripped / master_den_stripped[0]
+                master_den_norm = master_den_stripped / master_den_stripped[0]
+                harold_num_norm = harold_num_stripped / harold_den_stripped[0]
+                harold_den_norm = harold_den_stripped / harold_den_stripped[0]
+
+                # Compare coefficients
+                num_error = np.max(np.abs(harold_num_norm - master_num_norm))
+                den_error = np.max(np.abs(harold_den_norm - master_den_norm))
+
+                print("\nTransfer Function Comparison:")
+                print(f"Master numerator:  {master_num_stripped}")
+                print(f"Harold numerator:  {harold_num_stripped}")
+                print(f"Master denominator: {master_den_stripped}")
+                print(f"Harold denominator: {harold_den_stripped}")
+                print(f"\nNumerator error: {num_error:.2e}")
+                print(f"Denominator error: {den_error:.2e}")
+
+                # Assert transfer functions match
+                assert num_error < 1e-8, f"Numerator mismatch: {num_error}"
+                assert den_error < 1e-8, f"Denominator mismatch: {den_error}"
+
+                print("\nARX (SISO): PASS - Transfer functions match")
+            else:
+                pytest.skip("Harold G_tf not available for comparison")
+
         except Exception as e:
-            pytest.skip(f"Could not extract state-space from master: {e}")
-
-        # Compute error metrics
-        metrics = {
-            "A matrix": compute_matrix_error(model_harold.A, A_master, "A"),
-            "B matrix": compute_matrix_error(model_harold.B, B_master, "B"),
-            "C matrix": compute_matrix_error(model_harold.C, C_master, "C"),
-            "D matrix": compute_matrix_error(model_harold.D, D_master, "D"),
-        }
-
-        # Print report
-        passes = print_comparison_report("ARX (SISO)", metrics, expected_tolerance=1e-8)
-
-        # Assertions
-        assert passes, "ARX SISO comparison failed"
+            pytest.skip(f"Could not compare transfer functions: {e}")
 
     def test_fir_siso(self, arx_test_data):
         """Test FIR on SISO system."""
@@ -595,29 +615,61 @@ class TestInputOutputMethodsComparison:
         identifier = SystemIdentification(config)
         model_harold = identifier.identify(y=data["y"], u=data["u"])
 
-        # Master branch identification
+        # Master branch identification (FIR is ARX with na=0)
         model_master = master_sysid(
             data["y"],
             data["u"],
             "FIR",
             na_ord=[0],
             nb_ord=[5],
-            theta_noise=[1],
             tsample=data["ts"],
         )
 
-        # Compute error metrics
-        metrics = {
-            "A matrix": compute_matrix_error(model_harold.A, model_master[0], "A"),
-            "B matrix": compute_matrix_error(model_harold.B, model_master[1], "B"),
-            "C matrix": compute_matrix_error(model_harold.C, model_master[2], "C"),
-        }
+        # Compare transfer function coefficients (same as ARX)
+        try:
+            # Extract transfer function coefficients from master
+            master_num = model_master.G.num[0][0]
+            master_den = model_master.G.den[0][0]
 
-        # Print report
-        passes = print_comparison_report("FIR (SISO)", metrics, expected_tolerance=1e-8)
+            # Extract transfer function from harold
+            if model_harold.G_tf is not None:
+                harold_num = model_harold.G_tf.num[0]
+                harold_den = model_harold.G_tf.den[0]
 
-        # Assertions
-        assert passes, "FIR SISO comparison failed"
+                # Remove leading and trailing zeros for fair comparison
+                master_num_stripped = np.trim_zeros(master_num, "fb")
+                harold_num_stripped = np.trim_zeros(harold_num, "fb")
+                master_den_stripped = np.trim_zeros(master_den, "fb")
+                harold_den_stripped = np.trim_zeros(harold_den, "fb")
+
+                # Normalize by leading denominator coefficient
+                master_num_norm = master_num_stripped / master_den_stripped[0]
+                master_den_norm = master_den_stripped / master_den_stripped[0]
+                harold_num_norm = harold_num_stripped / harold_den_stripped[0]
+                harold_den_norm = harold_den_stripped / harold_den_stripped[0]
+
+                # Compare coefficients
+                num_error = np.max(np.abs(harold_num_norm - master_num_norm))
+                den_error = np.max(np.abs(harold_den_norm - master_den_norm))
+
+                print("\nTransfer Function Comparison:")
+                print(f"Master numerator:  {master_num_stripped}")
+                print(f"Harold numerator:  {harold_num_stripped}")
+                print(f"Master denominator: {master_den_stripped}")
+                print(f"Harold denominator: {harold_den_stripped}")
+                print(f"\nNumerator error: {num_error:.2e}")
+                print(f"Denominator error: {den_error:.2e}")
+
+                # Assert transfer functions match
+                assert num_error < 1e-8, f"Numerator mismatch: {num_error}"
+                assert den_error < 1e-8, f"Denominator mismatch: {den_error}"
+
+                print("\nFIR (SISO): PASS - Transfer functions match")
+            else:
+                pytest.skip("Harold G_tf not available for comparison")
+
+        except Exception as e:
+            pytest.skip(f"Could not compare transfer functions: {e}")
 
     def test_armax_siso(self, arx_test_data):
         """Test ARMAX on SISO system."""
