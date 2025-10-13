@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "casadi>=3.7.2",
     "control>=0.10.2",
     "harold>=1.0.3",
     "jupyterlab>=4.4.9",
