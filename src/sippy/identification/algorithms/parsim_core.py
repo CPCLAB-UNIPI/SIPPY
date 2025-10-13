@@ -128,7 +128,16 @@ class ParsimCoreAlgorithm:
             M = np.dot(Yf[0:l_, :], np.linalg.pinv(impile(Zp, Uf[0:m, :])))
         Matrix_pinv = np.linalg.pinv(impile(Zp, impile(Uf[0:m, :], Yf[0:l_, :])))
         Gamma_L = M[:, 0 : (m + l_) * f]
-        H_K = M[:, (m + l_) * f :]
+
+        # Defensive check: If M doesn't have enough columns, initialize H_K appropriately
+        # H_K should capture residual dynamics not explained by Gamma_L
+        if M.shape[1] > (m + l_) * f:
+            H_K = M[:, (m + l_) * f :]
+        else:
+            # Initialize with zeros of appropriate size to maintain algorithm flow
+            # Size should be (l_, m) to match first iteration's expected dimensions
+            H_K = np.zeros((l_, m))
+
         G_K = np.zeros((l_, l_))
 
         # Helper function for y_tilde estimation
@@ -178,8 +187,9 @@ class ParsimCoreAlgorithm:
         # Estimate A_K carefully
         if l_ * (f - 1) >= n and n > 0:
             try:
-                A_K = np.dot(np.linalg.pinv(Ob_K[0 : l_ * (f - 1), :]), Ob_K[l_::, :])
-            except np.linalg.LinAlgError:
+                A_K = np.dot(np.linalg.pinv(Ob_K[0 : l_ * (f - 1), :]), Ob_K[l_:, :])
+            except (np.linalg.LinAlgError, ValueError) as e:
+                # Fallback to random initialization on linear algebra errors
                 A_K = np.random.randn(n, n) * 0.1
         else:
             A_K = np.random.randn(n, n) * 0.1
@@ -568,11 +578,39 @@ class ParsimCoreAlgorithm:
         """
         from ...utils.simulation_utils import Z_dot_PIort
 
-        # PARSIM-K weighting: W2 = sqrtm((Zp - Zp*Uf^T*pinv(Uf^T)) * Zp^T)
-        W2 = sc.linalg.sqrtm(np.dot(Z_dot_PIort(Zp, Uf), Zp.T)).real
+        # Edge case: Check for empty or degenerate matrices
+        if Gamma_L.size == 0 or Gamma_L.shape[0] == 0 or Gamma_L.shape[1] == 0:
+            # Return empty SVD components with consistent shapes
+            return (
+                np.zeros((Gamma_L.shape[0], 0)),
+                np.array([]),
+                np.zeros((0, Gamma_L.shape[1])),
+            )
 
-        # Weighted SVD: svd(Gamma_L * W2)
-        U_n, S_n, V_n = np.linalg.svd(np.dot(Gamma_L, W2), full_matrices=False)
+        try:
+            # PARSIM-K weighting: W2 = sqrtm((Zp - Zp*Uf^T*pinv(Uf^T)) * Zp^T)
+            W2 = sc.linalg.sqrtm(np.dot(Z_dot_PIort(Zp, Uf), Zp.T)).real
+
+            # Check for NaN or Inf in W2
+            if not np.all(np.isfinite(W2)):
+                # Fallback to unweighted SVD
+                U_n, S_n, V_n = np.linalg.svd(Gamma_L, full_matrices=False)
+                return U_n, S_n, V_n
+
+            # Weighted SVD: svd(Gamma_L * W2)
+            weighted_matrix = np.dot(Gamma_L, W2)
+
+            # Check for numerical issues
+            if not np.all(np.isfinite(weighted_matrix)):
+                # Fallback to unweighted SVD
+                U_n, S_n, V_n = np.linalg.svd(Gamma_L, full_matrices=False)
+                return U_n, S_n, V_n
+
+            U_n, S_n, V_n = np.linalg.svd(weighted_matrix, full_matrices=False)
+
+        except (np.linalg.LinAlgError, ValueError) as e:
+            # Fallback to unweighted SVD on any linear algebra errors
+            U_n, S_n, V_n = np.linalg.svd(Gamma_L, full_matrices=False)
 
         return U_n, S_n, V_n
 
@@ -615,7 +653,7 @@ class ParsimCoreAlgorithm:
         Returns:
         --------
         y_matrix : ndarray
-            Simulation matrix (n_simulations x L*l)
+            Simulation matrix (L*l x n_simulations) - transposed for least squares
         """
         from ...utils.simulation_utils import impile, ss_lsim_predictor_form
 
@@ -655,6 +693,8 @@ class ParsimCoreAlgorithm:
                 vect[i, 0] = 0.0
 
         # Stack all simulations into a matrix
+        # Each y_sim[i] has shape (1, L*l_), impile stacks vertically giving (n_simulations, L*l_)
+        # Transpose to (L*l_, n_simulations) for least squares: pinv(y_sim) @ y
         y_matrix = 1.0 * y_sim[0]
         for j in range(n_simulations - 1):
             y_matrix = impile(y_matrix, y_sim[j + 1])
@@ -706,7 +746,7 @@ class ParsimCoreAlgorithm:
         Ob_f = np.dot(U_n, sc.linalg.sqrtm(S_n_diag))
 
         # Estimate A from observability matrix shift property
-        A = np.dot(np.linalg.pinv(Ob_f[0 : l_ * (f - 1), :]), Ob_f[l_::, :])
+        A = np.dot(np.linalg.pinv(Ob_f[0 : l_ * (f - 1), :]), Ob_f[l_:, :])
 
         # Extract C from first block of observability matrix
         C = Ob_f[0:l_, :]

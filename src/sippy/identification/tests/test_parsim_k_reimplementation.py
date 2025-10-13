@@ -85,12 +85,13 @@ class TestParsimKReimplementation:
             A_K, C, L, y, u, l_, m, n, K, D, D_required=False
         )
 
-        # Check shape
+        # Check shape - master branch transposes at end, so output is (L*l_, n_simulations)
+        # This matches how it's used: pinv(y_sim) @ y gives correct dimensions
         expected_simulations = n * m + n * l_ + n
         assert y_sim.shape == (
-            expected_simulations,
             L * l_,
-        ), f"Expected shape ({expected_simulations}, {L * l_}), got {y_sim.shape}"
+            expected_simulations,
+        ), f"Expected shape ({L * l_}, {expected_simulations}), got {y_sim.shape}"
 
     def test_ss_lsim_predictor_form_exists(self):
         """Test that SS_lsim_predictor_form function exists."""
