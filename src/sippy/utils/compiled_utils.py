@@ -597,6 +597,9 @@ def create_regression_matrix_bj_compiled(u, y, nb, nc, nd, nf, nk, ny, nu, N):
     """
     Compiled version of Box-Jenkins regression matrix creation.
 
+    Thread-safe implementation using pre-allocated NumPy arrays instead of
+    Python lists to avoid race conditions in parallel execution.
+
     Parameters:
     -----------
     u, y : ndarray
@@ -622,13 +625,14 @@ def create_regression_matrix_bj_compiled(u, y, nb, nc, nd, nf, nk, ny, nu, N):
         # Return empty structures
         return [np.zeros((1, 1))] * ny, [np.zeros(1)] * ny
 
-    Phi_list = []
-    y_targets = []
+    n_params = nb * nu + nc + nd
 
-    for output_idx in prange(ny):
+    # Pre-allocate numpy arrays (thread-safe)
+    Phi_array = np.zeros((ny, N_eff, n_params))
+    y_targets_array = np.zeros((ny, N_eff))
+
+    for output_idx in prange(ny):  # Parallel loop - now thread-safe!
         # For each output, create regression matrix
-        n_params = nb * nu + nc + nd
-        Phi = np.zeros((N_eff, n_params))
         col = 0
 
         # Input terms: lagged inputs
@@ -636,7 +640,7 @@ def create_regression_matrix_bj_compiled(u, y, nb, nc, nd, nf, nk, ny, nu, N):
             for j in range(nu):
                 delay_idx = max_lag - 1 - (i + nk - 1)
                 if delay_idx >= 0 and delay_idx + N_eff <= N:
-                    Phi[:, col] = u[j, delay_idx : delay_idx + N_eff]
+                    Phi_array[output_idx, :, col] = u[j, delay_idx : delay_idx + N_eff]
                 col += 1
 
         # Noise AR terms: lagged outputs
@@ -644,7 +648,7 @@ def create_regression_matrix_bj_compiled(u, y, nb, nc, nd, nf, nk, ny, nu, N):
             start_idx = max_lag - 1 - i - 1
             end_idx = start_idx + N_eff
             if start_idx >= 0 and end_idx <= N:
-                Phi[:, col] = y[output_idx, start_idx:end_idx]
+                Phi_array[output_idx, :, col] = y[output_idx, start_idx:end_idx]
             col += 1
 
         # Noise MA terms: simplified approach using lagged residuals
@@ -653,14 +657,15 @@ def create_regression_matrix_bj_compiled(u, y, nb, nc, nd, nf, nk, ny, nu, N):
             start_idx = max_lag - 1 - i - 1
             end_idx = start_idx + N_eff
             if start_idx >= 0 and end_idx <= N:
-                Phi[:, col] = y[output_idx, start_idx:end_idx]
+                Phi_array[output_idx, :, col] = y[output_idx, start_idx:end_idx]
             col += 1
 
         # Target output
-        y_target = y[output_idx, max_lag:N]
+        y_targets_array[output_idx, :] = y[output_idx, max_lag:N]
 
-        Phi_list.append(Phi)
-        y_targets.append(y_target)
+    # Convert to lists for backward compatibility
+    Phi_list = [Phi_array[i] for i in range(ny)]
+    y_targets = [y_targets_array[i] for i in range(ny)]
 
     return Phi_list, y_targets
 
