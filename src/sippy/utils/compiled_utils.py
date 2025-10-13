@@ -17,6 +17,7 @@ try:
 except ImportError:
     warnings.warn("Numba not available. Using slower pure Python implementations.")
     NUMBA_AVAILABLE = False
+
     # Create fallback for numba.config reference
     class ConfigFallback:
         NUMBA_NUM_THREADS = 1
@@ -45,6 +46,7 @@ def fallback_njit(*args, **kwargs):
 # - fastmath=True: enables SIMD vectorization for 2-3× speedup
 # - nogil=True: releases GIL for better multi-threading
 if NUMBA_AVAILABLE:
+
     def jit(*args, **kwargs):
         """JIT decorator with optimal performance configuration."""
         default_kwargs = {"cache": True, "fastmath": True, "nogil": True}
@@ -494,7 +496,9 @@ def create_regression_matrix_arx_mimo_compiled(u, y, na, nb, nk, ny, nu, N):
             delay_idx = max_lag - 1 - (lag + nk - 1)
             if delay_idx >= 0 and delay_idx + N_eff <= N:
                 for inp in range(nu):
-                    Phi_per_output[output_idx, :, col] = u[inp, delay_idx : delay_idx + N_eff]
+                    Phi_per_output[output_idx, :, col] = u[
+                        inp, delay_idx : delay_idx + N_eff
+                    ]
                     col += 1
             else:
                 # Insufficient history, keep zeros but advance column index
@@ -652,7 +656,9 @@ def create_regression_matrix_armax_compiled(u, y, na, nb, nc, nk, ny, nu, N):
     if N_eff <= 0:
         # For consistent return types, match the fallback implementation format
         n_params = na * ny + nb * ny * nu + nc * ny  # Calculate params first
-        return np.zeros((1, n_params)), np.zeros((ny, 1))  # Use 1 instead of N_eff since N_eff <= 0
+        return np.zeros((1, n_params)), np.zeros(
+            (ny, 1)
+        )  # Use 1 instead of N_eff since N_eff <= 0
 
     n_params = na * ny + nb * ny * nu + nc * ny
     Phi = np.zeros((N_eff, n_params))
@@ -1374,15 +1380,22 @@ def impile_advanced_compiled(M1, M2):
     M : ndarray
         Vertically stacked matrix
     """
-    rows1, cols = M1.shape
-    rows2, _ = M2.shape
+    rows1, cols1 = M1.shape
+    rows2, cols2 = M2.shape
+
+    # Add dimension validation before matrix stacking
+    if cols1 != cols2:
+        raise ValueError(
+            f"Cannot stack matrices with different column counts: {cols1} vs {cols2}"
+        )
+
     total_rows = rows1 + rows2
 
-    M = np.empty((total_rows, cols), dtype=M1.dtype)
+    M = np.empty((total_rows, cols1), dtype=M1.dtype)
 
     # Parallel copy for large matrices
-    if total_rows * cols > 10000:  # Threshold for parallelization
-        for j in prange(cols):
+    if total_rows * cols1 > 10000:  # Threshold for parallelization
+        for j in prange(cols1):
             for i in range(rows1):
                 M[i, j] = M1[i, j]
             for i in range(rows2):

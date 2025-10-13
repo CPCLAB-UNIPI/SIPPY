@@ -146,7 +146,7 @@ def Vn_mat(y, yest):
 
 def impile(M1, M2):
     """
-    Stack two matrices vertically.
+    Stack two matrices vertically with edge case handling.
 
     This function automatically uses the enhanced Numba-compiled version when available
     for improved performance with parallel processing and memory efficiency.
@@ -161,6 +161,27 @@ def impile(M1, M2):
     M : ndarray
         Vertically stacked matrix
     """
+    # Handle empty matrix edge cases
+    # Case 1: M1 has no columns (empty in column dimension)
+    if M1.shape[1] == 0 and M2.shape[1] > 0:
+        return M2.copy()
+    # Case 2: M1 has no rows (empty in row dimension)
+    elif M1.shape[0] == 0:
+        return M2.copy()
+    # Case 3: M2 has no rows (empty in row dimension)
+    elif M2.shape[0] == 0:
+        return M1.copy()
+    # Case 4: M2 has no columns (empty in column dimension)
+    elif M2.shape[1] == 0 and M1.shape[1] > 0:
+        return M1.copy()
+    # Case 5: Column mismatch check
+    elif M1.shape[1] != M2.shape[1]:
+        raise ValueError(
+            f"Matrix column mismatch: M1 has {M1.shape[1]} columns, "
+            f"M2 has {M2.shape[1]} columns"
+        )
+
+    # Use compiled version for non-empty matrices
     if NUMBA_AVAILABLE and impile_advanced_compiled is not None:
         return impile_advanced_compiled(M1, M2)
     elif NUMBA_AVAILABLE and impile_compiled is not None:

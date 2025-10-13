@@ -36,17 +36,19 @@ class TestParsimSReimplementation:
         y, u = simple_siso_system
         from sippy.utils.simulation_utils import impile, ordinate_sequence
 
-        f = 20
-        p = 20
+        # Use smaller f and p to ensure valid dimensions
+        f = 10
+        p = 10
+        l_, m = y.shape[0], u.shape[0]
 
         Yf, Yp = ordinate_sequence(y, f, p)
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
 
-        # Simple Gamma_L for testing
-        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:1, :]))
-        M = np.dot(Yf[0:1, :], Matrix_pinv)
-        Gamma_L = M[:, 0:21]
+        # Build Gamma_L properly using ordinate_sequence approach
+        # This ensures dimensions are compatible with the algorithm
+        M = np.dot(Yf[0:l_, :], np.linalg.pinv(impile(Zp, Uf[0:m, :])))
+        Gamma_L = M[:, 0 : (m + l_) * f]
 
         # Call the function
         U_n, S_n, V_n = ParsimCoreAlgorithm.svd_weighted_k(Uf, Zp, Gamma_L)
@@ -64,26 +66,63 @@ class TestParsimSReimplementation:
         """Test that AK_C_estimating_S_P function exists."""
         assert hasattr(ParsimCoreAlgorithm, "ak_c_estimating_s_p")
 
-    def test_ak_c_estimating_s_p_uses_qr_decomposition(self, simple_siso_system):
+    def test_ak_c_estimating_s_p_uses_qr_decomposition(self):
         """Test that Kalman gain uses QR decomposition approach."""
-        y, u = simple_siso_system
-        from sippy.utils.simulation_utils import impile, ordinate_sequence
+        from sippy.utils.simulation_utils import (
+            impile,
+            ordinate_sequence,
+            reducingOrder,
+        )
 
-        f = 20
-        p = 20
+        # Generate realistic SISO system with enough dynamics
+        np.random.seed(42)
+        n_points = 300
+        u = np.random.randn(1, n_points)
+        y = np.zeros((1, n_points))
+        # 2nd order system for better observability
+        for i in range(2, n_points):
+            y[0, i] = (
+                0.8 * y[0, i - 1]
+                - 0.3 * y[0, i - 2]
+                + 0.5 * u[0, i - 1]
+                + 0.2 * u[0, i - 2]
+                + 0.05 * np.random.randn()
+            )
+
         l_ = 1
         m = 1
+        f = 10
+        p = 10
 
         Yf, Yp = ordinate_sequence(y, f, p)
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
 
-        # Simple SVD for testing
-        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:1, :]))
-        M = np.dot(Yf[0:1, :], Matrix_pinv)
-        Gamma_L = M[:, 0:21]
+        # Build Gamma_L using PARSIM-S iterative approach
+        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:m, :]))
+        M = np.dot(Yf[0:l_, :], Matrix_pinv)
+        Gamma_L = M[:, 0 : (m + l_) * f]
+        H = M[:, (m + l_) * f :]
+
+        # Helper for y_tilde estimation
+        def estimating_y_S(H, Uf, Yf, i, m, l_):
+            y_tilde = np.dot(H[0:l_, :], Uf[m * i : m * (i + 1), :])
+            for j in range(1, i):
+                y_tilde = y_tilde + np.dot(
+                    H[l_ * j : l_ * (j + 1), :], Uf[m * (i - j) : m * (i - j + 1), :]
+                )
+            return y_tilde
+
+        # Build full Gamma_L matrix (multi-row)
+        for i in range(1, f):
+            y_tilde = estimating_y_S(H, Uf, Yf, i, m, l_)
+            M = np.dot((Yf[l_ * i : l_ * (i + 1)] - y_tilde), Matrix_pinv)
+            Gamma_L = impile(Gamma_L, M[:, 0 : (m + l_) * f])
+            H = impile(H, M[:, (m + l_) * f :])
 
         U_n, S_n, V_n = ParsimCoreAlgorithm.svd_weighted_k(Uf, Zp, Gamma_L)
+        # Keep at least 2 singular values for proper A estimation
+        U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold=0.01, max_order=2)
 
         # Call AK_C_estimating_S_P
         A, C, A_K, K, n = ParsimCoreAlgorithm.ak_c_estimating_s_p(
@@ -224,12 +263,37 @@ class TestParsimSReimplementation:
 class TestSVDWeightedK:
     """Tests specifically for SVD_weighted_K function."""
 
-    def test_svd_weighted_k_uses_matrix_weighting(self):
+    @pytest.fixture
+    def realistic_parsim_matrices(self):
+        """Generate properly dimensioned matrices for PARSIM-S tests."""
+        from sippy.utils.simulation_utils import impile, ordinate_sequence
+
+        np.random.seed(42)
+        n_points = 300  # Enough for f=10, p=10
+
+        # Generate realistic SISO system
+        u = np.random.randn(1, n_points)
+        y = np.zeros((1, n_points))
+        for i in range(1, n_points):
+            y[0, i] = 0.8 * y[0, i - 1] + 0.5 * u[0, i - 1] + 0.05 * np.random.randn()
+
+        l_, m = y.shape[0], u.shape[0]
+        f, p = 10, 10
+
+        # Build matrices properly using ordinate_sequence
+        Yf, Yp = ordinate_sequence(y, f, p)
+        Uf, Up = ordinate_sequence(u, f, p)
+        Zp = impile(Up, Yp)
+
+        # Build Gamma_L through proper projection
+        M = np.dot(Yf[0:l_, :], np.linalg.pinv(impile(Zp, Uf[0:m, :])))
+        Gamma_L = M[:, 0 : (m + l_) * f]
+
+        return Yf, Uf, Zp, Gamma_L, l_, m, f
+
+    def test_svd_weighted_k_uses_matrix_weighting(self, realistic_parsim_matrices):
         """Test that SVD_weighted_K uses proper weighting matrix W2."""
-        # Create simple test data
-        Zp = np.random.randn(20, 100)
-        Uf = np.random.randn(10, 100)
-        Gamma_L = np.random.randn(10, 100)
+        Yf, Uf, Zp, Gamma_L, l_, m, f = realistic_parsim_matrices
 
         U_n, S_n, V_n = ParsimCoreAlgorithm.svd_weighted_k(Uf, Zp, Gamma_L)
 
@@ -237,12 +301,9 @@ class TestSVDWeightedK:
         assert U_n.shape[0] == Gamma_L.shape[0]
         assert len(S_n) <= min(Gamma_L.shape)
 
-    def test_svd_weighted_k_differs_from_standard_svd(self):
+    def test_svd_weighted_k_differs_from_standard_svd(self, realistic_parsim_matrices):
         """Test that weighted SVD produces different results from standard SVD."""
-        # Create test data
-        Zp = np.random.randn(20, 100)
-        Uf = np.random.randn(10, 100)
-        Gamma_L = np.random.randn(10, 100)
+        Yf, Uf, Zp, Gamma_L, l_, m, f = realistic_parsim_matrices
 
         # Weighted SVD
         U_n_weighted, S_n_weighted, V_n_weighted = ParsimCoreAlgorithm.svd_weighted_k(
@@ -268,21 +329,71 @@ class TestSVDWeightedK:
 class TestAKCEstimatingSP:
     """Tests specifically for AK_C_estimating_S_P function."""
 
-    def test_ak_c_qr_decomposition_used(self):
-        """Test that QR decomposition is used for K estimation."""
-        # Create simple test data
+    @pytest.fixture
+    def realistic_qr_test_data(self):
+        """Generate realistic test data for QR decomposition tests."""
+        from sippy.utils.simulation_utils import (
+            impile,
+            ordinate_sequence,
+            reducingOrder,
+        )
+
+        np.random.seed(42)
+        # Use enough points for f=10: N > (2*m+l_)*f = 30
+        n_points = 300
         l_ = 1
-        f = 20
         m = 1
+        f = 10
 
-        Zp = np.random.randn((m + l_) * f, 50)
-        Uf = np.random.randn(m * f, 50)
-        Yf = np.random.randn(l_ * f, 50)
+        # Generate realistic 2nd order SISO system for better observability
+        u = np.random.randn(m, n_points)
+        y = np.zeros((l_, n_points))
+        for i in range(2, n_points):
+            y[0, i] = (
+                0.8 * y[0, i - 1]
+                - 0.3 * y[0, i - 2]
+                + 0.5 * u[0, i - 1]
+                + 0.2 * u[0, i - 2]
+                + 0.05 * np.random.randn()
+            )
 
-        # Simple SVD results
-        U_n = np.random.randn(l_ * f, 3)
-        S_n = np.array([10.0, 5.0, 1.0])
-        V_n = np.random.randn(3, 50)
+        # Build matrices properly
+        p = 10
+        Yf, Yp = ordinate_sequence(y, f, p)
+        Uf, Up = ordinate_sequence(u, f, p)
+        Zp = impile(Up, Yp)
+
+        # Build Gamma_L using PARSIM-S iterative approach (multi-row matrix)
+        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:m, :]))
+        M = np.dot(Yf[0:l_, :], Matrix_pinv)
+        Gamma_L = M[:, 0 : (m + l_) * f]
+        H = M[:, (m + l_) * f :]
+
+        # Helper for y_tilde estimation
+        def estimating_y_S(H, Uf, Yf, i, m, l_):
+            y_tilde = np.dot(H[0:l_, :], Uf[m * i : m * (i + 1), :])
+            for j in range(1, i):
+                y_tilde = y_tilde + np.dot(
+                    H[l_ * j : l_ * (j + 1), :], Uf[m * (i - j) : m * (i - j + 1), :]
+                )
+            return y_tilde
+
+        # Build full Gamma_L matrix (multi-row)
+        for i in range(1, f):
+            y_tilde = estimating_y_S(H, Uf, Yf, i, m, l_)
+            M = np.dot((Yf[l_ * i : l_ * (i + 1)] - y_tilde), Matrix_pinv)
+            Gamma_L = impile(Gamma_L, M[:, 0 : (m + l_) * f])
+            H = impile(H, M[:, (m + l_) * f :])
+
+        # Get SVD and keep at least 2 singular values
+        U_n, S_n, V_n = ParsimCoreAlgorithm.svd_weighted_k(Uf, Zp, Gamma_L)
+        U_n, S_n, V_n = reducingOrder(U_n, S_n, V_n, threshold=0.01, max_order=2)
+
+        return U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf
+
+    def test_ak_c_qr_decomposition_used(self, realistic_qr_test_data):
+        """Test that QR decomposition is used for K estimation."""
+        U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf = realistic_qr_test_data
 
         A, C, A_K, K, n = ParsimCoreAlgorithm.ak_c_estimating_s_p(
             U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf
@@ -292,19 +403,9 @@ class TestAKCEstimatingSP:
         assert not np.allclose(K, 0)
         assert n == len(S_n)
 
-    def test_ak_c_matrix_relationships(self):
+    def test_ak_c_matrix_relationships(self, realistic_qr_test_data):
         """Test matrix relationships in AK_C_estimating_S_P."""
-        l_ = 1
-        f = 20
-        m = 1
-
-        Zp = np.random.randn((m + l_) * f, 50)
-        Uf = np.random.randn(m * f, 50)
-        Yf = np.random.randn(l_ * f, 50)
-
-        U_n = np.random.randn(l_ * f, 3)
-        S_n = np.array([10.0, 5.0, 1.0])
-        V_n = np.random.randn(3, 50)
+        U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf = realistic_qr_test_data
 
         A, C, A_K, K, n = ParsimCoreAlgorithm.ak_c_estimating_s_p(
             U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf
