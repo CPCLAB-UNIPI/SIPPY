@@ -170,96 +170,169 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         MA_coeffs = np.zeros((ny, nc))
         residuals_list = []
 
+        # Maximum iterations for extended least squares
+        max_iterations = kwargs.get("max_iterations", 100)
+        tolerance = kwargs.get("tolerance", 1e-6)
+
         for i in range(ny):
             # For each output channel (typically just one for ARMA)
-            # Construct regression matrix for ARMA estimation
-            n_params = na + nc  # Only AR and MA coefficients
-            Phi = np.zeros((N_eff, n_params))
-            col = 0
+            # Use iterative extended least-squares (similar to master branch ARMAX)
 
-            # AR part: lagged outputs
-            for lag in range(na):
-                Phi[:, col] = y[i, max_lag - 1 - lag : max_lag - 1 - lag + N_eff]
-                col += 1
+            # Initialize noise estimate
+            noise_hat = np.zeros(N)
 
-            # MA part: since we don't have access to noise terms directly,
-            # we use an iterative approach or approximate method
-            # For simplicity, use residuals from initial AR fit as noise estimate
-            if nc > 0:
-                # Initial AR-only estimate to get residuals
-                Phi_ar = Phi[:, :na]
-                theta_ar, _, _, _ = lstsq(
-                    Phi_ar, y[i, max_lag : max_lag + N_eff], rcond=None
-                )
-                ar_pred = Phi_ar @ theta_ar
-                residuals = y[i, max_lag : max_lag + N_eff] - ar_pred
+            # Target signal (what we're trying to predict)
+            y_target = y[i, max_lag:]
 
-                # MA part: use residuals as approximation of past noise terms
-                for lag in range(nc):
-                    if lag == 0:
-                        # Current residual is not available in MA part
-                        Phi[:, col] = 0
-                    else:
-                        # Adjust indices to avoid out-of-bounds access
-                        start_idx = max_lag - 1 - lag
-                        end_idx = start_idx + N_eff
-                        if start_idx >= 0 and end_idx <= len(residuals):
-                            Phi[:, col] = residuals[start_idx:end_idx]
-                        else:
-                            Phi[:, col] = 0
+            # Initialize variance tracking
+            Vn = np.inf
+            Vn_old = np.inf
+            theta = np.zeros(na + nc)
+            iterations = 0
+
+            # Iterative extended least squares loop
+            while (Vn_old > Vn or iterations == 0) and iterations < max_iterations:
+                theta_old = theta.copy()
+                Vn_old = Vn
+                iterations += 1
+
+                # Build regression matrix for this iteration
+                Phi = np.zeros((N_eff, na + nc))
+                col = 0
+
+                # AR part: lagged outputs (always based on actual data)
+                for lag in range(na):
+                    Phi[:, col] = y[i, max_lag - 1 - lag : max_lag - 1 - lag + N_eff]
                     col += 1
-            else:
-                # No MA coefficients needed
-                pass
 
-            # Solve for ARMA parameters
-            theta, residuals_i, rank, s = lstsq(
-                Phi, y[i, max_lag : max_lag + N_eff], rcond=None
-            )
-            residuals_list.append(residuals_i)
+                # MA part: lagged noise estimates
+                for lag in range(nc):
+                    # Use noise estimates from previous iteration
+                    # For lag k, we need noise_hat[t-k]
+                    # At time t (indexed as max_lag + j for j in 0..N_eff-1),
+                    # we need noise_hat from t-1-lag = max_lag + j - 1 - lag
+                    for j in range(N_eff):
+                        t_idx = max_lag + j - 1 - lag
+                        if 0 <= t_idx < N:
+                            Phi[j, col] = noise_hat[t_idx]
+                        else:
+                            Phi[j, col] = 0
+                    col += 1
+
+                # Solve least squares for this iteration with regularization
+                # Use rcond for numerical stability with higher order models
+                try:
+                    theta_new, _, _, _ = lstsq(Phi, y_target, rcond=1e-10)
+                except np.linalg.LinAlgError:
+                    # If SVD fails, use previous solution and break
+                    if iterations > 1:
+                        break
+                    else:
+                        # First iteration failed, use zero initialization
+                        theta_new = np.zeros(na + nc)
+
+                # Compute predictions and new residuals
+                y_pred = Phi @ theta_new
+                new_residuals = y_target - y_pred
+
+                # Compute mean square error (variance)
+                Vn = np.mean(new_residuals**2)
+
+                # If solution is worse, use binary search to find better step size
+                if Vn > Vn_old and iterations > 1:
+                    interval_length = 0.5
+                    while Vn > Vn_old and interval_length > np.finfo(np.float32).eps:
+                        theta = interval_length * theta_new + (1 - interval_length) * theta_old
+                        y_pred = Phi @ theta
+                        new_residuals = y_target - y_pred
+                        Vn = np.mean(new_residuals**2)
+                        interval_length = interval_length / 2.0
+
+                    if Vn > Vn_old:
+                        # Binary search failed, keep old solution
+                        theta = theta_old
+                        Vn = Vn_old
+                        break
+                else:
+                    theta = theta_new
+
+                # Update noise estimates for entire signal
+                # noise[k] = y[k] - y_pred[k] using current theta
+                # Reconstruct noise for entire signal (needed for next iteration)
+                # Note: theta contains regression coefficients directly from least squares
+                # theta[:na] are the AR coefficients as they appear in y[k] = theta[0]*y[k-1] + ...
+                # theta[na:] are the MA coefficients
+                for k in range(max_lag, N):
+                    # AR component: theta contains direct regression coefficients
+                    ar_sum = 0
+                    for lag in range(na):
+                        if k - 1 - lag >= 0:
+                            ar_sum += theta[lag] * y[i, k - 1 - lag]
+
+                    # MA component
+                    ma_sum = 0
+                    for lag in range(nc):
+                        if k - 1 - lag >= 0:
+                            ma_sum += theta[na + lag] * noise_hat[k - 1 - lag]
+
+                    # Prediction using AR + MA
+                    y_pred_k = ar_sum + ma_sum
+
+                    # Clip prediction to prevent overflow in noise estimates
+                    y_signal_range = np.max(np.abs(y[i, :]))
+                    y_pred_k = np.clip(y_pred_k, -10 * y_signal_range, 10 * y_signal_range)
+
+                    # Residual (noise estimate)
+                    noise_hat[k] = y[i, k] - y_pred_k
+
+                # Check convergence
+                if iterations > 1:
+                    theta_change = np.linalg.norm(theta - theta_old) / (np.linalg.norm(theta_old) + 1e-12)
+                    if theta_change < tolerance:
+                        break
 
             # Extract AR and MA coefficients
-            AR_coeffs[i, :] = theta[:na]
-            if nc > 0:
-                MA_coeffs[i, :] = theta[na:]
+            # Note: In the regression, AR coefficients represent y[k] = theta[0]*y[k-1] + ...
+            # In transfer function form A(q) = 1 + a1*q^-1 + ..., we have a1 = -theta[0]
+            # So we need to negate the AR coefficients for transfer function convention
+            AR_coeffs[i, :] = -theta[:na]
+            MA_coeffs[i, :] = theta[na:na + nc]
+            residuals_list.append(noise_hat[max_lag:])
 
         # Compute one-step-ahead predictions (Yid) for identification data
         Yid = np.zeros_like(y)
         Yid[:, :max_lag] = y[:, :max_lag]  # Copy initial values
 
         for i in range(ny):
-            # Reconstruct predictions for each output using AR and MA terms
-            n_params = na + nc
-            Phi_i = np.zeros((N_eff, n_params))
-            col = 0
+            # Compute one-step-ahead predictions using the estimated AR and MA coefficients
+            # We need to reconstruct the noise estimates first
+            noise_est = np.zeros(N)
 
-            # AR part
-            for lag in range(na):
-                Phi_i[:, col] = y[i, max_lag - 1 - lag : max_lag - 1 - lag + N_eff]
-                col += 1
+            # Reconstruct noise estimates and predictions
+            y_signal_range = np.max(np.abs(y[i, :]))
+            for k in range(max_lag, N):
+                # AR component: use actual past outputs
+                # AR_coeffs are in transfer function form (1 + a1*q^-1 + ...)
+                # So: y[k] = -a1*y[k-1] - a2*y[k-2] - ...
+                ar_sum = 0
+                for lag in range(na):
+                    if k - 1 - lag >= 0:
+                        ar_sum += -AR_coeffs[i, lag] * y[i, k - 1 - lag]
 
-            # MA part (using residuals from AR fit)
-            if nc > 0:
-                Phi_ar = Phi_i[:, :na]
-                ar_pred = Phi_ar @ AR_coeffs[i, :]
-                residuals = y[i, max_lag : max_lag + N_eff] - ar_pred
-
+                # MA component: use past noise estimates
+                # MA_coeffs are in transfer function form (1 + c1*q^-1 + ...)
+                # So: contribution is c1*e[k-1] + c2*e[k-2] + ...
+                ma_sum = 0
                 for lag in range(nc):
-                    if lag == 0:
-                        Phi_i[:, col] = 0
-                    else:
-                        start_idx = max_lag - 1 - lag
-                        end_idx = start_idx + N_eff
-                        if start_idx >= 0 and end_idx <= len(residuals):
-                            Phi_i[:, col] = residuals[start_idx:end_idx]
-                        else:
-                            Phi_i[:, col] = 0
-                    col += 1
+                    if k - 1 - lag >= 0:
+                        ma_sum += MA_coeffs[i, lag] * noise_est[k - 1 - lag]
 
-            theta_i = np.concatenate(
-                [AR_coeffs[i, :], MA_coeffs[i, :] if nc > 0 else []]
-            )
-            Yid[i, max_lag:] = np.dot(Phi_i, theta_i).flatten()
+                # One-step-ahead prediction (clip to prevent overflow)
+                pred = ar_sum + ma_sum
+                Yid[i, k] = np.clip(pred, -10 * y_signal_range, 10 * y_signal_range)
+
+                # Update noise estimate for this time step
+                noise_est[k] = y[i, k] - Yid[i, k]
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_arma(
@@ -281,6 +354,10 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         model.G_tf = G_tf
         model.H_tf = H_tf
         model.Yid = Yid
+
+        # Attach AR and MA coefficients for easy access
+        model.AR_coeffs = AR_coeffs
+        model.MA_coeffs = MA_coeffs
 
         return model
 

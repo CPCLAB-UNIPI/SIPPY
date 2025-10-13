@@ -164,6 +164,8 @@ The following algorithms use simplified estimation vs master branch for performa
 - **OE (Output Error)**: Linear LS approximation vs nonlinear optimization
 - **BJ (Box-Jenkins)**: Single LS vs dual-path with auxiliary variables
 - **ARARMAX**: Approximated noise vs true iterative refinement
+- **ARARX**: Auxiliary variable method vs nonlinear optimization (50-100% error typical)
+- **ARMA**: Iterative extended least-squares vs simultaneous optimization (<10% error typical)
 
 These trade some accuracy for 10-100x performance improvement. **Reimplementation is DEFERRED**
 (see MIGRATION_ACCURACY_TODO.md TASKS 11-13 for deferral status and [`OE_BJ_ARARMAX_INVESTIGATION_REPORT.md`](./OE_BJ_ARARMAX_INVESTIGATION_REPORT.md) for comprehensive analysis).
@@ -175,6 +177,8 @@ These trade some accuracy for 10-100x performance improvement. **Reimplementatio
 - **OE**: Uses actual outputs in regressor instead of predicted outputs (Yid). Missing iterative refinement loop.
 - **BJ**: Missing auxiliary variables W and V. Combined single least squares instead of separate input/noise path optimization.
 - **ARARMAX**: Uses approximated noise terms with heuristics (hardcoded 0.1 scaling) instead of simultaneous nonlinear optimization.
+- **ARARX**: Uses 50-iteration auxiliary variable method with alternating least squares. Master uses NLP optimization with CasADi. Shows 50-100% relative error vs master (sign flip issues documented). Suitable for prototyping only.
+- **ARMA**: Uses iterative extended least-squares (similar to master ARMAX). Master uses simultaneous optimization but ARMA not directly supported in master. Shows <10% error on internal tests. Cannot validate vs master (unsupported).
 
 **ARMAX Preprocessing Note:**
 
@@ -184,14 +188,14 @@ The ARMAX ILLS implementation is 100% faithful to master branch algorithm. Howev
 - Both approaches are mathematically valid and converge to correct solutions
 - See [`ARMAX_ERROR_INVESTIGATION_REPORT.md`](./ARMAX_ERROR_INVESTIGATION_REPORT.md) for detailed analysis
 
-**ARARX and ARMA Validation:**
+**ARARX and ARMA Status (Updated 2025-10-13):**
 
-ARARX and ARMA have been validated against master branch in cross-branch validation framework:
-- **ARARX**: Uses 10-iteration refinement vs NLP in master. Acceptable tolerance: 1e-4 relative error
-- **ARMA**: Uses two-stage optimization vs simultaneous in master. Acceptable tolerance: 1e-4 relative error
+ARARX and ARMA have been improved with modern API and better algorithms:
+- **ARARX**: Uses 50-iteration auxiliary variable method (improved from 10). Shows **100% relative error** vs master with sign flip issues. **NOT production-ready** - use master branch or mark as experimental. Suitable for exploratory analysis only.
+- **ARMA**: Uses iterative extended least-squares (100-iteration refinement). Shows **<10% error** on internal tests. Master branch doesn't support ARMA for direct validation, so marked as experimental. Suitable for time series analysis with validation.
 - Tests exist in `test_master_comparison.py::TestConditionalMethodsComparison`
-- Status: CONDITIONAL PASS - Differences documented and within acceptable bounds
-- See MIGRATION_ACCURACY_TODO.md TASKS 14-15 for details
+- Status: **ARARX ❌ NOT READY** (100% error), **ARMA ⚠️ CONDITIONAL** (<10% error, cannot validate vs master)
+- See [`ARARX_ARMA_FINAL_VALIDATION_REPORT.md`](./ARARX_ARMA_FINAL_VALIDATION_REPORT.md) for detailed analysis
 
 **Deferral Justification:**
 - Current implementations are **mathematically valid** and produce correct results for typical use cases
@@ -206,13 +210,13 @@ ARARX and ARMA have been validated against master branch in cross-branch validat
 - Regulatory compliance requiring validated algorithms (FDA, ISO, IEEE standards)
 
 **When to Use:**
-- **Rapid Prototyping:** Use simplified versions for fast iteration and initial exploration
-- **Production Systems (typical):** Simplified versions are suitable for most control applications
-- **Production Systems (critical):** Use master branch if exact reproduction needed
-- **Research (non-critical):** Simplified versions acceptable for educational purposes
+- **Rapid Prototyping:** Use simplified versions (except ARARX) for fast iteration and initial exploration
+- **Production Systems (typical):** OE, BJ, ARARMAX, ARMA suitable for most control applications (with caveats)
+- **Production Systems (critical):** Use master branch if exact reproduction needed. **AVOID ARARX** (100% error).
+- **Research (non-critical):** Simplified versions acceptable for educational purposes (except ARARX)
 - **Research (critical):** Use master branch for paper reproducibility and benchmarking
 - **Hybrid Approach:** Use simplified for initial exploration, validate final results with master branch
-- **Note:** ARARX and ARMA are validated as conditionally accurate (< 1e-4 error) for most applications
+- **Note:** **ARARX is NOT recommended** (100% error). **ARMA is conditionally acceptable** (<10% error, experimental status)
 
 ## Performance Optimization with Numba
 

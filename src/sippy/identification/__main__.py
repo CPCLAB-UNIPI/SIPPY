@@ -42,7 +42,7 @@ class SystemIdentification:
 
         Args:
             y: Output data (outputs x time_steps) - alternative to iddata
-            u: Input data (inputs x time_steps) - alternative to iddata
+            u: Input data (inputs x time_steps) - alternative to iddata (can be None for ARMA)
             iddata: IDData object containing input and output data
             **kwargs: Override config parameters
 
@@ -51,12 +51,20 @@ class SystemIdentification:
 
         Note:
             Either (y, u) or iddata should be provided, but not both.
+            For ARMA (time series model), u can be None.
         """
         # Validate input arguments
         if iddata is not None and (y is not None or u is not None):
             raise ValueError("Provide either iddata or (y, u), but not both")
-        if iddata is None and (y is None or u is None):
-            raise ValueError("Must provide either iddata or both y and u")
+
+        # Check if this is ARMA (time series model that doesn't need inputs)
+        method = kwargs.get("method", self.config.method if self.config else "N4SID")
+        is_time_series_method = method in ["ARMA"]
+
+        if iddata is None and y is None:
+            raise ValueError("Must provide either iddata or y")
+        if iddata is None and u is None and not is_time_series_method:
+            raise ValueError("Must provide either iddata or both y and u (unless using ARMA)")
 
         # Extract data if IDData is provided
         if iddata is not None:
@@ -82,45 +90,56 @@ class SystemIdentification:
 
         return model
 
-    def _apply_centering(self, y: np.ndarray, u: np.ndarray, centering: str) -> tuple:
+    def _apply_centering(self, y: np.ndarray, u: Optional[np.ndarray], centering: str) -> tuple:
         """Apply data centering preprocessing."""
         y = 1.0 * np.atleast_2d(y)
-        u = 1.0 * np.atleast_2d(u)
 
         [n1, n2] = y.shape
         ydim = min(n1, n2)
         ylength = max(n1, n2)
         if ylength == n1:
             y = y.T
-        [n1, n2] = u.shape
-        ulength = max(n1, n2)
-        udim = min(n1, n2)
-        if ulength == n1:
-            u = u.T
 
-        # Checking data consistency
-        if ulength != ylength:
-            print("Warning: y and u lengths are not the same. Using minimum length.")
-            minlength = min(ulength, ylength)
-            y = y[:, :minlength]
-            u = u[:, :minlength]
+        # Handle case where u is None (e.g., ARMA time series model)
+        if u is not None:
+            u = 1.0 * np.atleast_2d(u)
+            [n1, n2] = u.shape
+            ulength = max(n1, n2)
+            udim = min(n1, n2)
+            if ulength == n1:
+                u = u.T
+
+            # Checking data consistency
+            if ulength != ylength:
+                print("Warning: y and u lengths are not the same. Using minimum length.")
+                minlength = min(ulength, ylength)
+                y = y[:, :minlength]
+                u = u[:, :minlength]
+        else:
+            # No input data (time series model like ARMA)
+            udim = 0
+            ulength = ylength
 
         if centering == "InitVal":
             y_rif = 1.0 * y[:, 0]
-            u_init = 1.0 * u[:, 0]
             for i in range(ylength):
                 y[:, i] = y[:, i] - y_rif
-                u[:, i] = u[:, i] - u_init
+            if u is not None:
+                u_init = 1.0 * u[:, 0]
+                for i in range(ylength):
+                    u[:, i] = u[:, i] - u_init
         elif centering == "MeanVal":
             y_rif = np.zeros(ydim)
-            u_mean = np.zeros(udim)
             for i in range(ydim):
                 y_rif[i] = np.mean(y[i, :])
-            for i in range(udim):
-                u_mean[i] = np.mean(u[i, :])
             for i in range(ylength):
                 y[:, i] = y[:, i] - y_rif
-                u[:, i] = u[:, i] - u_mean
+            if u is not None:
+                u_mean = np.zeros(udim)
+                for i in range(udim):
+                    u_mean[i] = np.mean(u[i, :])
+                for i in range(ylength):
+                    u[:, i] = u[:, i] - u_mean
 
         return y, u
 

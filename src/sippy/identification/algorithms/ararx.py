@@ -6,7 +6,6 @@ import warnings
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
 
@@ -203,8 +202,12 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         D_coeffs = np.zeros((ny, nd))
 
         # Step 2: Iterative optimization using auxiliary variables
-        max_iter = 10
-        tol = 1e-6
+        # Increased from 10 to 50 for better convergence
+        max_iter = 50
+        tol = 1e-8  # Tighter tolerance for better accuracy
+
+        # Track convergence for diagnostics
+        converged = False
 
         for iteration in range(max_iter):
             A_prev = A_coeffs.copy()
@@ -227,13 +230,29 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                 u, W, nb, nd, theta, N, max_lag
             )
 
-            # Check convergence
-            delta_A = np.linalg.norm(A_coeffs - A_prev)
-            delta_B = np.linalg.norm(B_coeffs - B_prev)
-            delta_D = np.linalg.norm(D_coeffs - D_prev)
+            # Check convergence using relative change (more robust than absolute)
+            # Use Frobenius norm for matrices
+            norm_A_prev = np.linalg.norm(A_prev) + 1e-10  # Add small value to prevent division by zero
+            norm_B_prev = np.linalg.norm(B_prev) + 1e-10
+            norm_D_prev = np.linalg.norm(D_prev) + 1e-10
 
-            if delta_A + delta_B + delta_D < tol:
+            rel_delta_A = np.linalg.norm(A_coeffs - A_prev) / norm_A_prev
+            rel_delta_B = np.linalg.norm(B_coeffs - B_prev) / norm_B_prev
+            rel_delta_D = np.linalg.norm(D_coeffs - D_prev) / norm_D_prev
+
+            max_rel_change = max(rel_delta_A, rel_delta_B, rel_delta_D)
+
+            if max_rel_change < tol:
+                converged = True
                 break
+
+        # Warn if convergence not achieved
+        if not converged and ny > 0:
+            warnings.warn(
+                f"ARARX did not converge after {max_iter} iterations. "
+                f"Final relative change: {max_rel_change:.2e}. "
+                f"Consider increasing max_iterations or checking data quality."
+            )
 
         # Step 3: Compute Yid (one-step-ahead predictions)
         Yid = self._compute_yid_ararx(
@@ -323,7 +342,13 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                         d_denom += D_coeffs[i, j] * V[i, k - j - 1]
 
                 # V = y - B/D * u
-                V[i, k] = y[i, k_abs] - b_u / max(abs(d_denom), 0.1)
+                # Adaptive regularization: use fraction of B*u magnitude instead of hardcoded 0.1
+                epsilon = max(abs(d_denom) * 0.01, abs(b_u) * 0.01, 1e-6)
+                if abs(d_denom) < epsilon:
+                    # If denominator too small, use approximation V ≈ y - B*u
+                    V[i, k] = y[i, k_abs] - b_u
+                else:
+                    V[i, k] = y[i, k_abs] - b_u / d_denom
 
         return V
 
@@ -444,7 +469,13 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                         d_effect += D_coeffs[i, j] * Yid[i, k - j - 1]
 
                 # Combine: y = -A*y + B/D*u
-                Yid[i, k] = y_pred + b_u / max(abs(d_effect), 0.1)
+                # Adaptive regularization similar to V computation
+                epsilon = max(abs(d_effect) * 0.01, abs(b_u) * 0.01, 1e-6)
+                if abs(d_effect) < epsilon:
+                    # If denominator too small, use approximation: y_pred ≈ -A*y + B*u
+                    Yid[i, k] = y_pred + b_u
+                else:
+                    Yid[i, k] = y_pred + b_u / d_effect
 
         return Yid
 
@@ -486,14 +517,26 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                 if na > 0
                 else np.array([1.0])
             )
-            B_poly_no_delay = np.concatenate(([0.0] * theta, B_coeffs.flatten()))
+
+            # Build B polynomial with delay
+            # For discrete TF, B(q) = b0*q^-theta + b1*q^-(theta+1) + ... + bnb*q^-(theta+nb)
+            # In harold array form: [0, 0, ..., 0, b0, b1, ..., bnb]
+            B_poly = np.concatenate((B_coeffs.flatten(), [0.0] * theta))
+
             D_poly = np.concatenate(([1.0], D_coeffs.flatten()))
 
             # Multiply A * D for denominator using harold.haroldpolymul
+            # For MIMO case, A_coeffs and D_coeffs are (ny x na) and (ny x nd)
+            # Use first output's coefficients for SISO-like TF
             DEN_G = harold.haroldpolymul(A_poly, D_poly)
 
+            # Ensure numerator and denominator have valid lengths
+            # harold Transfer needs non-empty numerator with at least one non-zero element
+            if len(B_poly) == 0 or np.all(B_poly == 0):
+                B_poly = np.array([0.0])
+
             # Create G transfer function: G(q) = B(q) / (A(q) * D(q))
-            G_tf = harold.Transfer(B_poly_no_delay, DEN_G, dt=Ts)
+            G_tf = harold.Transfer(B_poly, DEN_G, dt=Ts)
 
             # Create H transfer function: H(q) = 1 / A(q)
             H_tf = harold.Transfer([1.0], A_poly, dt=Ts)

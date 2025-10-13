@@ -2,14 +2,15 @@
 ## Based on Comprehensive 5-Subagent Investigation
 
 **Investigation Date:** 2025-10-12
-**Last Updated:** 2025-10-12 (after Phase 1, 2, Signature Fixes, TASK 7 completion & Documentation Update)
-**Overall Migration Accuracy:** ~86% (up from 82%)
+**Last Updated:** 2025-10-13 (after ARARX/ARMA validation and accuracy improvements)
+**Overall Migration Accuracy:** ~87% (up from 86%)
 **Compliant Algorithms:** 100% (14/14 fully compliant with modern API)
 **Critical Fixes Completed:** 3/3 (100%) ✅
 **High Priority Tasks Completed:** 12/12 (100%) ✅
 **Signature Fixes Completed:** 6/6 (100%) - OE, BJ, ARARX, ARMA, FIR, ARMAX ✅
-**Phase 2 Test Fixes:** PARSIM-S 100% ✅, PARSIM-P 100% ✅, PARSIM-K edge cases fixed ✅
-**Documentation Updates:** MIGRATION_ACCURACY_TODO.md & CLAUDE.md updated (2025-10-12) ✅
+**Phase 2 Test Fixes:** PARSIM-S 100% ✅, PARSIM-P 100% ✅, PARSIM-K 100% ✅
+**ARARX/ARMA Validation:** ARMA execution fixed & accuracy improved ✅, ARARX improved but NOT production-ready ⚠️
+**Documentation Updates:** MIGRATION_ACCURACY_TODO.md & CLAUDE.md updated (2025-10-13) ✅
 
 ---
 
@@ -562,61 +563,71 @@ This TODO file consolidates findings from 5 parallel subagent investigations:
 
 ---
 
-### **TASK 14: Validate ARARX Against Master** ✅ COMPLETED (Tests Exist)
+### **TASK 14: Validate ARARX Against Master** ❌ FAILED (NOT Production Ready)
 **Priority:** MEDIUM
 **Estimated Time:** 3 days
-**Assignee:** Completed (2025-10-12)
-**Status:** ✅ COMPLETED - Tests exist in cross-branch validation framework
+**Assignee:** Completed (2025-10-13)
+**Status:** ❌ FAILED - 100% relative error with sign flip issues
 
 **Actions:**
 - [x] Run numerical comparison tests with master branch
-- [x] Document convergence behavior differences (10 iterations vs NLP)
-- [x] Test on multiple system types (SISO, MIMO, different orders)
-- [x] Measure numerical error (max absolute, relative, correlation)
-- [x] Document acceptable differences (< 1e-4 relative error)
+- [x] Root cause analysis (auxiliary variable vs NLP optimization)
+- [x] Improve algorithm: 10→50 iterations, relative convergence, adaptive regularization
+- [x] Cross-branch validation executed (47 tests, comprehensive report)
+- [x] Document unacceptable differences (100% error, correlation -0.82)
 - [ ] Add stability constraint option (master has this) - DEFERRED
-- [x] Update CLAUDE.md with validation results
+- [x] Update CLAUDE.md with NOT READY status
 
 **Implementation Results:**
-- Test implemented: `test_master_comparison.py::TestConditionalMethodsComparison::test_ararx_siso()`
-- Expected tolerance: 1e-4 relative error (documented as acceptable)
-- Reason for difference: 10-iteration refinement (harold) vs NLP (master)
-- Status: CONDITIONAL PASS - Differences documented and acceptable
-- **Note:** Test exists in framework but may need to be run to generate final report
+- **Validation:** 100% relative error (reduced from 734% but still critical)
+- **Sign Correlation:** -0.82 (suggests polarity/sign flip issues)
+- **Convergence:** Algorithm reaches max iterations (50) without converging
+- **Root Cause:** Auxiliary variable method fundamentally different from master's NLP
+- **Improvements Made:**
+  - Increased iterations 10→50 (lines 207)
+  - Changed to relative convergence check (lines 230-246)
+  - Adaptive regularization vs hardcoded 0.1 (lines 327-332, 448-453)
+- **Status:** ❌ NOT PRODUCTION READY - Use master branch or mark as experimental
+- **Documentation:** [`ARARX_ARMA_FINAL_VALIDATION_REPORT.md`](./ARARX_ARMA_FINAL_VALIDATION_REPORT.md)
 
 **Reference Files:**
 - Master: `/Users/josephj/Workspace/SIPPY-master/sippy_unipi/io_opt.py`
-- Test: `/Users/josephj/Workspace/SIPPY/src/sippy/identification/tests/test_master_comparison.py` lines 797-843
-- See Subagent 4 report - Section "3.1 ARARX Algorithm"
+- Harold: `/Users/josephj/Workspace/SIPPY/src/sippy/identification/algorithms/ararx.py`
+- Validation: [`ARARX_ARMA_VALIDATION_REPORT.md`](./ARARX_ARMA_VALIDATION_REPORT.md), [`ARARX_ARMA_FINAL_VALIDATION_REPORT.md`](./ARARX_ARMA_FINAL_VALIDATION_REPORT.md)
 
 ---
 
-### **TASK 15: Validate ARMA Against Master** ✅ COMPLETED (Tests Exist)
+### **TASK 15: Validate ARMA Against Master** ⚠️ EXPERIMENTAL (Execution Fixed, Cannot Validate)
 **Priority:** MEDIUM
 **Estimated Time:** 2 days
-**Assignee:** Completed (2025-10-12)
-**Status:** ✅ COMPLETED - Tests exist in cross-branch validation framework
+**Assignee:** Completed (2025-10-13)
+**Status:** ⚠️ EXPERIMENTAL - Execution fixed, <10% error on internal tests, cannot validate vs master
 
 **Actions:**
-- [x] Run numerical comparison tests with master branch
-- [x] Document two-stage vs simultaneous optimization differences
-- [x] Test on various ARMA systems (SISO data)
-- [x] Measure parameter estimation errors
-- [x] Decide if two-stage approach is acceptable approximation (YES - documented)
-- [ ] Consider adding iterative refinement option - DEFERRED
-- [x] Update CLAUDE.md with validation results
+- [x] Fix SystemIdentification wrapper to allow u=None for time series models
+- [x] Implement iterative extended least-squares with 100-iteration refinement
+- [x] Fix line 262 concatenation error (numpy array with python list)
+- [x] Test on various ARMA systems (SISO data) - 85% pass rate (11/13 tests)
+- [x] Measure parameter estimation errors (<10% on internal tests)
+- [x] Document limitations (master doesn't support ARMA for validation)
+- [x] Update CLAUDE.md with EXPERIMENTAL status
 
 **Implementation Results:**
-- Test implemented: `test_master_comparison.py::TestConditionalMethodsComparison::test_arma_siso()`
-- Expected tolerance: 1e-4 relative error (documented as acceptable)
-- Reason for difference: Two-stage optimization (harold) vs simultaneous (master)
-- Status: CONDITIONAL PASS - Differences documented and acceptable
-- **Note:** Test exists in framework but may need to be run to generate final report
+- **Execution Fix:** Modified `__main__.py` lines 56-67 to allow `u=None` for ARMA
+- **Algorithm Rewrite:** Implemented iterative extended LS (lines 173-303)
+  - 100-iteration refinement loop
+  - Binary search for step size when solution diverges
+  - Proper noise estimate reconstruction
+  - AR/MA coefficient sign conventions
+- **Test Results:** 85% pass rate (11/13 tests), 100% unit tests
+- **Accuracy:** <10% error on internal tests (cannot compare with master - master doesn't support ARMA)
+- **Status:** ⚠️ EXPERIMENTAL - Use with caution, marked as experimental
+- **Documentation:** [`ARARX_ARMA_FINAL_VALIDATION_REPORT.md`](./ARARX_ARMA_FINAL_VALIDATION_REPORT.md)
 
 **Reference Files:**
-- Master: `/Users/josephj/Workspace/SIPPY-master/sippy_unipi/io_opt.py`
-- Test: `/Users/josephj/Workspace/SIPPY/src/sippy/identification/tests/test_master_comparison.py` lines 1016-1054
-- See Subagent 4 report - Section "3.5 ARMA Algorithm"
+- Harold: `/Users/josephj/Workspace/SIPPY/src/sippy/identification/algorithms/arma.py`
+- Wrapper: `/Users/josephj/Workspace/SIPPY/src/sippy/identification/__main__.py`
+- Validation: [`ARARX_ARMA_VALIDATION_REPORT.md`](./ARARX_ARMA_VALIDATION_REPORT.md), [`ARARX_ARMA_FINAL_VALIDATION_REPORT.md`](./ARARX_ARMA_FINAL_VALIDATION_REPORT.md)
 
 ---
 
@@ -735,11 +746,11 @@ This TODO file consolidates findings from 5 parallel subagent investigations:
 - [ ] TASK 11: Reimplement OE (DEFERRED - simplified version documented)
 - [ ] TASK 12: Reimplement BJ (DEFERRED - simplified version documented)
 - [ ] TASK 13: Reimplement ARARMAX (DEFERRED - simplified version documented)
-- [x] TASK 14: Validate ARARX (Completed 2025-10-12 - tests exist in framework)
-- [x] TASK 15: Validate ARMA (Completed 2025-10-12 - tests exist in framework)
+- [x] TASK 14: Validate ARARX (Completed 2025-10-13 - ❌ NOT READY, 100% error)
+- [x] TASK 15: Validate ARMA (Completed 2025-10-13 - ⚠️ EXPERIMENTAL, <10% error)
 
 **Completion:** 5/8 (62.5%)
-**Note:** All three PARSIM variants now 100% complete, ARARX/ARMA validation tests added
+**Note:** All three PARSIM variants 100% production-ready, ARARX NOT ready (100% error), ARMA experimental (<10% error)
 
 ### Low Priority (Nice to Have)
 - [ ] TASK 16: Comprehensive Migration Report
@@ -790,16 +801,18 @@ This TODO file consolidates findings from 5 parallel subagent investigations:
 | ARX | ✅ PASS | ✅ Modern API | [`INVESTIGATION_REPORT.md`](./INVESTIGATION_REPORT.md) |
 | FIR | ✅ PASS | ✅ Modern API | [`FIR_FIX_REPORT.md`](./FIR_FIX_REPORT.md) |
 | ARMAX | ✅ PASS | ✅ Modern API | [`ARMAX_ERROR_INVESTIGATION_REPORT.md`](./ARMAX_ERROR_INVESTIGATION_REPORT.md) |
-| ARARX | ⚠️ SIMPLIFIED | ✅ Modern API | [`FIX_SIGNATURE_INCOMPATIBILITY.md`](./FIX_SIGNATURE_INCOMPATIBILITY.md) |
+| ARARX | ❌ NOT READY | ✅ Modern API | [`ARARX_ARMA_FINAL_VALIDATION_REPORT.md`](./ARARX_ARMA_FINAL_VALIDATION_REPORT.md) |
 | ARARMAX | ⚠️ SIMPLIFIED | ✅ Modern API | Subagent 4 embedded report |
 | OE | ⚠️ SIMPLIFIED | ✅ Modern API | [`FIX_SIGNATURE_INCOMPATIBILITY.md`](./FIX_SIGNATURE_INCOMPATIBILITY.md) |
 | BJ | ⚠️ SIMPLIFIED | ✅ Modern API | [`FIX_SIGNATURE_INCOMPATIBILITY.md`](./FIX_SIGNATURE_INCOMPATIBILITY.md) |
-| ARMA | ⚠️ SIMPLIFIED | ✅ Modern API | [`FIX_SIGNATURE_INCOMPATIBILITY.md`](./FIX_SIGNATURE_INCOMPATIBILITY.md) |
+| ARMA | ⚠️ EXPERIMENTAL | ✅ Modern API | [`ARARX_ARMA_FINAL_VALIDATION_REPORT.md`](./ARARX_ARMA_FINAL_VALIDATION_REPORT.md) |
 
 **Legend:**
 - ✅ PASS: Algorithm matches master branch exactly
 - ⚠️ CONDITIONAL: Works but has edge cases or limitations (documented)
 - ⚠️ SIMPLIFIED: Uses simplified estimation for performance (10-100x faster, documented in CLAUDE.md)
+- ⚠️ EXPERIMENTAL: Cannot validate vs master, based on internal testing only
+- ❌ NOT READY: Significant accuracy issues, not recommended for production
 - ✅ Modern API: Uses modern signature `identify(y, u, iddata, **kwargs)`
 
 ### Master Branch Reference Locations
@@ -925,5 +938,5 @@ This TODO file consolidates findings from 5 parallel subagent investigations:
 
 ---
 
-**Last Updated:** 2025-10-12 (Documentation Update - Phase 5)
-**Next Review:** Focus on running validation tests (TASKS 14-15) and optional reimplementations (TASKS 11-13)
+**Last Updated:** 2025-10-13 (ARARX/ARMA Validation Complete)
+**Next Review:** Consider ARARX reimplementation with NLP optimization (if production use needed) and optional reimplementations (TASKS 11-13)
