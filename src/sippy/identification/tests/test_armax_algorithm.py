@@ -90,7 +90,14 @@ class TestARMAXAlgorithm:
             mock_ss.C = np.zeros((1, 3))
             mock_ss.D = np.zeros((1, 1))
 
-            result = algorithm.identify(self.data, self.config)
+            # Use new API signature with iddata and kwargs
+            result = algorithm.identify(
+                iddata=self.data,
+                na=self.config.na,
+                nb=self.config.nb,
+                nc=self.config.nc,
+                nk=self.config.nk
+            )
 
             assert isinstance(result, StateSpaceModel)
             assert result.A is not None
@@ -117,7 +124,14 @@ class TestARMAXAlgorithm:
                 mock_ss.C = np.zeros((1, na + nc))
                 mock_ss.D = np.zeros((1, 1))
 
-                result = algorithm.identify(self.data, config)
+                # Use new API signature with iddata and kwargs
+                result = algorithm.identify(
+                    iddata=self.data,
+                    na=config.na,
+                    nb=config.nb,
+                    nc=config.nc,
+                    nk=config.nk
+                )
                 assert result is not None
 
     def test_armax_mimo_system(self):
@@ -151,7 +165,14 @@ class TestARMAXAlgorithm:
             mock_ss.C = np.zeros((2, 3))
             mock_ss.D = np.zeros((2, 2))
 
-            result = algorithm.identify(data, config)
+            # Use new API signature with iddata and kwargs
+            result = algorithm.identify(
+                iddata=data,
+                na=config.na,
+                nb=config.nb,
+                nc=config.nc,
+                nk=config.nk
+            )
             assert result is not None
 
     def test_armax_without_harold(self):
@@ -159,7 +180,14 @@ class TestARMAXAlgorithm:
         algorithm = ARMAXAlgorithm()
 
         with patch("sippy.identification.algorithms.armax.HAROLD_AVAILABLE", False):
-            result = algorithm.identify(self.data, self.config)
+            # Use new API signature with iddata and kwargs
+            result = algorithm.identify(
+                iddata=self.data,
+                na=self.config.na,
+                nb=self.config.nb,
+                nc=self.config.nc,
+                nk=self.config.nk
+            )
             # Should return a mock model when harold is not available
             assert result is not None
             assert isinstance(result, StateSpaceModel)
@@ -187,7 +215,14 @@ class TestARMAXAlgorithm:
 
         # With the new compiled function, insufficient data returns small arrays rather than raising error
         try:
-            result = algorithm.identify(small_data, config)
+            # Use new API signature with iddata and kwargs
+            result = algorithm.identify(
+                iddata=small_data,
+                na=config.na,
+                nb=config.nb,
+                nc=config.nc,
+                nk=config.nk
+            )
             # Should return a model with minimal dimensions
             assert result is not None
             assert result.A.shape == (1, 1)  # Minimal state matrix
@@ -212,7 +247,14 @@ class TestARMAXAlgorithm:
             mock_ss.C = np.zeros((1, 3))
             mock_ss.D = np.zeros((1, 1))
 
-            result = algorithm.identify(self.data, config)
+            # Use new API signature with iddata and kwargs
+            result = algorithm.identify(
+                iddata=self.data,
+                na=config.na,
+                nb=config.nb,
+                nc=config.nc,
+                nk=config.nk
+            )
             assert result.A.shape == (3, 3)  # State dimension = na + nc
             assert result.n == 3
 
@@ -233,7 +275,14 @@ class TestARMAXAlgorithm:
             mock_ss.C = np.array([[1.0, 0.0]])
             mock_ss.D = np.array([[0.0]])
 
-            result = algorithm.identify(self.data, config)
+            # Use new API signature with iddata and kwargs
+            result = algorithm.identify(
+                iddata=self.data,
+                na=config.na,
+                nb=config.nb,
+                nc=config.nc,
+                nk=config.nk
+            )
             assert result is not None
             # State matrix should reflect AR + MA dynamics
             assert result.A.shape == (2, 2)  # na + nc = 2

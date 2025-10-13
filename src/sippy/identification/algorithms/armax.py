@@ -3,12 +3,16 @@ ARMAX (AutoRegressive Moving Average with eXogenous inputs) identification algor
 """
 
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
 from .armax_modes import get_armax_handler
+
+if TYPE_CHECKING:
+    from ..iddata import IDData
 
 # Import compiled utilities for performance
 try:
@@ -106,25 +110,49 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
 
         return True
 
-    def identify(self, data, config):
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Identify ARMAX model from input-output data using the selected algorithm mode.
 
         Parameters:
         -----------
-        data : IDData
-            Input-output data
-        config : SystemIdentificationConfig or dict
-            Configuration parameters including na, nb, nc, nk, armx_mode
+        y : np.ndarray, optional
+            Output data (outputs x time_steps)
+        u : np.ndarray, optional
+            Input data (inputs x time_steps)
+        iddata : IDData, optional
+            Input-output data container
+        **kwargs : dict
+            Configuration parameters including na, nb, nc, nk, max_iterations,
+            convergence_tolerance, armx_mode, forgetting_factor, optimization_method
 
         Returns:
         --------
         model : StateSpaceModel
             Identified state-space model
         """
-        # Extract data from IDData object
-        u = data.get_input_array()
-        y = data.get_output_array()
+        # Validate input arguments
+        if iddata is not None and (y is not None or u is not None):
+            raise ValueError("Provide either iddata or (y, u), but not both")
+        if iddata is None and (y is None or u is None):
+            raise ValueError("Must provide either iddata or both y and u")
+
+        # Extract data if IDData is provided
+        if iddata is not None:
+            u = iddata.get_input_array()
+            y = iddata.get_output_array()
+            sample_time = iddata.sample_time
+        else:
+            # Ensure arrays are 2D
+            y = np.atleast_2d(y)
+            u = np.atleast_2d(u)
+            sample_time = kwargs.get("tsample", 1.0)
 
         # Ensure data is 1D for SISO case (remove dimension if needed)
         if u.ndim > 1 and u.shape[0] == 1:
@@ -132,51 +160,27 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         if y.ndim > 1 and y.shape[0] == 1:
             y = y.flatten()
 
-        # Extract configuration parameters (support both object and dict config)
-        if hasattr(config, "__dict__"):
-            # Object config
-            na = getattr(config, "na", 1)
-            nb = getattr(config, "nb", 1)
-            nc = getattr(config, "nc", 1)
-            nk = getattr(config, "nk", 1)
-            max_iterations = getattr(config, "max_iterations", 200)
-            convergence_tolerance = getattr(config, "convergence_tolerance", 1e-6)
+        # Extract configuration parameters from kwargs
+        na = kwargs.get("na", 1)
+        nb = kwargs.get("nb", 1)
+        nc = kwargs.get("nc", 1)
+        nk = kwargs.get("nk", 1)
+        max_iterations = kwargs.get("max_iterations", 200)
+        convergence_tolerance = kwargs.get("convergence_tolerance", 1e-6)
 
-            # Support legacy ARMAX_mod parameter
-            armx_mode = getattr(config, "armx_mode", None)
-            if armx_mode is not None and armx_mode != self.mode:
-                # Override mode if config specifies different one
-                self.mode = armx_mode.upper()
-                self.handler = get_armax_handler(self.mode)
+        # Support legacy ARMAX_mod parameter
+        armx_mode = kwargs.get("armx_mode", None)
+        if armx_mode is not None and armx_mode != self.mode:
+            # Override mode if kwargs specifies different one
+            self.mode = armx_mode.upper()
+            self.handler = get_armax_handler(self.mode)
 
-            # Extract mode-specific parameters
-            mode_params = {}
-            if hasattr(config, "forgetting_factor"):
-                mode_params["forgetting_factor"] = config.forgetting_factor
-            if hasattr(config, "optimization_method"):
-                mode_params["optimization_method"] = config.optimization_method
-
-        else:
-            # Dict config
-            na = config.get("na", 1)
-            nb = config.get("nb", 1)
-            nc = config.get("nc", 1)
-            nk = config.get("nk", 1)
-            max_iterations = config.get("max_iterations", 200)
-            convergence_tolerance = config.get("convergence_tolerance", 1e-6)
-
-            # Support legacy ARMAX_mod parameter
-            armx_mode = config.get("armx_mode", None)
-            if armx_mode is not None and armx_mode != self.mode:
-                self.mode = armx_mode.upper()
-                self.handler = get_armax_handler(self.mode)
-
-            # Extract mode-specific parameters
-            mode_params = {
-                k: v
-                for k, v in config.items()
-                if k in ["forgetting_factor", "optimization_method"]
-            }
+        # Extract mode-specific parameters
+        mode_params = {}
+        if "forgetting_factor" in kwargs:
+            mode_params["forgetting_factor"] = kwargs["forgetting_factor"]
+        if "optimization_method" in kwargs:
+            mode_params["optimization_method"] = kwargs["optimization_method"]
 
         # Validate parameters
         self.validate_parameters(na=na, nb=nb, nc=nc, nk=nk)
@@ -193,7 +197,7 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         max_order = max(na, nb + nk, nc)
         if N <= max_order:
             # Return minimal model for insufficient data
-            return self._create_minimal_model(ny, nu, data.sample_time)
+            return self._create_minimal_model(ny, nu, sample_time)
 
         # Use mode handler for identification
         try:
@@ -214,9 +218,7 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
                 warnings.warn(
                     f"ARMAX {self.mode} identification failed, trying basic least squares"
                 )
-                return self._fallback_identification(
-                    u, y, na, nb, nc, nk, data.sample_time
-                )
+                return self._fallback_identification(u, y, na, nb, nc, nk, sample_time)
 
             # Store identification info in model attributes if possible
             if hasattr(model, "_identification_info"):
@@ -228,7 +230,7 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
             warnings.warn(
                 f"ARMAX {self.mode} identification failed: {e}, trying fallback"
             )
-            return self._fallback_identification(u, y, na, nb, nc, nk, data.sample_time)
+            return self._fallback_identification(u, y, na, nb, nc, nk, sample_time)
 
     def _fallback_identification(self, u, y, na, nb, nc, nk, sample_time):
         """Fallback identification using basic least squares."""
