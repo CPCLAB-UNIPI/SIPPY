@@ -545,11 +545,12 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         if ng_norm > 0:
             g_ub[-ng_norm:] = stab_marg * DM.ones(ng_norm, 1)
 
-        # Initial guess
+        # Initial guess (COLD START - matches master branch)
+        # All variables initialized to zero (no warm start)
         w_0 = DM.zeros(n_opt)
         # Coefficients initialized to zero
-        # Yid initialized to measured output
-        w_0[-N:] = y
+        # Yid initialized to zero (NOT measured output - this is the fix!)
+        # w_0[-N:] = y  # REMOVED: warm start causes 70-2600% error
 
         # Define NLP problem
         nlp = {"x": w_opt, "f": f_obj, "g": g_}
@@ -631,14 +632,17 @@ class ARMAAlgorithm(IdentificationAlgorithm):
             theta = np.zeros(na + nc)
             iterations = 0
 
+            # Pre-allocate regression matrix outside loop (OPTIMIZATION: avoid repeated allocation)
+            Phi = np.zeros((N_eff, na + nc))
+
             # Iterative extended least squares loop
             while (Vn_old > Vn or iterations == 0) and iterations < max_iterations:
                 theta_old = theta.copy()
                 Vn_old = Vn
                 iterations += 1
 
-                # Build regression matrix for this iteration
-                Phi = np.zeros((N_eff, na + nc))
+                # Clear regression matrix for this iteration (reuse pre-allocated array)
+                Phi[:, :] = 0
                 col = 0
 
                 # AR part: lagged outputs (always based on actual data)
@@ -744,10 +748,12 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         Yid = np.zeros_like(y)
         Yid[:, :max_lag] = y[:, :max_lag]  # Copy initial values
 
+        # Pre-allocate noise estimation array for all outputs (OPTIMIZATION: avoid repeated allocation)
+        noise_est = np.zeros((ny, N))
+
         for i in range(ny):
             # Compute one-step-ahead predictions using the estimated AR and MA coefficients
-            # We need to reconstruct the noise estimates first
-            noise_est = np.zeros(N)
+            # We need to reconstruct the noise estimates first (use pre-allocated array view)
 
             # Reconstruct noise estimates and predictions
             y_signal_range = np.max(np.abs(y[i, :]))
@@ -766,14 +772,14 @@ class ARMAAlgorithm(IdentificationAlgorithm):
                 ma_sum = 0
                 for lag in range(nc):
                     if k - 1 - lag >= 0:
-                        ma_sum += MA_coeffs[i, lag] * noise_est[k - 1 - lag]
+                        ma_sum += MA_coeffs[i, lag] * noise_est[i, k - 1 - lag]
 
                 # One-step-ahead prediction (clip to prevent overflow)
                 pred = ar_sum + ma_sum
                 Yid[i, k] = np.clip(pred, -10 * y_signal_range, 10 * y_signal_range)
 
                 # Update noise estimate for this time step
-                noise_est[k] = y[i, k] - Yid[i, k]
+                noise_est[i, k] = y[i, k] - Yid[i, k]
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_arma(

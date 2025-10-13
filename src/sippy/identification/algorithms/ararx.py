@@ -832,7 +832,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
                 k_abs = k + max_lag
 
                 # Compute B * u term
-                b_u = 0
+                b_u = 0.0
                 for j in range(nb):
                     if k_abs - theta - j >= 0:
                         b_u += B_coeffs[i, j] * u[0, k_abs - theta - j]
@@ -953,13 +953,13 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         for k in range(max_lag, N):
             for i in range(ny):
                 # AR part: -A * y
-                y_pred = 0
+                y_pred = 0.0
                 for j in range(na):
                     if k - j - 1 >= 0:
                         y_pred -= A_coeffs[i, j] * y[i, k - j - 1]
 
                 # Input part: B * u
-                b_u = 0
+                b_u = 0.0
                 for j in range(nb):
                     if k - theta - j >= 0:
                         b_u += B_coeffs[i, j] * u[0, k - theta - j]

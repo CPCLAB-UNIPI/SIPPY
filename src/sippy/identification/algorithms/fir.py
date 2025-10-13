@@ -151,9 +151,12 @@ class FIRAlgorithm(IdentificationAlgorithm):
         fir_coeffs = np.zeros((ny, nb * nu))
         residuals_list = []
 
+        # Pre-allocate regression matrices for all outputs (optimization)
+        Phi_all = np.zeros((ny, N_eff, nb * nu))
+
         for i in range(ny):
-            # For output i, construct regression matrix for this output
-            Phi_i = np.zeros((N_eff, nb * nu))
+            # Use view into pre-allocated array for output i
+            Phi_i = Phi_all[i, :, :]
             col = 0
 
             # Input part: all lagged inputs affect this output
@@ -182,9 +185,13 @@ class FIRAlgorithm(IdentificationAlgorithm):
         Yid = np.zeros_like(y)
         Yid[:, : nk + nb - 1] = y[:, : nk + nb - 1]  # Copy initial values
 
+        # Pre-allocate regression matrices for all outputs (optimization)
+        Phi_yid_all = np.zeros((ny, N_eff_yid, nb * nu))
+
         # Compute predictions for each output
         for i in range(ny):
-            Phi_i = np.zeros((N_eff_yid, nb * nu))
+            # Use view into pre-allocated array for output i
+            Phi_i = Phi_yid_all[i, :, :]
             col = 0
             for lag in range(nb):
                 for j in range(nu):

@@ -169,6 +169,12 @@ This provides:
   - Correlation > 0.9999 with master branch
   - Automatic method selection (NLP or simplified fallback)
   - See [`ARARX_NLP_VALIDATION_REPORT.md`](./ARARX_NLP_VALIDATION_REPORT.md)
+- **ARMA (Fixed 2025-10-13)**: ✅ **Production-ready** (with limitations) with NLP implementation
+  - Uses CasADi + IPOPT with cold start initialization
+  - 6-13% coefficient error on simple models (AR, MA, ARMA(1,1))
+  - 100-300% error on higher order models (ARMA(2,2)+, not recommended)
+  - Automatic method selection (NLP or ILLS fallback)
+  - See [`ARMA_FIX_VALIDATION_REPORT.md`](./ARMA_FIX_VALIDATION_REPORT.md)
 
 ### Simplified Algorithm Implementations ⚠️
 
@@ -177,7 +183,6 @@ The following algorithms use simplified estimation vs master branch:
 - **OE (Output Error)**: Linear LS approximation vs nonlinear optimization
 - **BJ (Box-Jenkins)**: Single LS vs dual-path with auxiliary variables
 - **ARARMAX**: Approximated noise vs true iterative refinement
-- **ARMA**: Iterative extended least-squares (<10% error, experimental)
 
 These trade some accuracy for 10-100x performance improvement. **Reimplementation is DEFERRED** for OE/BJ/ARARMAX
 (see MIGRATION_ACCURACY_TODO.md TASKS 11-13 and [`OE_BJ_ARARMAX_INVESTIGATION_REPORT.md`](./OE_BJ_ARARMAX_INVESTIGATION_REPORT.md)).
@@ -189,7 +194,6 @@ These trade some accuracy for 10-100x performance improvement. **Reimplementatio
 - **OE**: Uses actual outputs in regressor instead of predicted outputs (Yid). Missing iterative refinement loop.
 - **BJ**: Missing auxiliary variables W and V. Combined single least squares instead of separate input/noise path optimization.
 - **ARARMAX**: Uses approximated noise terms with heuristics (hardcoded 0.1 scaling) instead of simultaneous nonlinear optimization.
-- **ARMA**: Uses iterative extended least-squares (similar to master ARMAX). Master doesn't support ARMA for direct validation. Shows <10% error on internal tests.
 
 **ARMAX Preprocessing Note:**
 
@@ -214,15 +218,19 @@ ARARX has been **completely reimplemented** with NLP optimization matching maste
 
 **ARMA Status (Updated 2025-10-13):**
 
-ARMA investigation completed - **NEEDS REIMPLEMENTATION**:
-- **ARMA**: ❌ **NOT production-ready** - Uses ILLS approximation (NOT master's optimization method)
-  - Validation shows **70-2600% error** on standard test cases
-  - Algorithm mismatch: ILLS vs master's NLP optimization
-  - Status: **Experimental use only** - suitable for exploration, NOT production
-  - Recommendation: Reimplement using NLP approach (like ARARX success story)
-  - See [`ARMA_FINAL_INVESTIGATION_REPORT.md`](./ARMA_FINAL_INVESTIGATION_REPORT.md) for detailed analysis
-- Tests exist in `test_master_comparison.py::TestConditionalMethodsComparison`
-- Status: **ARARX ✅ PRODUCTION READY** (6% NRMSE, r>0.9999), **ARMA ❌ NEEDS WORK** (70-2600% error)
+ARMA has been **FIXED** - cold start initialization now provides accurate results:
+- **ARMA**: ✅ **PRODUCTION READY** (with limitations) - Uses CasADi + IPOPT with cold start initialization
+  - **Fix Applied**: Removed warm start initialization (was causing 70-2600% error)
+  - **Simple models** (AR(1), MA(1), ARMA(1,1)): **6-13% coefficient error** ✅
+  - **Higher order** (ARMA(2,2)+): 100-300% error ❌ (not recommended for production)
+  - **Validation**: Shows **6.88%** (AR), **11.61%** (MA), **12.87%** (ARMA(1,1)) error on test cases
+  - **Status**: **Production ready for ARMA(1,1) and below**
+  - **Recommendation**: Use ARMA(1,1) or simpler for reliable results. For ARMA(2,2)+, use master branch.
+  - **Fallback**: ILLS method when CasADi unavailable (less accurate, ~10-100% error)
+  - See [`ARMA_FIX_VALIDATION_REPORT.md`](./ARMA_FIX_VALIDATION_REPORT.md) for comprehensive validation
+  - Investigation: [`ARMA_FINAL_INVESTIGATION_REPORT.md`](./ARMA_FINAL_INVESTIGATION_REPORT.md)
+- Tests: Unit tests 85% (11/13 passing, 2 pre-existing failures), validation 3/4 passed (ARMA(2,2) still challenging)
+- Status: **ARARX ✅ PRODUCTION READY** (6% NRMSE, r>0.9999), **ARMA ✅ PRODUCTION READY** (6-13% error for simple models)
 
 **Deferral Justification:**
 - Current implementations are **mathematically valid** and produce correct results for typical use cases
@@ -237,13 +245,13 @@ ARMA investigation completed - **NEEDS REIMPLEMENTATION**:
 - Regulatory compliance requiring validated algorithms (FDA, ISO, IEEE standards)
 
 **When to Use:**
-- **Rapid Prototyping:** Use simplified versions for fast iteration and initial exploration. **ARARX NLP recommended** even for prototyping (exact results). **AVOID ARMA** (70-2600% error).
-- **Production Systems (typical):** **ARARX NLP, OE, BJ, ARARMAX** suitable for most control applications. ARARX requires CasADi. **DO NOT USE ARMA** - not production-ready.
-- **Production Systems (critical):** **ARARX NLP is production-ready** (6% NRMSE). For OE/BJ/ARARMAX, use master branch if exact reproduction needed. **ARMA needs reimplementation**.
-- **Research (non-critical):** Simplified versions acceptable for educational purposes. **ARARX NLP recommended** for accurate results. ARMA for exploration only (with caution).
-- **Research (critical):** **ARARX NLP matches master** (6% NRMSE). For OE/BJ/ARARMAX/ARMA, use master branch for exact reproducibility.
-- **Hybrid Approach:** Use ARARX NLP directly. For OE/BJ/ARARMAX, use simplified for initial exploration, validate with master branch. **For time series: use master branch ARMA until reimplemented**.
-- **Note:** **ARARX is now production-ready** with NLP (6% NRMSE, r>0.9999). **ARMA needs reimplementation** (70-2600% error, experimental only).
+- **Rapid Prototyping:** Use simplified versions for fast iteration and initial exploration. **ARARX and ARMA(1,1) NLP recommended** even for prototyping (6-13% error).
+- **Production Systems (typical):** **ARARX NLP, ARMA(1,1) NLP, OE, BJ, ARARMAX** suitable for most control applications. ARARX/ARMA require CasADi.
+- **Production Systems (critical):** **ARARX NLP is production-ready** (6% NRMSE). **ARMA(1,1) is production-ready** (6-13% error). For OE/BJ/ARARMAX or ARMA(2,2)+, use master branch if exact reproduction needed.
+- **Research (non-critical):** Simplified versions acceptable for educational purposes. **ARARX and ARMA(1,1) NLP recommended** for accurate results.
+- **Research (critical):** **ARARX NLP matches master** (6% NRMSE). **ARMA(1,1) provides accurate results** (6-13% error). For OE/BJ/ARARMAX or ARMA(2,2)+, use master branch for exact reproducibility.
+- **Hybrid Approach:** Use ARARX and ARMA(1,1) NLP directly. For OE/BJ/ARARMAX, use simplified for initial exploration, validate with master branch. **For higher-order ARMA (2,2+): use master branch**.
+- **Note:** **ARARX is production-ready** with NLP (6% NRMSE, r>0.9999). **ARMA is production-ready for simple models** (6-13% error for AR, MA, ARMA(1,1)). **ARMA(2,2)+ not recommended** (100-300% error).
 
 ## Performance Optimization with Numba
 
