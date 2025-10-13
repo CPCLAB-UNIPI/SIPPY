@@ -232,12 +232,17 @@ class ILLSHandler(ARMAXModeHandler):
                     max_order = max(na, nb + nk, nc)
 
                     # G(q) = B / A - Deterministic transfer function
-                    NUM_G = np.zeros(max_order)
-                    NUM_G[nk : nk + nb] = B_coeffs  # B coefficients with delay
+                    NUM_G_full = np.zeros(max_order + 1)
+                    NUM_G_full[nk : nk + nb] = B_coeffs  # B coefficients with delay
 
                     DEN_G = np.zeros(max_order + 1)
                     DEN_G[0] = 1.0
                     DEN_G[1 : na + 1] = A_coeffs  # A coefficients
+
+                    # Strip leading zeros from numerator for harold compatibility
+                    NUM_G = np.trim_zeros(NUM_G_full, "f")
+                    if len(NUM_G) == 0:
+                        NUM_G = np.array([0.0])
 
                     G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
@@ -292,7 +297,7 @@ class ILLSHandler(ARMAXModeHandler):
             if HAROLD_AVAILABLE:
                 # Use Harold for consistent state-space creation
                 try:
-                    ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
+                    ss_model = harold.State(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
                         A=ss_model.a,
                         B=ss_model.b,
@@ -492,12 +497,17 @@ class RLLSHandler(ARMAXModeHandler):
                     max_order = max(na, nb + nk, nc)
 
                     # G(q) = B / A - Deterministic transfer function
-                    NUM_G = np.zeros(max_order)
-                    NUM_G[nk : nk + nb] = B_coeffs  # B coefficients with delay
+                    NUM_G_full = np.zeros(max_order + 1)
+                    NUM_G_full[nk : nk + nb] = B_coeffs  # B coefficients with delay
 
                     DEN_G = np.zeros(max_order + 1)
                     DEN_G[0] = 1.0
                     DEN_G[1 : na + 1] = A_coeffs  # A coefficients
+
+                    # Strip leading zeros from numerator for harold compatibility
+                    NUM_G = np.trim_zeros(NUM_G_full, "f")
+                    if len(NUM_G) == 0:
+                        NUM_G = np.array([0.0])
 
                     G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
@@ -551,7 +561,7 @@ class RLLSHandler(ARMAXModeHandler):
             # Return state-space model with transfer functions
             if HAROLD_AVAILABLE:
                 try:
-                    ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
+                    ss_model = harold.State(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
                         A=ss_model.a,
                         B=ss_model.b,
@@ -830,11 +840,17 @@ class OPTHandler(ARMAXModeHandler):
             if HAROLD_AVAILABLE:
                 try:
                     max_order = max(na, nb + nk, nc)
-                    NUM_G = np.zeros(max_order)
-                    NUM_G[nk : nk + nb] = B_coeffs
+                    NUM_G_full = np.zeros(max_order + 1)
+                    NUM_G_full[nk : nk + nb] = B_coeffs
                     DEN_G = np.zeros(max_order + 1)
                     DEN_G[0] = 1.0
                     DEN_G[1 : na + 1] = A_coeffs
+
+                    # Strip leading zeros from numerator for harold compatibility
+                    NUM_G = np.trim_zeros(NUM_G_full, "f")
+                    if len(NUM_G) == 0:
+                        NUM_G = np.array([0.0])
+
                     G_tf = harold.Transfer(NUM_G, DEN_G, dt=Ts)
 
                     NUM_H = np.zeros(max_order + 1)
@@ -884,7 +900,7 @@ class OPTHandler(ARMAXModeHandler):
             # Return state-space model with transfer functions
             if HAROLD_AVAILABLE:
                 try:
-                    ss_model = harold.StateSpace(A_mat, B_mat, C_mat, D_mat, dt=Ts)
+                    ss_model = harold.State(A_mat, B_mat, C_mat, D_mat, dt=Ts)
                     return StateSpaceModel(
                         A=ss_model.a,
                         B=ss_model.b,
