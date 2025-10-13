@@ -201,6 +201,8 @@ The ARMAX ILLS implementation is 100% faithful to master branch algorithm. Howev
 
 **ARARX and ARMA Status (Updated 2025-10-13):**
 
+**ARARX Status (Updated 2025-10-13):**
+
 ARARX has been **completely reimplemented** with NLP optimization matching master branch:
 - **ARARX**: ✅ **Production-ready** - Uses CasADi + IPOPT for exact ML estimation
   - Matches master branch within **6.2% NRMSE** on one-step predictions (Yid)
@@ -209,9 +211,18 @@ ARARX has been **completely reimplemented** with NLP optimization matching maste
   - Data rescaling for numerical conditioning
   - Optional stability constraints via companion matrices
   - See [`ARARX_NLP_VALIDATION_REPORT.md`](./ARARX_NLP_VALIDATION_REPORT.md) for comprehensive validation
-- **ARMA**: Uses iterative extended least-squares (100-iteration refinement). Shows **<10% error** on internal tests. Master branch doesn't support ARMA for direct validation, so marked as experimental. Suitable for time series analysis with validation.
+
+**ARMA Status (Updated 2025-10-13):**
+
+ARMA investigation completed - **NEEDS REIMPLEMENTATION**:
+- **ARMA**: ❌ **NOT production-ready** - Uses ILLS approximation (NOT master's optimization method)
+  - Validation shows **70-2600% error** on standard test cases
+  - Algorithm mismatch: ILLS vs master's NLP optimization
+  - Status: **Experimental use only** - suitable for exploration, NOT production
+  - Recommendation: Reimplement using NLP approach (like ARARX success story)
+  - See [`ARMA_FINAL_INVESTIGATION_REPORT.md`](./ARMA_FINAL_INVESTIGATION_REPORT.md) for detailed analysis
 - Tests exist in `test_master_comparison.py::TestConditionalMethodsComparison`
-- Status: **ARARX ✅ PRODUCTION READY** (6% NRMSE, r>0.9999), **ARMA ⚠️ CONDITIONAL** (<10% error, cannot validate vs master)
+- Status: **ARARX ✅ PRODUCTION READY** (6% NRMSE, r>0.9999), **ARMA ❌ NEEDS WORK** (70-2600% error)
 
 **Deferral Justification:**
 - Current implementations are **mathematically valid** and produce correct results for typical use cases
@@ -226,13 +237,13 @@ ARARX has been **completely reimplemented** with NLP optimization matching maste
 - Regulatory compliance requiring validated algorithms (FDA, ISO, IEEE standards)
 
 **When to Use:**
-- **Rapid Prototyping:** Use simplified versions for fast iteration and initial exploration. **ARARX NLP recommended** even for prototyping (exact results).
-- **Production Systems (typical):** **ARARX NLP, OE, BJ, ARARMAX, ARMA** suitable for most control applications. ARARX requires CasADi.
-- **Production Systems (critical):** **ARARX NLP is production-ready** (6% NRMSE). For OE/BJ/ARARMAX, use master branch if exact reproduction needed.
-- **Research (non-critical):** Simplified versions acceptable for educational purposes. **ARARX NLP recommended** for accurate results.
-- **Research (critical):** **ARARX NLP matches master** (6% NRMSE). For OE/BJ/ARARMAX, use master branch for exact reproducibility.
-- **Hybrid Approach:** Use ARARX NLP directly. For OE/BJ/ARARMAX, use simplified for initial exploration, validate with master branch.
-- **Note:** **ARARX is now production-ready** with NLP (6% NRMSE, r>0.9999). **ARMA is conditionally acceptable** (<10% error, experimental status).
+- **Rapid Prototyping:** Use simplified versions for fast iteration and initial exploration. **ARARX NLP recommended** even for prototyping (exact results). **AVOID ARMA** (70-2600% error).
+- **Production Systems (typical):** **ARARX NLP, OE, BJ, ARARMAX** suitable for most control applications. ARARX requires CasADi. **DO NOT USE ARMA** - not production-ready.
+- **Production Systems (critical):** **ARARX NLP is production-ready** (6% NRMSE). For OE/BJ/ARARMAX, use master branch if exact reproduction needed. **ARMA needs reimplementation**.
+- **Research (non-critical):** Simplified versions acceptable for educational purposes. **ARARX NLP recommended** for accurate results. ARMA for exploration only (with caution).
+- **Research (critical):** **ARARX NLP matches master** (6% NRMSE). For OE/BJ/ARARMAX/ARMA, use master branch for exact reproducibility.
+- **Hybrid Approach:** Use ARARX NLP directly. For OE/BJ/ARARMAX, use simplified for initial exploration, validate with master branch. **For time series: use master branch ARMA until reimplemented**.
+- **Note:** **ARARX is now production-ready** with NLP (6% NRMSE, r>0.9999). **ARMA needs reimplementation** (70-2600% error, experimental only).
 
 ## Performance Optimization with Numba
 
