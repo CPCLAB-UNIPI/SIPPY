@@ -13,6 +13,7 @@ try:
     from .bj import BJAlgorithm
     from .cva import CVAAlgorithm
     from .fir import FIRAlgorithm
+    from .gen import GENAlgorithm
     from .moesp import MOESPAlgorithm
     from .n4sid import N4SIDAlgorithm
     from .oe import OEAlgorithm
@@ -41,6 +42,7 @@ try:
     AlgorithmFactory.register("OE", OEAlgorithm)
     AlgorithmFactory.register("ARMA", ARMAAlgorithm)
     AlgorithmFactory.register("BJ", BJAlgorithm)
+    AlgorithmFactory.register("GEN", GENAlgorithm)
 except ImportError:
     # In case sysidbox is not available, we still have the base classes ready
     N4SIDAlgorithm = None
@@ -57,3 +59,4 @@ except ImportError:
     FIRAlgorithm = None
     OEAlgorithm = None
     ARMAAlgorithm = None
+    GENAlgorithm = None

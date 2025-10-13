@@ -63,7 +63,6 @@ sippy_unipi/          →  src/sippy/identification/
 
 ### ❓ **Extended Methods** (Low Priority)
 - **GEN** ❌ Generalized framework
-- **EOE/EARMAX** ❌ Extended variants (external dependencies)
 
 ---
 
@@ -146,8 +145,8 @@ model = identifier.identify(y, u)
 - **Estimated**: 6-8 hours
 
 ### Priority 3: Extended Methods (Low)
-- **EOE/EARMAX**: External module dependencies
-- **Estimated**: 8+ hours with dependency research
+- **GEN**: Generalized framework implementation
+- **Estimated**: 6-8 hours
 
 ---
 
