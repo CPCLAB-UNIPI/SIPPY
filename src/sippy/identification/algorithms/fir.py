@@ -3,11 +3,15 @@ FIR (Finite Impulse Response) identification algorithm.
 """
 
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
+
+if TYPE_CHECKING:
+    from ..iddata import IDData
 
 # Import compiled utilities for performance
 try:
@@ -81,29 +85,52 @@ class FIRAlgorithm(IdentificationAlgorithm):
 
         return True
 
-    def identify(self, data, config):
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Identify FIR model from input-output data.
 
         Parameters:
         -----------
-        data : IDData
-            Input-output data
-        config : SystemIdentificationConfig
-            Configuration parameters including nb, nk
+        y : np.ndarray, optional
+            Output data (outputs x time_steps)
+        u : np.ndarray, optional
+            Input data (inputs x time_steps)
+        iddata : IDData, optional
+            Input-output data container
+        **kwargs : dict
+            Configuration parameters including nb, nk, tsample
 
         Returns:
         --------
         model : StateSpaceModel
             Identified state-space model
         """
-        # Extract data from IDData object
-        u = data.get_input_array()
-        y = data.get_output_array()
+        # Validate input arguments
+        if iddata is not None and (y is not None or u is not None):
+            raise ValueError("Provide either iddata or (y, u), but not both")
+        if iddata is None and (y is None or u is None):
+            raise ValueError("Must provide either iddata or both y and u")
 
-        # Extract configuration parameters (FIR specific)
-        nb = getattr(config, "nb", 1)
-        nk = getattr(config, "nk", 1)
+        # Extract data if IDData is provided
+        if iddata is not None:
+            u = iddata.get_input_array()
+            y = iddata.get_output_array()
+            sample_time = iddata.sample_time
+        else:
+            # Ensure arrays are 2D
+            y = np.atleast_2d(y)
+            u = np.atleast_2d(u)
+            sample_time = kwargs.get("tsample", 1.0)
+
+        # Extract configuration parameters (FIR specific: only nb and nk, no na)
+        nb = kwargs.get("nb", 1)
+        nk = kwargs.get("nk", 1)
 
         # Validate parameters
         self.validate_parameters(nb=nb, nk=nk)
@@ -176,19 +203,17 @@ class FIRAlgorithm(IdentificationAlgorithm):
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_fir(
-            fir_coeffs, nb, nk, ny, nu, data.sample_time
+            fir_coeffs, nb, nk, ny, nu, sample_time
         )
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_fir(
-                fir_coeffs, nb, nk, ny, nu, data.sample_time
+                fir_coeffs, nb, nk, ny, nu, sample_time
             )
         else:
             # Fallback when harold is not available
-            model = self._create_mock_model(
-                fir_coeffs, nb, nk, ny, nu, data.sample_time
-            )
+            model = self._create_mock_model(fir_coeffs, nb, nk, ny, nu, sample_time)
 
         # Attach transfer functions and predictions to model
         model.G_tf = G_tf
@@ -357,8 +382,8 @@ class FIRAlgorithm(IdentificationAlgorithm):
                                 else 0
                             )
 
-        # Create harold State object
-        ss_model = harold.State(A, B, C, D, dt=Ts)
+        # Create harold State object (not used directly, but validates matrices)
+        harold.State(A, B, C, D, dt=Ts)
 
         # Use local matrices (not ss_model attributes) for dimensions
         # This ensures tests with mocked harold don't break

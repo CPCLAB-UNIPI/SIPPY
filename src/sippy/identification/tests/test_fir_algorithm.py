@@ -69,7 +69,10 @@ class TestFIRAlgorithm:
             mock_ss.C = np.zeros((1, 3))
             mock_ss.D = np.zeros((1, 1))
 
-            result = algorithm.identify(self.data, self.config)
+            # Use new signature with iddata and **kwargs
+            result = algorithm.identify(
+                iddata=self.data, nb=self.config.nb, nk=self.config.nk
+            )
 
             assert isinstance(result, StateSpaceModel)
             assert result.A is not None
@@ -94,7 +97,8 @@ class TestFIRAlgorithm:
                 mock_ss.C = np.zeros((1, nb))
                 mock_ss.D = np.zeros((1, 1))
 
-                result = algorithm.identify(self.data, config)
+                # Use new signature
+                result = algorithm.identify(iddata=self.data, nb=nb, nk=1)
                 assert result is not None
 
     def test_fir_mimo_system(self):
@@ -126,7 +130,8 @@ class TestFIRAlgorithm:
             mock_ss.C = np.zeros((2, 5))
             mock_ss.D = np.zeros((2, 2))
 
-            result = algorithm.identify(data, config)
+            # Use new signature
+            result = algorithm.identify(iddata=data, nb=5, nk=1)
             assert result is not None
 
     def test_fir_without_harold(self):
@@ -134,7 +139,10 @@ class TestFIRAlgorithm:
         algorithm = FIRAlgorithm()
 
         with patch("sippy.identification.algorithms.fir.HAROLD_AVAILABLE", False):
-            result = algorithm.identify(self.data, self.config)
+            # Use new signature
+            result = algorithm.identify(
+                iddata=self.data, nb=self.config.nb, nk=self.config.nk
+            )
             # Should return a mock model when harold is not available
             assert result is not None
             assert isinstance(result, StateSpaceModel)
@@ -150,7 +158,8 @@ class TestFIRAlgorithm:
         with pytest.raises(
             ValueError, match="Number of FIR coefficients must be positive"
         ):
-            algorithm.identify(self.data, invalid_config)
+            # Use new signature
+            algorithm.identify(iddata=self.data, nb=0, nk=1)
 
     def test_fir_data_validation(self):
         """Test FIR algorithm validates input data."""
@@ -188,5 +197,6 @@ class TestFIRAlgorithm:
             mock_ss.C = np.zeros((3, 5))
             mock_ss.D = np.zeros((3, 2))
 
-            result = algorithm.identify(data, config)
+            # Use new signature
+            result = algorithm.identify(iddata=data, nb=5, nk=1)
             assert result is not None
