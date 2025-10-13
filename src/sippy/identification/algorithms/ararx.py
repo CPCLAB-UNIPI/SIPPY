@@ -987,9 +987,12 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         """
         Create G_tf and H_tf transfer functions using harold.Transfer.
 
-        For ARARX:
-        - G_tf = B(q) / (A(q) * D(q))
-        - H_tf = 1 / A(q)
+        For ARARX (matching master branch):
+        - G_tf = B(q) / A(q)  (D is NOT in G's denominator!)
+        - H_tf = 1 / (A(q) * D(q))  (D only affects noise model!)
+
+        The D polynomial only affects the noise transfer function H(z),
+        not the input-output transfer function G(z).
 
         Parameters:
         -----------
@@ -1027,21 +1030,19 @@ class ARARXAlgorithm(IdentificationAlgorithm):
 
             D_poly = np.concatenate(([1.0], D_coeffs.flatten()))
 
-            # Multiply A * D for denominator using harold.haroldpolymul
-            # For MIMO case, A_coeffs and D_coeffs are (ny x na) and (ny x nd)
-            # Use first output's coefficients for SISO-like TF
-            DEN_G = harold.haroldpolymul(A_poly, D_poly)
-
             # Ensure numerator and denominator have valid lengths
             # harold Transfer needs non-empty numerator with at least one non-zero element
             if len(B_poly) == 0 or np.all(B_poly == 0):
                 B_poly = np.array([0.0])
 
-            # Create G transfer function: G(q) = B(q) / (A(q) * D(q))
-            G_tf = harold.Transfer(B_poly, DEN_G, dt=Ts)
+            # Create G transfer function: G(q) = B(q) / A(q)
+            # IMPORTANT: D is NOT in G's denominator! (master branch convention)
+            G_tf = harold.Transfer(B_poly, A_poly, dt=Ts)
 
-            # Create H transfer function: H(q) = 1 / A(q)
-            H_tf = harold.Transfer([1.0], A_poly, dt=Ts)
+            # Create H transfer function: H(q) = 1 / (A(q) * D(q))
+            # D only affects the noise model
+            DEN_H = harold.haroldpolymul(A_poly, D_poly)
+            H_tf = harold.Transfer([1.0], DEN_H, dt=Ts)
 
             return G_tf, H_tf
         except Exception as e:
