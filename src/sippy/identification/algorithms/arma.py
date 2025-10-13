@@ -3,11 +3,15 @@ ARMA (AutoRegressive Moving Average) identification algorithm.
 """
 
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
+
+if TYPE_CHECKING:
+    from ..iddata import IDData
 
 try:
     import harold
@@ -75,29 +79,72 @@ class ARMAAlgorithm(IdentificationAlgorithm):
 
         return True
 
-    def identify(self, data, config):
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Identify ARMA model from output data (time series).
 
         Parameters:
         -----------
-        data : IDData
-            Output time series data (inputs ignored for ARMA)
-        config : SystemIdentificationConfig
-            Configuration parameters including na, nc
+        y : np.ndarray, optional
+            Output data (outputs x time_steps)
+        u : np.ndarray, optional
+            Input data (inputs x time_steps) - ignored for ARMA
+        iddata : IDData, optional
+            Input-output data container
+        **kwargs : dict
+            Configuration parameters including na, nc, tsample
 
         Returns:
         --------
         model : StateSpaceModel
             Identified state-space model
         """
-        # Extract data from IDData object
-        u = data.get_input_array()
-        y = data.get_output_array()
+        # Backward compatibility: detect old API (data, config) vs new API (y, u, **kwargs)
+        from ..base import SystemIdentificationConfig
+        from ..iddata import IDData as IDDataClass
+
+        if y is not None and isinstance(y, IDDataClass) and u is not None and isinstance(u, SystemIdentificationConfig):
+            # Old API: identify(data, config)
+            iddata = y
+            config = u
+            y = None
+            u = None
+            # Extract parameters from config
+            kwargs = {
+                'na': getattr(config, 'na', 1),
+                'nc': getattr(config, 'nc', 1),
+            }
+
+        # Validate input arguments
+        if iddata is not None and (y is not None or u is not None):
+            raise ValueError("Provide either iddata or (y, u), but not both")
+        if iddata is None and y is None:
+            raise ValueError("Must provide either iddata or y")
+
+        # Extract data if IDData is provided
+        if iddata is not None:
+            u = iddata.get_input_array()
+            y = iddata.get_output_array()
+            sample_time = iddata.sample_time
+        else:
+            # Ensure arrays are 2D
+            y = np.atleast_2d(y)
+            if u is not None:
+                u = np.atleast_2d(u)
+            else:
+                # ARMA doesn't use inputs, create dummy if not provided
+                u = np.zeros((1, y.shape[1]))
+            sample_time = kwargs.get("tsample", 1.0)
 
         # Extract configuration parameters (ARMA specific)
-        na = getattr(config, "na", 1)
-        nc = getattr(config, "nc", 1)
+        na = kwargs.get("na", 1)
+        nc = kwargs.get("nc", 1)
 
         # Validate parameters
         self.validate_parameters(na=na, nc=nc)
@@ -216,18 +263,18 @@ class ARMAAlgorithm(IdentificationAlgorithm):
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_arma(
-            AR_coeffs, MA_coeffs, na, nc, ny, data.sample_time
+            AR_coeffs, MA_coeffs, na, nc, ny, sample_time
         )
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_arma(
-                AR_coeffs, MA_coeffs, na, nc, ny, data.sample_time
+                AR_coeffs, MA_coeffs, na, nc, ny, sample_time
             )
         else:
             # Fallback when harold is not available
             model = self._create_mock_model(
-                AR_coeffs, MA_coeffs, na, nc, ny, data.sample_time
+                AR_coeffs, MA_coeffs, na, nc, ny, sample_time
             )
 
         # Attach transfer functions and predictions to model

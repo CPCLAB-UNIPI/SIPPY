@@ -818,10 +818,9 @@ class TestConditionalMethodsComparison:
             data["y"],
             data["u"],
             "ARARX",
-            na_ord=[1],
-            nb_ord=[1],
-            theta_noise=[1],
+            ARARX_orders=[[1], [[1]], [1], [[1]]],
             tsample=data["ts"],
+            max_iterations=10,
         )
 
         # Compute error metrics
@@ -867,7 +866,7 @@ class TestConditionalMethodsComparison:
         # Master branch identification
         try:
             model_master = master_sysid(
-                data["y"], None, "ARMA", na_ord=[1], nc_ord=[1], tsample=data["ts"]
+                data["y"], None, "ARMA", ARMA_orders=[[1], [1], [[0]]], tsample=data["ts"]
             )
         except Exception as e:
             pytest.skip(f"ARMA master failed: {e}")
@@ -935,9 +934,7 @@ class TestKnownFailuresComparison:
             data["y"],
             data["u"],
             "OE",
-            nb_ord=[2],
-            nf_ord=[2],
-            theta_noise=[1],
+            OE_orders=[[[2]], [2], [[1]]],
             tsample=data["ts"],
         )
 
@@ -988,11 +985,7 @@ class TestKnownFailuresComparison:
             data["y"],
             data["u"],
             "BJ",
-            nb_ord=[1],
-            nc_ord=[1],
-            nd_ord=[1],
-            nf_ord=[1],
-            theta_noise=[1],
+            BJ_orders=[[[1]], [1], [1], [1], [[1]]],
             tsample=data["ts"],
         )
 
@@ -1042,11 +1035,9 @@ class TestKnownFailuresComparison:
             data["y"],
             data["u"],
             "ARARMAX",
-            na_ord=[1],
-            nb_ord=[1],
-            nc_ord=[1],
-            theta_noise=[1],
+            ARARMAX_orders=[[1], [[1]], [1], [1], [[1]]],
             tsample=data["ts"],
+            max_iterations=10,
         )
 
         # Compute error metrics

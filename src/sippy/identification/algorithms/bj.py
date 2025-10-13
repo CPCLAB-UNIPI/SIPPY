@@ -3,11 +3,15 @@ Box-Jenkins (BJ) identification algorithm.
 """
 
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
+
+if TYPE_CHECKING:
+    from ..iddata import IDData
 
 # Import compiled utilities for performance
 try:
@@ -115,32 +119,74 @@ class BJAlgorithm(IdentificationAlgorithm):
 
         return True
 
-    def identify(self, data, config):
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Identify BJ model from input-output data.
 
         Parameters:
         -----------
-        data : IDData
-            Input-output data
-        config : SystemIdentificationConfig
-            Configuration parameters including nb, nc, nd, nf
+        y : np.ndarray, optional
+            Output data (outputs x time_steps)
+        u : np.ndarray, optional
+            Input data (inputs x time_steps)
+        iddata : IDData, optional
+            Input-output data container
+        **kwargs : dict
+            Configuration parameters including nb, nc, nd, nf, nk, tsample
 
         Returns:
         --------
         model : StateSpaceModel
             Identified state-space model
         """
-        # Extract data from IDData object
-        u = data.get_input_array()
-        y = data.get_output_array()
+        # Backward compatibility: detect old API (data, config) vs new API (y, u, **kwargs)
+        from ..base import SystemIdentificationConfig
+        from ..iddata import IDData as IDDataClass
+
+        if y is not None and isinstance(y, IDDataClass) and u is not None and isinstance(u, SystemIdentificationConfig):
+            # Old API: identify(data, config)
+            iddata = y
+            config = u
+            y = None
+            u = None
+            # Extract parameters from config
+            kwargs = {
+                'nb': getattr(config, 'nb', 1),
+                'nc': getattr(config, 'nc', 1),
+                'nd': getattr(config, 'nd', 1),
+                'nf': getattr(config, 'nf', 1),
+                'nk': getattr(config, 'nk', 0) or 0,
+            }
+
+        # Validate input arguments
+        if iddata is not None and (y is not None or u is not None):
+            raise ValueError("Provide either iddata or (y, u), but not both")
+        if iddata is None and (y is None or u is None):
+            raise ValueError("Must provide either iddata or both y and u")
+
+        # Extract data if IDData is provided
+        if iddata is not None:
+            u = iddata.get_input_array()
+            y = iddata.get_output_array()
+            sample_time = iddata.sample_time
+        else:
+            # Ensure arrays are 2D
+            y = np.atleast_2d(y)
+            u = np.atleast_2d(u)
+            sample_time = kwargs.get("tsample", 1.0)
 
         # Extract configuration parameters (BJ specific)
-        nb = getattr(config, "nb", 1)
-        nc = getattr(config, "nc", 1)
-        nd = getattr(config, "nd", 1)
-        nf = getattr(config, "nf", 1)
-        nk = getattr(config, "nk", 0) or 0  # Input delay (handle None case)
+        nb = kwargs.get("nb", 1)
+        nc = kwargs.get("nc", 1)
+        nd = kwargs.get("nd", 1)
+        nf = kwargs.get("nf", 1)
+        nk = kwargs.get("nk", 0) or 0  # Input delay (handle None case)
 
         # Validate parameters
         self.validate_parameters(nb=nb, nc=nc, nd=nd, nf=nf)
@@ -283,7 +329,7 @@ class BJAlgorithm(IdentificationAlgorithm):
             nk,
             ny,
             nu,
-            data.sample_time,
+            sample_time,
         )
 
         # Create state-space representation
@@ -298,7 +344,7 @@ class BJAlgorithm(IdentificationAlgorithm):
                 nf,
                 ny,
                 nu,
-                data.sample_time,
+                sample_time,
             )
         else:
             # Fallback when harold is not available
@@ -312,7 +358,7 @@ class BJAlgorithm(IdentificationAlgorithm):
                 nf,
                 ny,
                 nu,
-                data.sample_time,
+                sample_time,
             )
 
         # Attach transfer functions and predictions to model

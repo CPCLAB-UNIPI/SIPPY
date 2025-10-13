@@ -3,11 +3,15 @@ OE (Output Error) identification algorithm.
 """
 
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
+
+if TYPE_CHECKING:
+    from ..iddata import IDData
 
 try:
     import harold
@@ -93,30 +97,70 @@ class OEAlgorithm(IdentificationAlgorithm):
 
         return True
 
-    def identify(self, data, config):
+    def identify(
+        self,
+        y: Optional[np.ndarray] = None,
+        u: Optional[np.ndarray] = None,
+        iddata: Optional["IDData"] = None,
+        **kwargs,
+    ) -> StateSpaceModel:
         """
         Identify OE model from input-output data.
 
         Parameters:
         -----------
-        data : IDData
-            Input-output data
-        config : SystemIdentificationConfig
-            Configuration parameters including nb, nf, nk
+        y : np.ndarray, optional
+            Output data (outputs x time_steps)
+        u : np.ndarray, optional
+            Input data (inputs x time_steps)
+        iddata : IDData, optional
+            Input-output data container
+        **kwargs : dict
+            Configuration parameters including nb, nf, nk, tsample
 
         Returns:
         --------
         model : StateSpaceModel
             Identified state-space model
         """
-        # Extract data from IDData object
-        u = data.get_input_array()
-        y = data.get_output_array()
+        # Backward compatibility: detect old API (data, config) vs new API (y, u, **kwargs)
+        from ..base import SystemIdentificationConfig
+        from ..iddata import IDData as IDDataClass
+
+        if y is not None and isinstance(y, IDDataClass) and u is not None and isinstance(u, SystemIdentificationConfig):
+            # Old API: identify(data, config)
+            iddata = y
+            config = u
+            y = None
+            u = None
+            # Extract parameters from config
+            kwargs = {
+                'nb': getattr(config, 'nb', 2),
+                'nf': getattr(config, 'nf', 2),
+                'nk': getattr(config, 'nk', 1),
+            }
+
+        # Validate input arguments
+        if iddata is not None and (y is not None or u is not None):
+            raise ValueError("Provide either iddata or (y, u), but not both")
+        if iddata is None and (y is None or u is None):
+            raise ValueError("Must provide either iddata or both y and u")
+
+        # Extract data if IDData is provided
+        if iddata is not None:
+            u = iddata.get_input_array()
+            y = iddata.get_output_array()
+            sample_time = iddata.sample_time
+        else:
+            # Ensure arrays are 2D
+            y = np.atleast_2d(y)
+            u = np.atleast_2d(u)
+            sample_time = kwargs.get("tsample", 1.0)
 
         # Extract configuration parameters (OE specific)
-        nb = getattr(config, "nb", 2)
-        nf = getattr(config, "nf", 2)
-        nk = getattr(config, "nk", 1)
+        nb = kwargs.get("nb", 2)
+        nf = kwargs.get("nf", 2)
+        nk = kwargs.get("nk", 1)
 
         # Validate parameters
         self.validate_parameters(nb=nb, nf=nf, nk=nk)
@@ -199,18 +243,18 @@ class OEAlgorithm(IdentificationAlgorithm):
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_oe(
-            B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time
+            B_coeffs, F_coeffs, nb, nf, nk, ny, nu, sample_time
         )
 
         # Create state-space representation
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_oe(
-                B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time
+                B_coeffs, F_coeffs, nb, nf, nk, ny, nu, sample_time
             )
         else:
             # Fallback when harold is not available
             model = self._create_mock_model(
-                B_coeffs, F_coeffs, nb, nf, nk, ny, nu, data.sample_time
+                B_coeffs, F_coeffs, nb, nf, nk, ny, nu, sample_time
             )
 
         # Attach transfer functions and predictions to model
@@ -402,8 +446,8 @@ class OEAlgorithm(IdentificationAlgorithm):
         # D matrix - direct feedthrough
         D = np.zeros((ny, nu))
 
-        # Create harold StateSpace object
-        ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
+        # Create harold State object
+        ss_model = harold.State(A, B, C, D, dt=Ts)
 
         # Use local matrices (not ss_model attributes) for dimensions
         # This ensures tests with mocked harold don't break
