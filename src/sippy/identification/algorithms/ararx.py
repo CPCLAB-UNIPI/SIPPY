@@ -270,6 +270,10 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         # Validate parameters
         self.validate_parameters(na=na, nb=nb, nd=nd, theta=theta)
 
+        # Check if we have MIMO system
+        ny, N = y.shape
+        nu, _ = u.shape
+
         # Extract NLP-specific parameters from kwargs (don't pass model orders again)
         nlp_kwargs = {
             "max_iterations": kwargs.get("max_iterations", 200),
@@ -278,17 +282,23 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         }
 
         # Route to appropriate implementation
-        if CASADI_AVAILABLE:
-            # Use NLP method (exact, production quality)
+        if CASADI_AVAILABLE and ny == 1 and nu == 1:
+            # Use NLP method for SISO (exact, production quality)
             return self._identify_nlp(
                 y, u, na, nb, nd, theta, sample_time, **nlp_kwargs
             )
         else:
-            # Fallback to simplified method
-            warnings.warn(
-                "Using simplified ARARX method (CasADi not available). "
-                "Accuracy may be reduced. Install CasADi for production use: pip install casadi"
-            )
+            # Use simplified method for MIMO or when CasADi not available
+            if CASADI_AVAILABLE and (ny > 1 or nu > 1):
+                warnings.warn(
+                    "ARARX NLP only supports SISO systems. Using simplified method for MIMO. "
+                    "For MIMO systems, consider identifying each input-output pair separately."
+                )
+            elif not CASADI_AVAILABLE:
+                warnings.warn(
+                    "Using simplified ARARX method (CasADi not available). "
+                    "Accuracy may be reduced. Install CasADi for production use: pip install casadi"
+                )
             return self._identify_simplified(y, u, na, nb, nd, theta, sample_time)
 
     def _identify_nlp(
@@ -318,13 +328,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         model : StateSpaceModel
             Identified state-space model
         """
-        # Get data dimensions
+        # Get data dimensions (SISO assumed - validated in identify method)
         ny, N = y.shape
         nu, _ = u.shape
-
-        # Currently only support SISO
-        if ny > 1 or nu > 1:
-            raise NotImplementedError("ARARX NLP currently only supports SISO systems")
 
         # DATA RESCALING (critical for numerical conditioning)
         y_std, y_scaled = self._rescale(y.flatten())
@@ -341,6 +347,18 @@ class ARARXAlgorithm(IdentificationAlgorithm):
 
         # Calculate effective data length (n_tr = number of non-identifiable samples)
         n_tr = max(na, nb + theta, nd)
+
+        # Check if we have enough data
+        N_eff = N - n_tr
+        n_params = na + nb + nd
+        if N_eff <= 0:
+            raise ValueError(
+                f"Not enough data. Need at least {n_tr + 1} samples, got {N}"
+            )
+        if N_eff <= n_params:
+            raise ValueError(
+                f"Not enough data for parameter estimation. Need more than {n_params} effective samples, got {N_eff}"
+            )
 
         # Build and solve NLP
         solver, w_lb, w_ub, g_lb, g_ub, w_0 = self._build_ararx_nlp(
@@ -401,6 +419,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         )
 
         # Create state-space model
+        # Check harold availability at runtime (better for testing)
         if HAROLD_AVAILABLE:
             model = self._create_state_space_from_ararx(
                 A_coeffs, B_coeffs, D_coeffs, na, nb, nd, theta, ny, nu, sample_time
@@ -1012,9 +1031,9 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         """
         if not HAROLD_AVAILABLE:
             return None, None
-
         try:
-            import harold
+            # Use module-level harold (allowing mock patching to work)
+            global harold
 
             # Build polynomial arrays (harold uses positive powers, convert from negative)
             A_poly = (
@@ -1026,7 +1045,7 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             # Build B polynomial with delay
             # For discrete TF, B(q) = b0*q^-theta + b1*q^-(theta+1) + ... + bnb*q^-(theta+nb)
             # In harold array form: [0, 0, ..., 0, b0, b1, ..., bnb]
-            B_poly = np.concatenate((B_coeffs.flatten(), [0.0] * theta))
+            B_poly = np.concatenate(([0.0] * theta, B_coeffs.flatten()))
 
             D_poly = np.concatenate(([1.0], D_coeffs.flatten()))
 
@@ -1045,6 +1064,8 @@ class ARARXAlgorithm(IdentificationAlgorithm):
             H_tf = harold.Transfer([1.0], DEN_H, dt=Ts)
 
             return G_tf, H_tf
+        except ImportError:
+            return None, None
         except Exception as e:
             warnings.warn(f"Failed to create ARARX transfer functions: {e}")
             return None, None
@@ -1071,7 +1092,8 @@ class ARARXAlgorithm(IdentificationAlgorithm):
         model : StateSpaceModel
             State-space model representation
         """
-        import harold
+        # Use module-level harold (allowing mock patching to work)
+        global harold
 
         # Create transfer function
         G_tf, H_tf = self._create_transfer_functions_ararx(
