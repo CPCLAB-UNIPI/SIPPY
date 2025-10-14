@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main, dev ]
+    paths-ignore:
+      - 'VERSION'
+      - 'pyproject.toml'
+      - 'CHANGELOG.md'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Run tests for a specific version'
+        required: false
+  pull_request:
+    branches: [ master, main, dev ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: uv sync --extra dev --extra test
+
+    - name: Test with pytest
+      run: uv run pytest --cov=sippy_unipi --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+    - name: Minimize uv cache
+      run: uv cache prune --ci
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+
+    - name: Set up Python
+      run: uv python install 3.12
+
+    - name: Install dependencies
+      run: uv sync --extra dev
+
+    - name: Lint with ruff
+      run: uv run ruff check .
+
+    - name: Type check with mypy
+      run: uv run mypy sippy_unipi/
+
+    - name: Minimize uv cache
+      run: uv cache prune --ci

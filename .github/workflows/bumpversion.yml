@@ -1,0 +1,34 @@
+name: Bump version
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [master, main]
+    types:
+      - completed
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.event.head_commit.message, 'bump:') && github.event.workflow_run.conclusion == 'success'"
+    permissions:
+      contents: write
+    name: "Bump version and create changelog with commitizen"
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: "${{ secrets.COMMITIZEN_TOKEN }}"
+      - name: Create bump and changelog
+        uses: commitizen-tools/commitizen-action@master
+        with:
+          github_token: ${{ secrets.COMMITIZEN_TOKEN }}
+          changelog_increment_filename: body.md
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ env.REVISION }}
+          bodyFile: "body.md"
+          skipIfReleaseExists: true
+          token: ${{ secrets.COMMITIZEN_TOKEN }}

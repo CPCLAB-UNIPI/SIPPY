@@ -1,0 +1,114 @@
+[project]
+name = "sippy_unipi"
+version = "1.0.1"
+description = "Systems Identification Package for Python"
+authors = [
+    { name = "Giuseppe Armenise" },
+    { name = "Riccardo Bacci di Capaci" },
+    { name = "Marco Vaccari" },
+    { name = "Gabriele Pannocchia" },
+    { name = "Marek Wadinger" }
+    ]
+readme = "README.md"
+license = "LGPL-3.0-or-later"
+keywords = [
+    "machine-learning",
+    "dynamical-systems",
+    "control-systems",
+    "system-identification",
+    "time-series-analysis",
+    "state-space",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "casadi<4.0.0",
+    "control>=0.10.0,<1.0.0",
+    "numpy<3.0.0",
+    "scipy<2.0.0",
+    "sympy<2.0.0",
+    "tf2ss>=1.1.2,<2.0.0",
+]
+
+[project.urls]
+repository = "https://github.com/CPCLAB-UNIPI/SIPPY"
+
+[project.optional-dependencies]
+examples = [
+    "matplotlib<4.0.0",
+    "jupyter>=1.0.0,<2.0.0",
+]
+dev = [
+    "mypy>=1.15.0",
+    "pre-commit>=4.1.0",
+    "ruff>=0.9.0",
+    "ipykernel>=6.26.0",
+    "ipython>=8.32.0",
+]
+docs = [
+    "black<30.0.0",
+    "commitizen<5.0.0",
+    "jupyter>=1.0.0,<2.0.0",
+    "markdown-exec<2.0.0",
+    "mkdocs-charts-plugin",
+    "mkdocs-gen-files",
+    "mkdocs-include-markdown-plugin<10.0.0",
+    "mkdocs-literate-nav",
+    "mkdocs-macros-plugin<2.0.0",
+    "mkdocs-material<10.0.0",
+    "mkdocs-section-index",
+    "mkdocstrings-python<2.0.0",
+]
+test = [
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+]
+perf = [
+    "slycot>=0.6.0",
+]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--doctest-modules",
+    "--doctest-glob=README.md",
+    "--verbose",
+    "-ra",
+    "-m not datasets and not slow",
+    "--color=yes",
+]
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "NUMBER",
+    "ELLIPSIS",
+    "IGNORE_EXCEPTION_DETAIL",
+]
+norecursedirs = [".*"]
+
+[tool.ruff]
+lint.select = ["E", "F", "I", "UP"] # https://beta.ruff.rs/docs/rules/
+lint.ignore = ["E501", "D107"]
+line-length = 79
+
+[tool.mypy]
+ignore_missing_imports = true
+explicit_package_bases = true
+implicit_optional = true
+check_untyped_defs = true
+warn_redundant_casts = true
