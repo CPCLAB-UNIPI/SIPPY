@@ -1,0 +1,197 @@
+{
+  "case1_ar1": {
+    "test_name": "AR(1)",
+    "ar_true": [
+      -0.7
+    ],
+    "ma_true": [
+      0.001
+    ],
+    "ar_estimated": [
+      -0.6982923621416632
+    ],
+    "ma_estimated": [
+      -0.0034057882617486634
+    ],
+    "coefficient_errors": {
+      "ar_errors": "[0.24394827]",
+      "ma_errors": "[440.57882573]",
+      "ar_max_error": 0.24394826547632567,
+      "ma_max_error": 440.57882573428753
+    },
+    "prediction_metrics": {
+      "rmse": 0.09797614370323995,
+      "normalized_rmse": 71.89165854742609,
+      "fit_percent": 28.10834145206308
+    },
+    "residual_metrics": {
+      "residual_variance": 0.009595096901576573,
+      "residual_std": 0.09795456549633903,
+      "variance_error_percent": 4.049030984234289,
+      "normality_pvalue": 0.28421188392514446,
+      "residuals_normal": "True"
+    },
+    "information_criteria": {
+      "aic": -4642.503050295038,
+      "bic": -4632.687539737073,
+      "n_parameters": 2
+    },
+    "stability": {
+      "is_stable": true,
+      "max_pole_magnitude": 0.6982923621416632,
+      "poles": [
+        0.6982923621416632
+      ]
+    },
+    "pass": false
+  },
+  "case2_ma1": {
+    "test_name": "MA(1)",
+    "ar_true": [
+      0.001
+    ],
+    "ma_true": [
+      0.5
+    ],
+    "ar_estimated": [
+      -1.0688715921389016
+    ],
+    "ma_estimated": [
+      99.99901529589862
+    ],
+    "coefficient_errors": {
+      "ar_errors": "[106987.1591069]",
+      "ma_errors": "[19899.80305914]",
+      "ar_max_error": 106987.15910690298,
+      "ma_max_error": 19899.803059139926
+    },
+    "prediction_metrics": {
+      "rmse": 0.0012596810360476609,
+      "normalized_rmse": 1.128696207350746,
+      "fit_percent": 98.87130379263947
+    },
+    "residual_metrics": {
+      "residual_variance": 1.5867950137358705e-06,
+      "residual_std": 0.001259680520503461,
+      "variance_error_percent": 99.98413204986262,
+      "normality_pvalue": 0.3694568941343014,
+      "residuals_normal": "True"
+    },
+    "information_criteria": {
+      "aic": -13349.793660449628,
+      "bic": -13339.978149891664,
+      "n_parameters": 2
+    },
+    "stability": {
+      "is_stable": false,
+      "max_pole_magnitude": 1.0688715921389016,
+      "poles": [
+        1.0688715921389016
+      ]
+    },
+    "pass": false
+  },
+  "case3_arma22": {
+    "test_name": "ARMA(2,2)",
+    "ar_true": [
+      -0.6,
+      -0.2
+    ],
+    "ma_true": [
+      0.4,
+      0.1
+    ],
+    "ar_estimated": [
+      -1.9060308701585749,
+      1.0048526562421638
+    ],
+    "ma_estimated": [
+      -94.47737273571157,
+      99.99830751570167
+    ],
+    "coefficient_errors": {
+      "ar_errors": "[217.67181169 602.42632812]",
+      "ma_errors": "[23719.34318387 99898.3075147 ]",
+      "ar_max_error": 602.4263281180697,
+      "ma_max_error": 99898.30751470268
+    },
+    "prediction_metrics": {
+      "rmse": 0.001882353840993056,
+      "normalized_rmse": 0.8560352627915274,
+      "fit_percent": 99.1439647372047
+    },
+    "residual_metrics": {
+      "residual_variance": 3.54201087851452e-06,
+      "residual_std": 0.001882023081291651,
+      "variance_error_percent": 99.96457989121487,
+      "normality_pvalue": 0.03781679452794405,
+      "residuals_normal": "False"
+    },
+    "information_criteria": {
+      "aic": -12542.81566499138,
+      "bic": -12523.184643875451,
+      "n_parameters": 4
+    },
+    "stability": {
+      "is_stable": false,
+      "max_pole_magnitude": 1.9715972117652574,
+      "poles": [
+        0.9667445555230938,
+        -1.9715972117652574
+      ]
+    },
+    "master_comparison": null,
+    "pass": false
+  },
+  "case5_high_snr": {
+    "test_name": "High SNR ARMA(2,2)",
+    "ar_true": [
+      -0.6,
+      -0.2
+    ],
+    "ma_true": [
+      0.4,
+      0.1
+    ],
+    "ar_estimated": [
+      -6.454507816535473,
+      5.465230830841244
+    ],
+    "ma_estimated": [
+      -99.99994020625178,
+      99.65773607295002
+    ],
+    "coefficient_errors": {
+      "ar_errors": "[ 975.75130275 2832.61541541]",
+      "ma_errors": "[25099.9850515  99557.73607195]",
+      "ar_max_error": 2832.6154154064584,
+      "ma_max_error": 99557.73607195444
+    },
+    "prediction_metrics": {
+      "rmse": 0.0010467059104972796,
+      "normalized_rmse": 4.5963869837177205,
+      "fit_percent": 95.40361301608496
+    },
+    "residual_metrics": {
+      "residual_variance": 1.095548680846561e-06,
+      "residual_std": 0.0010466846138386487,
+      "variance_error_percent": 98.90445131915344,
+      "normality_pvalue": 0.016236388195072757,
+      "residuals_normal": "False"
+    },
+    "information_criteria": {
+      "aic": -27440.508658021536,
+      "bic": -27418.105048183366,
+      "n_parameters": 4
+    },
+    "stability": {
+      "is_stable": false,
+      "max_pole_magnitude": 6.463794160151285,
+      "poles": [
+        0.9985633293100422,
+        -6.463794160151285
+      ]
+    },
+    "pass": false
+  }
+}
