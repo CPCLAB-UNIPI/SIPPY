@@ -70,7 +70,7 @@ class TestARXAlgorithm:
             mock_undiscretize.C = np.zeros((1, 2))
             mock_undiscretize.D = np.zeros((1, 1))
 
-            result = algorithm.identify(self.data, self.config)
+            result = algorithm.identify(iddata=self.data, na=self.config.na, nb=self.config.nb, nk=self.config.nk)
 
             assert isinstance(result, StateSpaceModel)
             assert result.A is not None
@@ -100,7 +100,7 @@ class TestARXAlgorithm:
                 mock_tf.NumberOfOutputs = 1
                 mock_tf.SamplingPeriod = 1.0
 
-                result = algorithm.identify(self.data, config)
+                result = algorithm.identify(iddata=self.data, na=config.na, nb=config.nb, nk=config.nk)
                 assert result is not None
 
     def test_arx_mimo_system(self):
@@ -132,7 +132,7 @@ class TestARXAlgorithm:
             mock_tf.NumberOfOutputs = 2
             mock_tf.SamplingPeriod = 1.0
 
-            result = algorithm.identify(data, config)
+            result = algorithm.identify(iddata=data, na=config.na, nb=config.nb, nk=config.nk)
             assert result is not None
 
     def test_arx_without_harold(self):
@@ -141,7 +141,7 @@ class TestARXAlgorithm:
 
         with patch("sippy.identification.algorithms.arx.HAROLD_AVAILABLE", False):
             with pytest.warns(UserWarning, match="harold library not available"):
-                result = algorithm.identify(self.data, self.config)
+                result = algorithm.identify(iddata=self.data, na=self.config.na, nb=self.config.nb, nk=self.config.nk)
                 # Should return a mock model when harold is not available
                 assert result is not None
                 assert isinstance(result, StateSpaceModel)
@@ -155,7 +155,7 @@ class TestARXAlgorithm:
         invalid_config.na = 0  # Invalid na
 
         with pytest.raises(ValueError, match="AR order \\(na\\) must be positive"):
-            algorithm.identify(self.data, invalid_config)
+            algorithm.identify(iddata=self.data, na=invalid_config.na, nb=invalid_config.nb, nk=invalid_config.nk)
 
     def test_arx_data_validation(self):
         """Test ARX algorithm validates input data."""
@@ -189,7 +189,7 @@ class TestARXAlgorithm:
             mock_tf.NumberOfOutputs = 3
             mock_tf.SamplingPeriod = 1.0
 
-            result = algorithm.identify(invalid_data, self.config)
+            result = algorithm.identify(iddata=invalid_data, na=self.config.na, nb=self.config.nb, nk=self.config.nk)
             assert result is not None
 
 

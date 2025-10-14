@@ -97,7 +97,7 @@ class TestARARMAXAlgorithm:
         config.nf = 1  # Input transfer function order
         config.nk = 1  # Input delay
 
-        model = algorithm.identify(iddata=self.iddata_siso, config=config)
+        model = algorithm.identify(iddata=self.iddata_siso, na=config.na, nb=config.nb, nc=config.nc, nd=config.nd, nf=config.nf, nk=config.nk)
 
         assert model is not None
         assert isinstance(model, StateSpaceModel)
@@ -122,7 +122,7 @@ class TestARARMAXAlgorithm:
             [[1, 0], [1, 0]],  # nf (input TF orders)
         ]  # theta (delay matrix, auto-calculated in algorithm)
 
-        model = algorithm.identify(iddata=self.iddata_mimo, config=config)
+        model = algorithm.identify(iddata=self.iddata_mimo, na=config.na, nb=config.nb, nc=config.nc, nd=config.nd, nf=config.nf, nk=config.nk)
 
         assert model is not None
         assert isinstance(model, StateSpaceModel)
@@ -140,11 +140,9 @@ class TestARARMAXAlgorithm:
 
         algorithm = ARARMAXAlgorithm()
 
-        # Test missing required parameters
-        config_invalid = SystemIdentificationConfig(method="ARARMAX")
-
-        with pytest.raises(ValueError, match="ARARMAX algorithm requires"):
-            algorithm.identify(iddata=self.iddata_siso, config=config_invalid)
+        # Test invalid parameters (negative orders)
+        with pytest.raises(ValueError, match="AR order \\(na\\) must be positive"):
+            algorithm.identify(iddata=self.iddata_siso, na=0, nb=1, nc=1, nd=1, nf=1, nk=1)
 
     def test_ararmax_insufficient_data(self):
         """Test ARARMAX algorithm with insufficient data."""
@@ -165,7 +163,7 @@ class TestARARMAXAlgorithm:
         )
 
         with pytest.raises(ValueError, match="Insufficient data"):
-            algorithm.identify(iddata=data_insufficient, config=config)
+            algorithm.identify(iddata=data_insufficient, na=config.na, nb=config.nb, nc=config.nc, nd=config.nd, nf=config.nf, nk=config.nk)
 
     def test_ararmax_different_orders(self):
         """Test ARARMAX algorithm with different order combinations."""
@@ -184,7 +182,7 @@ class TestARARMAXAlgorithm:
             config = SystemIdentificationConfig(method="ARARMAX", **params)
             algorithm = ARARMAXAlgorithm()
 
-            model = algorithm.identify(iddata=self.iddata_siso, config=config)
+            model = algorithm.identify(iddata=self.iddata_siso, na=config.na, nb=config.nb, nc=config.nc, nd=config.nd, nf=config.nf, nk=config.nk)
 
             assert model is not None
             assert isinstance(model, StateSpaceModel)
@@ -234,7 +232,7 @@ class TestARARMAXAlgorithm:
             nk=[1],
         )
 
-        model = algorithm.identify(iddata=data_colored, config=config)
+        model = algorithm.identify(iddata=data_colored, na=config.na, nb=config.nb, nc=config.nc, nd=config.nd, nf=config.nf, nk=config.nk)
 
         assert model is not None
         # Should handle colored noise - stability not guaranteed with these parameters
@@ -264,7 +262,7 @@ class TestARARMAXAlgorithm:
             method="ARARMAX", na=[1, 1], nb=[1], nc=[1, 1], nd=[1], nf=[1], nk=[1]
         )
 
-        model = algorithm.identify(iddata=self.iddata_siso, config=config)
+        model = algorithm.identify(iddata=self.iddata_siso, na=config.na, nb=config.nb, nc=config.nc, nd=config.nd, nf=config.nf, nk=config.nk)
 
         assert model is not None
         assert isinstance(model, StateSpaceModel)
@@ -333,7 +331,7 @@ class TestARARMAXAlgorithm:
             nk=[0],  # nk=0
         )
 
-        model = algorithm.identify(iddata=self.iddata_siso, config=config_zero_delay)
+        model = algorithm.identify(iddata=self.iddata_siso, na=config_zero_delay.na, nb=config_zero_delay.nb, nc=config_zero_delay.nc, nd=config_zero_delay.nd, nf=config_zero_delay.nf, nk=config_zero_delay.nk)
         assert model is not None
 
         # Multiple delays
@@ -347,7 +345,7 @@ class TestARARMAXAlgorithm:
             nk=[2],  # nk=2
         )
 
-        model = algorithm.identify(iddata=self.iddata_siso, config=config_multi_delay)
+        model = algorithm.identify(iddata=self.iddata_siso, na=config_multi_delay.na, nb=config_multi_delay.nb, nc=config_multi_delay.nc, nd=config_multi_delay.nd, nf=config_multi_delay.nf, nk=config_multi_delay.nk)
         assert model is not None
 
     def test_ararmax_algorithm_properties(self):
