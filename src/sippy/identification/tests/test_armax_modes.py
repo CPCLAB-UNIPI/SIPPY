@@ -2,18 +2,16 @@
 Comprehensive tests for ARMAX algorithm modes (ILLS, OPT, RLLS).
 """
 
+import warnings
+
 import numpy as np
 import pytest
-import warnings
 
 from ..algorithms.armax import ARMAXAlgorithm
 from ..algorithms.armax_modes import (
-    get_armax_handler,
     ILLSHandler,
-    OPTHandler,
-    RLLSHandler,
+    get_armax_handler,
 )
-from ..iddata import IDData
 from ..factory import AlgorithmFactory
 
 

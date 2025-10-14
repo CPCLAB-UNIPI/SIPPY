@@ -255,26 +255,94 @@ class ARARMAXAlgorithm(IdentificationAlgorithm):
         if y.shape[1] < 2 or u.shape[1] < 2:
             raise ValueError("Insufficient data: need at least 2 samples")
 
-        # Extract configuration parameters from kwargs (following OE pattern)
-        na = kwargs.get("na", 1)
-        nb = kwargs.get("nb", 1)
-        nc = kwargs.get("nc", 1)
-        nd = kwargs.get("nd", 1)
-        nf = kwargs.get("nf", 0)
-        nk = kwargs.get("nk", 1)
+        # Extract configuration parameters from kwargs and handle config object
+        config = kwargs.get("config")
+        if config is not None:
+            # Extract from config object, handling ararmax_orders format
+            na = getattr(config, "na", None)
+            nb = getattr(config, "nb", None)
+            nc = getattr(config, "nc", None)
+            nd = getattr(config, "nd", None)
+            nf = getattr(config, "nf", None)
+            nk = getattr(config, "nk", None)
+
+            # If individual parameters are None, try to extract from ararmax_orders
+            if any(x is None for x in [na, nb, nc, nd, nf]):
+                if hasattr(config, "ararmax_orders") and config.ararmax_orders is not None:
+                    orders = config.ararmax_orders
+                    if len(orders) >= 5:
+                        if na is None:
+                            na = orders[0]  # na (AR orders)
+                        if nb is None:
+                            nb = orders[1]  # nb (input orders)
+                        if nc is None:
+                            nc = orders[2]  # nc (noise AR orders)
+                        if nd is None:
+                            nd = orders[3]  # nd (noise MA orders)
+                        if nf is None:
+                            nf = orders[4]  # nf (input TF orders)
+                        if nk is None and len(orders) > 5:
+                            nk = orders[5]  # theta/delay matrix
+        else:
+            # Extract directly from kwargs
+            na = kwargs.get("na", 1)
+            nb = kwargs.get("nb", 1)
+            nc = kwargs.get("nc", 1)
+            nd = kwargs.get("nd", 1)
+            nf = kwargs.get("nf", 0)
+            nk = kwargs.get("nk", 1)
+
+        # Handle None values with defaults
+        if na is None:
+            na = 1
+        if nb is None:
+            nb = 1
+        if nc is None:
+            nc = 1
+        if nd is None:
+            nd = 1
+        if nf is None:
+            nf = 0
+        if nk is None:
+            nk = 1
+
+        # Helper function to validate and handle list/int parameters
+        def validate_param(param, param_name, allow_zero=False):
+            if isinstance(param, (list, tuple)):
+                # For list parameters, check if any value is valid
+                flat_param = []
+                for item in param:
+                    if isinstance(item, (list, tuple)):
+                        flat_param.extend(item)
+                    else:
+                        flat_param.append(item)
+                # Check if any value is positive (or non-negative if allow_zero)
+                for x in flat_param:
+                    if isinstance(x, (int, float)):
+                        if allow_zero and x >= 0:
+                            return True
+                        elif not allow_zero and x > 0:
+                            return True
+                return False
+            elif isinstance(param, (int, float)):
+                if allow_zero:
+                    return param >= 0
+                else:
+                    return param > 0
+            return False
 
         # Validate parameters
-        if na <= 0:
+        if not validate_param(na, "na"):
             raise ValueError("AR order (na) must be positive")
-        if nb <= 0:
+        if not validate_param(nb, "nb"):
             raise ValueError("Input order (nb) must be positive")
-        if nc < 0:
+        if not validate_param(nc, "nc", allow_zero=True):
             raise ValueError("Noise AR order (nc) must be non-negative")
-        if nd < 0:
+        if not validate_param(nd, "nd", allow_zero=True):
             raise ValueError("Noise MA order (nd) must be non-negative")
-        if nf < 0:
+        if not validate_param(nf, "nf", allow_zero=True):
             raise ValueError("Input TF order (nf) must be non-negative")
-        if nk < 0:
+        if not validate_param(nk, "nk", allow_zero=True):
             raise ValueError("Input delay (nk) must be non-negative")
 
         # Flatten nested lists and extract max values for MIMO compatibility

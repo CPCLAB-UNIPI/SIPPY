@@ -242,12 +242,26 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         self.validate_parameters(na=na, nc=nc)
 
         # Route to appropriate implementation
+        # Get data dimensions for routing decision
+        ny, N = y.shape
+        nu = u.shape[0] if u is not None else 1
+
         # Remove na, nc from kwargs to avoid duplicate arguments
         kwargs_without_orders = {k: v for k, v in kwargs.items() if k not in ['na', 'nc']}
 
-        if CASADI_AVAILABLE:
-            # Use NLP method (exact, production quality)
+        # For MIMO systems, use ILLS fallback (NLP currently SISO only)
+        is_mimo = ny > 1 or nu > 1
+
+        if CASADI_AVAILABLE and not is_mimo:
+            # Use NLP method for SISO (exact, production quality)
             return self._identify_nlp(y, na, nc, sample_time, **kwargs_without_orders)
+        elif is_mimo:
+            # Use ILLS method for MIMO (NLP currently SISO only)
+            warnings.warn(
+                "ARMA MIMO NLP method under development. Using simplified ILLS method. "
+                "For exact SISO NLP support, ensure ny=1 and nu=1."
+            )
+            return self._identify_ills(y, u, na, nc, sample_time, **kwargs_without_orders)
         else:
             # Fallback to ILLS method
             warnings.warn(
@@ -285,6 +299,15 @@ class ARMAAlgorithm(IdentificationAlgorithm):
         # Currently only support SISO
         if ny > 1:
             raise NotImplementedError("ARMA NLP currently only supports SISO systems")
+
+        # Check for sufficient data
+        max_lag = max(na, nc)
+        N_eff = N - max_lag
+
+        if N_eff <= 0:
+            raise ValueError(
+                f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+            )
 
         # DATA RESCALING (critical for numerical conditioning)
         # Master branch: divide by std only, NO mean centering

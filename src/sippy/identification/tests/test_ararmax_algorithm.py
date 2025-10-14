@@ -303,8 +303,8 @@ class TestARARMAXAlgorithm:
         ararmax_algo = ARARMAXAlgorithm()
         arx_algo = ARXAlgorithm()
 
-        ararmax_model = ararmax_algo.identify(iddata=data_test, config=ararmax_config)
-        arx_model = arx_algo.identify(data=data_test, config=arx_config)
+        ararmax_model = ararmax_algo.identify(iddata=data_test, na=[1, 1], nb=[1], nc=[1, 1], nd=[1], nf=[1], nk=[1])
+        arx_model = arx_algo.identify(iddata=data_test, na=1, nb=1, nk=1)
 
         # Both should produce valid models
         assert ararmax_model is not None

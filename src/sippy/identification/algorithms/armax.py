@@ -137,6 +137,17 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         model : StateSpaceModel
             Identified state-space model
         """
+        # Handle legacy API: identify(data, config_dict) where data has .get_input_array()
+        if (iddata is None and y is not None and u is not None and
+            hasattr(y, 'get_input_array') and hasattr(y, 'get_output_array')):
+            # Legacy compatibility: data, config pattern
+            iddata = y
+            config_dict = u if hasattr(u, 'items') else {}
+            y = None
+            u = None
+            # Update kwargs with config_dict content
+            kwargs.update(config_dict)
+
         # Validate input arguments
         if iddata is not None and (y is not None or u is not None):
             raise ValueError("Provide either iddata or (y, u), but not both")
@@ -159,6 +170,13 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
             u = u.flatten()
         if y.ndim > 1 and y.shape[0] == 1:
             y = y.flatten()
+
+        # Validate data compatibility
+        if u.shape[0] != y.shape[0]:
+            raise ValueError(
+                f"Input and output data must have same length. "
+                f"Got u length: {u.shape[0]}, y length: {y.shape[0]}"
+            )
 
         # Extract configuration parameters from kwargs
         na = kwargs.get("na", 1)
