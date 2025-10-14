@@ -11,6 +11,16 @@ from scipy.optimize import minimize
 
 from ..base import StateSpaceModel
 
+# Import compiled utilities for performance
+try:
+    from sippy.utils.compiled_utils import (
+        NUMBA_AVAILABLE,
+        build_armax_regression_parallel,
+    )
+except ImportError:
+    NUMBA_AVAILABLE = False
+    build_armax_regression_parallel = None
+
 # Import Harold if available
 try:
     import harold
@@ -141,19 +151,26 @@ class ILLSHandler(ARMAXModeHandler):
             iterations += 1
 
             # Update regression matrix with current noise estimate
-            # Using explicit loops instead of array slicing for 4-5x speedup
-            for i in range(N_eff):
-                # AR part (lagged outputs) - explicit loop
-                for j in range(na):
-                    Phi[i, j] = -y[i + max_order - 1 - j]
+            # Use compiled parallel version if Numba available, otherwise fallback
+            if NUMBA_AVAILABLE and build_armax_regression_parallel is not None:
+                # 3-4x speedup with parallelized Numba version
+                Phi = build_armax_regression_parallel(
+                    y, u, noise_hat, na, nb, nc, nk, max_order, N_eff
+                )
+            else:
+                # Fallback: explicit loops (still faster than array slicing)
+                for i in range(N_eff):
+                    # AR part (lagged outputs) - explicit loop
+                    for j in range(na):
+                        Phi[i, j] = -y[i + max_order - 1 - j]
 
-                # X part (lagged inputs) - explicit loop
-                for j in range(nb):
-                    Phi[i, na + j] = u[max_order + i - 1 - (nk + j)]
+                    # X part (lagged inputs) - explicit loop
+                    for j in range(nb):
+                        Phi[i, na + j] = u[max_order + i - 1 - (nk + j)]
 
-                # MA part (estimated noise terms) - explicit loop
-                for j in range(nc):
-                    Phi[i, na + nb + j] = noise_hat[max_order + i - 1 - j]
+                    # MA part (estimated noise terms) - explicit loop
+                    for j in range(nc):
+                        Phi[i, na + nb + j] = noise_hat[max_order + i - 1 - j]
 
             # Least squares solution
             beta_hat = np.dot(np.linalg.pinv(Phi), y[max_order:N])

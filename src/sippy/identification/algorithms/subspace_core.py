@@ -3,6 +3,7 @@ Core subspace identification algorithms implementation.
 """
 
 import warnings
+from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import scipy as sc
@@ -26,6 +27,7 @@ try:
     from ...utils.compiled_utils import (
         NUMBA_AVAILABLE,
         Z_dot_PIort_compiled,
+        covariance_symmetric_compiled,
         information_criterion_compiled,
         rescale_compiled,
         subspace_weighted_svd_compiled,
@@ -33,9 +35,145 @@ try:
 except ImportError:
     NUMBA_AVAILABLE = False
     Z_dot_PIort_compiled = None
+    covariance_symmetric_compiled = None
     information_criterion_compiled = None
     rescale_compiled = None
     subspace_weighted_svd_compiled = None
+
+
+def _evaluate_single_order(args):
+    """
+    Helper function to evaluate a single model order.
+
+    This function is module-level (not a method) to be picklable for multiprocessing.
+
+    Parameters:
+    -----------
+    args : tuple
+        Contains (order, y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i,
+                 ss_threshold, D_required, A_stability, L, method)
+
+    Returns:
+    --------
+    tuple : (order, IC, forced_A_flag)
+        Order index, information criterion value, and whether A was forced stable
+    """
+    try:
+        (
+            order_idx,
+            y,
+            u,
+            l,
+            m,
+            f,
+            N,
+            U_n,
+            S_n,
+            V_n,
+            W1,
+            O_i,
+            ss_threshold,
+            D_required,
+            A_stability,
+            L,
+            method,
+        ) = args
+
+        # Import needed functions inside worker to avoid pickling issues
+        from ...utils.simulation_utils import (
+            Vn_mat,
+            impile,
+            reducingOrder,
+            simulate_ss_system,
+        )
+
+        # Perform algorithm_1 (we need to duplicate the logic here)
+        U_n_copy = U_n.copy()
+        S_n_copy = S_n.copy()
+        V_n_copy = V_n.copy()
+
+        U_n_reduced, S_n_reduced, V_n_reduced = reducingOrder(
+            U_n_copy, S_n_copy, V_n_copy, ss_threshold, order_idx
+        )
+        V_n_reduced = V_n_reduced.T
+        n = S_n_reduced.size
+        S_n_diag = np.diag(S_n_reduced)
+
+        if W1 is None:  # W1 is identity
+            Ob = np.dot(U_n_reduced, sc.linalg.sqrtm(S_n_diag))
+        else:
+            Ob = np.dot(
+                np.linalg.inv(W1), np.dot(U_n_reduced, sc.linalg.sqrtm(S_n_diag))
+            )
+
+        X_fd = np.dot(np.linalg.pinv(Ob), O_i)
+        X_fd_slice1 = np.ascontiguousarray(X_fd[:, 1:N])
+        y_slice = np.ascontiguousarray(y[:, f : f + N - 1])
+        Sxterm = impile(X_fd_slice1, y_slice)
+
+        X_fd_slice2 = np.ascontiguousarray(X_fd[:, 0 : N - 1])
+        u_slice = np.ascontiguousarray(u[:, f : f + N - 1])
+        Dxterm = impile(X_fd_slice2, u_slice)
+
+        if D_required:
+            M = np.dot(Sxterm, np.linalg.pinv(Dxterm))
+        else:
+            M = np.zeros((n + l, n + m))
+            M[0:n, :] = np.dot(Sxterm[0:n], np.linalg.pinv(Dxterm))
+            M[n::, 0:n] = np.dot(Sxterm[n::], np.linalg.pinv(Dxterm[0:n, :]))
+
+        # Force A stability if requested
+        forced_A_flag = False
+        if A_stability:
+            if np.max(np.abs(np.linalg.eigvals(M[0:n, 0:n]))) >= 1.0:
+                forced_A_flag = True
+                M[0:n, 0:n] = np.dot(
+                    np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n)))
+                )
+
+                u_slice_det = np.ascontiguousarray(u[:, f : f + N - 1])
+                if np.linalg.det(u_slice_det) != 0:
+                    X_fd_next = np.ascontiguousarray(X_fd[:, 1:N])
+                    X_fd_curr = np.ascontiguousarray(X_fd[:, 0 : N - 1])
+                    B_new = np.dot(
+                        X_fd_next - np.dot(M[0:n, 0:n], X_fd_curr),
+                        np.linalg.pinv(u_slice_det),
+                    )
+                    M[0:n, n::] = B_new
+
+        # Extract matrices
+        A = M[0:n, 0:n]
+        B = M[0:n, n::]
+        C = M[n::, 0:n]
+        D = M[n::, n::]
+
+        # Calculate covariances (not used for order selection, only for Vn calculation)
+        # We don't need to store Covariances here as we only need Vn
+
+        # Simulate and calculate Vn
+        X_states, Y_estimate = simulate_ss_system(A, B, C, D, u)
+        Vn = Vn_mat(y, Y_estimate)
+
+        # Calculate number of parameters
+        K_par = n * l + m * n
+        if D_required:
+            K_par = K_par + l * m
+
+        # Calculate information criterion
+        if NUMBA_AVAILABLE and information_criterion_compiled is not None:
+            method_map = {"AIC": 0, "AICc": 1, "BIC": 2}
+            method_code = method_map.get(method, 0)
+            IC = information_criterion_compiled(K_par, L, Vn, method_code)
+        else:
+            from ...utils.signal_utils import information_criterion
+
+            IC = information_criterion(K_par, L, Vn, method)
+
+        return (order_idx, IC, forced_A_flag)
+    except Exception as e:
+        # Return infinite IC on error to avoid selecting failed order
+        warnings.warn(f"Order {order_idx} evaluation failed: {e}")
+        return (order_idx, np.inf, False)
 
 
 class SubspaceCoreAlgorithm:
@@ -381,8 +519,15 @@ class SubspaceCoreAlgorithm:
         # Extract state-space matrices
         A, B, C, D = SubspaceCoreAlgorithm.extract_matrices(M, n)
 
-        # Calculate covariances
-        Covariances = np.dot(residuals, residuals.T) / (N - 1)
+        # Calculate covariances using optimized symmetric computation
+        if NUMBA_AVAILABLE and covariance_symmetric_compiled is not None:
+            try:
+                Covariances = covariance_symmetric_compiled(residuals, ddof=1)
+            except Exception:
+                # Fallback to original
+                Covariances = np.dot(residuals, residuals.T) / (N - 1)
+        else:
+            Covariances = np.dot(residuals, residuals.T) / (N - 1)
         Q = Covariances[0:n, 0:n]
         R = Covariances[n::, n::]
         S = Covariances[0:n, n::]
@@ -418,6 +563,7 @@ class SubspaceCoreAlgorithm:
         ss_threshold=0.1,
         D_required=False,
         A_stability=False,
+        n_jobs=-1,
     ):
         """
         Select optimal model order using information criteria.
@@ -442,6 +588,9 @@ class SubspaceCoreAlgorithm:
             Whether D matrix is required
         A_stability : bool
             Whether to force A stability
+        n_jobs : int, optional
+            Number of parallel jobs for order evaluation. Default=-1 (use all cores).
+            Set to 1 for sequential evaluation (no parallelization).
 
         Returns:
         --------
@@ -499,39 +648,111 @@ class SubspaceCoreAlgorithm:
         # Perform SVD
         U_n, S_n, V_n, W1, O_i = SubspaceCoreAlgorithm.svd_weighted(y, u, f, l, weights)
 
-        # Test different orders
-        for i in range(min_ord, max_ord):
-            Ob, X_fd, M, n, residuals = SubspaceCoreAlgorithm.algorithm_1(
-                y, u, l, m, f, N, U_n, S_n, V_n, W1, O_i, ss_threshold, i, D_required
-            )
+        # Determine number of jobs for parallelization
+        if n_jobs == -1:
+            num_workers = cpu_count()
+        elif n_jobs > 0:
+            num_workers = n_jobs
+        else:
+            raise ValueError(f"n_jobs must be -1 or positive integer, got {n_jobs}")
 
-            if A_stability:
-                _, _, ForcedA = SubspaceCoreAlgorithm.force_a_stability(
-                    M, n, Ob, l, X_fd, N, u, f
+        # Prepare arguments for parallel evaluation
+        order_range = list(range(min_ord, max_ord))
+        num_orders = len(order_range)
+
+        # Use parallelization only if we have multiple orders and num_workers > 1
+        if num_orders > 1 and num_workers > 1:
+            # Prepare arguments for each order evaluation
+            eval_args = [
+                (
+                    order_idx,
+                    y,
+                    u,
+                    l,
+                    m,
+                    f,
+                    N,
+                    U_n,
+                    S_n,
+                    V_n,
+                    W1,
+                    O_i,
+                    ss_threshold,
+                    D_required,
+                    A_stability,
+                    L,
+                    method,
                 )
-                if ForcedA:
-                    warnings.warn(f"A stability forced at n={n}")
+                for order_idx in order_range
+            ]
 
-            A, B, C, D = SubspaceCoreAlgorithm.extract_matrices(M, n)
-            Covariances = np.dot(residuals, residuals.T) / (N - 1)
-            X_states, Y_estimate = simulate_ss_system(A, B, C, D, u)
-            Vn = Vn_mat(y, Y_estimate)
+            # Evaluate orders in parallel
+            with Pool(processes=num_workers) as pool:
+                results = pool.map(_evaluate_single_order, eval_args)
 
-            # Calculate number of parameters
-            K_par = n * l + m * n
-            if D_required:
-                K_par = K_par + l * m
+            # Find best order from results
+            IC_old = np.inf
+            n_min = min_ord
+            for order_idx, IC, forced_A_flag in results:
+                if forced_A_flag and A_stability:
+                    warnings.warn(f"A stability forced at n={order_idx}")
+                if IC < IC_old:
+                    n_min = order_idx
+                    IC_old = IC
+        else:
+            # Sequential evaluation (fallback for single order or n_jobs=1)
+            for i in order_range:
+                Ob, X_fd, M, n, residuals = SubspaceCoreAlgorithm.algorithm_1(
+                    y,
+                    u,
+                    l,
+                    m,
+                    f,
+                    N,
+                    U_n,
+                    S_n,
+                    V_n,
+                    W1,
+                    O_i,
+                    ss_threshold,
+                    i,
+                    D_required,
+                )
 
-            # Use compiled information criterion if available
-            if NUMBA_AVAILABLE and information_criterion_compiled is not None:
-                method_map = {"AIC": 0, "AICc": 1, "BIC": 2}
-                method_code = method_map.get(method, 0)
-                IC = information_criterion_compiled(K_par, L, Vn, method_code)
-            else:
-                IC = information_criterion(K_par, L, Vn, method)
-            if IC < IC_old:
-                n_min = i
-                IC_old = IC
+                if A_stability:
+                    _, _, ForcedA = SubspaceCoreAlgorithm.force_a_stability(
+                        M, n, Ob, l, X_fd, N, u, f
+                    )
+                    if ForcedA:
+                        warnings.warn(f"A stability forced at n={n}")
+
+                A, B, C, D = SubspaceCoreAlgorithm.extract_matrices(M, n)
+                # Use optimized symmetric covariance computation
+                if NUMBA_AVAILABLE and covariance_symmetric_compiled is not None:
+                    try:
+                        Covariances = covariance_symmetric_compiled(residuals, ddof=1)
+                    except Exception:
+                        Covariances = np.dot(residuals, residuals.T) / (N - 1)
+                else:
+                    Covariances = np.dot(residuals, residuals.T) / (N - 1)
+                X_states, Y_estimate = simulate_ss_system(A, B, C, D, u)
+                Vn = Vn_mat(y, Y_estimate)
+
+                # Calculate number of parameters
+                K_par = n * l + m * n
+                if D_required:
+                    K_par = K_par + l * m
+
+                # Use compiled information criterion if available
+                if NUMBA_AVAILABLE and information_criterion_compiled is not None:
+                    method_map = {"AIC": 0, "AICc": 1, "BIC": 2}
+                    method_code = method_map.get(method, 0)
+                    IC = information_criterion_compiled(K_par, L, Vn, method_code)
+                else:
+                    IC = information_criterion(K_par, L, Vn, method)
+                if IC < IC_old:
+                    n_min = i
+                    IC_old = IC
 
         print(f"The suggested order is: n={n_min}")
 
@@ -546,7 +767,14 @@ class SubspaceCoreAlgorithm:
             )
 
         A, B, C, D = SubspaceCoreAlgorithm.extract_matrices(M, n)
-        Covariances = np.dot(residuals, residuals.T) / (N - 1)
+        # Use optimized symmetric covariance computation
+        if NUMBA_AVAILABLE and covariance_symmetric_compiled is not None:
+            try:
+                Covariances = covariance_symmetric_compiled(residuals, ddof=1)
+            except Exception:
+                Covariances = np.dot(residuals, residuals.T) / (N - 1)
+        else:
+            Covariances = np.dot(residuals, residuals.T) / (N - 1)
         X_states, Y_estimate = simulate_ss_system(A, B, C, D, u)
         Vn = Vn_mat(y, Y_estimate)
 
