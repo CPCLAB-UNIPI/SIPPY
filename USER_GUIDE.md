@@ -1297,7 +1297,7 @@ Extensive benchmarking shows:
 ### Getting Help
 
 - **Issues**: Report bugs and request features via GitHub issues
-- **Documentation**: Check `CLAUDE.md` for development conventions
+- **Documentation**: Check `CLAUDE.md` or `agents.md` for development conventions
 - **Examples**: See `Examples/` directory for comprehensive usage patterns
 
 ### Contributing
