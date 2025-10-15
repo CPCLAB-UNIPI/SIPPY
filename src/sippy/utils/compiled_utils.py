@@ -2057,6 +2057,72 @@ def build_armax_regression_parallel(y, u, noise_hat, na, nb, nc, nk, max_order, 
     return Phi
 
 
+@jit(parallel=True)
+def build_armax_regression_miso_parallel(y, U, noise_hat, na, nb_vec, nc, theta_vec, max_order, N_eff):
+    """
+    Compiled parallel ARMAX ILLS regression builder for multi-input (MISO) case.
+
+    Parameters:
+    -----------
+    y : ndarray
+        Output data (1D array)
+    U : ndarray
+        Input data (m x N) array
+    noise_hat : ndarray
+        Estimated noise terms (1D array)
+    na : int
+        Number of AR parameters
+    nb_vec : ndarray
+        Vector of input orders per input (length m)
+    nc : int
+        Number of MA parameters
+    theta_vec : ndarray
+        Vector of input delays per input (length m)
+    max_order : int
+        Maximum order among na, max(nb_i+theta_i), nc
+    N_eff : int
+        Effective number of data points (N - max_order)
+
+    Returns:
+    --------
+    Phi : ndarray
+        Regression matrix with shape (N_eff, na + sum(nb_vec) + nc)
+    """
+    m = U.shape[0]
+    sum_nb = 0
+    for i in range(nb_vec.size):
+        sum_nb += nb_vec[i]
+
+    total_cols = na + sum_nb + nc
+    Phi = np.zeros((N_eff, total_cols))
+
+    # Parallelize over rows; each row can be computed independently
+    for i in prange(N_eff):
+        col = 0
+        # AR block
+        for j in range(na):
+            Phi[i, col + j] = -y[i + max_order - 1 - j]
+        col += na
+
+        # X block across inputs
+        for inp in range(m):
+            nb_i = int(nb_vec[inp])
+            if nb_i <= 0:
+                continue
+            nk_i = int(theta_vec[inp])
+            # Fill nb_i columns for this input
+            for j in range(nb_i):
+                # u index corresponds to lag (nk_i + j + 1)
+                Phi[i, col + j] = U[inp, max_order + i - 1 - (nk_i + j)]
+            col += nb_i
+
+        # MA block
+        for j in range(nc):
+            Phi[i, col + j] = noise_hat[max_order + i - 1 - j]
+
+    return Phi
+
+
 # Export available functions
 __all__ = [
     "ordinate_sequence_compiled",
@@ -2098,5 +2164,6 @@ __all__ = [
     "extract_matrices_batch_compiled",
     "pinv_compiled_svd",
     "build_armax_regression_parallel",
+    "build_armax_regression_miso_parallel",
     "NUMBA_AVAILABLE",
 ]

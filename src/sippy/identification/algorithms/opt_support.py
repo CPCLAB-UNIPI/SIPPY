@@ -31,6 +31,14 @@ try:  # pragma: no cover - CasADi is optional but required for NLP methods
 except ImportError:  # pragma: no cover
     CASADI_AVAILABLE = False
 
+# Performance utilities (Numba-backed with safe fallbacks)
+from ...utils.compiled_utils import (
+    rescale_compiled,
+    rescale_multi_channel_compiled,
+    Vn_mat_adaptive,
+    build_armax_regression_miso_parallel,
+)
+
 
 @dataclass(slots=True)
 class MISOResult:
@@ -61,9 +69,13 @@ class MISOResult:
         d_poly = np.concatenate(([1.0], self.d_coeffs)) if self.d_coeffs.size else np.array([1.0])
         f_poly = np.concatenate(([1.0], self.f_coeffs)) if self.f_coeffs.size else np.array([1.0])
 
-        # Multiply polynomials (np.convolve works with descending coefficients)
-        den_g = np.convolve(a_poly, f_poly).tolist()
-        den_h = np.convolve(a_poly, d_poly).tolist()
+        # Multiply polynomials with harold when available (safer, often faster)
+        try:
+            den_g = harold.haroldpolymul(a_poly, f_poly).tolist()
+            den_h = harold.haroldpolymul(a_poly, d_poly).tolist()
+        except Exception:
+            den_g = np.convolve(a_poly, f_poly).tolist()
+            den_h = np.convolve(a_poly, d_poly).tolist()
 
         # Construct numerators per input (respecting delays)
         if not self.b_coeffs:
@@ -351,11 +363,11 @@ def gen_miso_id(
     u = _ensure_column_major(np.atleast_2d(u))
     y = _ensure_column_major(np.atleast_1d(y))
 
-    y_std, y_scaled = _rescale_signal(y)
-    u_std = np.zeros_like(nb, dtype=float)
-    u_scaled = np.zeros_like(u, dtype=float)
-    for idx in range(u.shape[0]):
-        u_std[idx], u_scaled[idx] = _rescale_signal(u[idx])
+    # Use compiled rescaling for speed and stability
+    y_std, y_scaled = rescale_compiled(y)
+    u_std, u_scaled = rescale_multi_channel_compiled(u, axis=0)
+    y_scaled = _ensure_column_major(y_scaled)
+    u_scaled = _ensure_column_major(u_scaled)
 
     nb_theta = nb + theta
     nb_max = int(np.max(nb_theta)) if nb_theta.size else 0
@@ -485,12 +497,11 @@ def armax_miso_id(
     nb = np.asarray(nb, dtype=int)
     theta = np.asarray(theta, dtype=int)
 
-    y_std, y_scaled = _rescale_signal(y)
-    u_std = np.zeros(u.shape[0], dtype=float)
-    u_scaled = np.zeros_like(u)
-
-    for idx in range(u.shape[0]):
-        u_std[idx], u_scaled[idx] = _rescale_signal(u[idx])
+    # Compiled rescaling (vectorized) for output and inputs
+    y_std, y_scaled = rescale_compiled(y)
+    u_std, u_scaled = rescale_multi_channel_compiled(u, axis=0)
+    y_scaled = _ensure_column_major(y_scaled)
+    u_scaled = _ensure_column_major(u_scaled)
 
     eps = np.zeros_like(y_scaled)
 
@@ -503,7 +514,6 @@ def armax_miso_id(
         raise ValueError("Not enough samples for ARMAX identification")
 
     sum_orders = na + np.sum(nb) + nc
-    Phi = np.zeros((N, sum_orders))
 
     Vn = np.inf
     Vn_old = np.inf
@@ -516,28 +526,14 @@ def armax_miso_id(
         Vn_old = Vn
         iterations += 1
 
-        for k in range(N):
-            col = 0
-            if na:
-                idx = val + k - np.arange(1, na + 1)
-                Phi[k, col : col + na] = -y_scaled[idx]
-                col += na
-
-            for input_idx in range(u.shape[0]):
-                nb_i = nb[input_idx]
-                if nb_i == 0:
-                    continue
-                idx_base = val + k - theta[input_idx]
-                indices = idx_base - np.arange(1, nb_i + 1)
-                Phi[k, col : col + nb_i] = u_scaled[input_idx, indices]
-                col += nb_i
-
-            if nc:
-                idx = val + k - np.arange(1, nc + 1)
-                Phi[k, col : col + nc] = eps[idx]
+        # Build regression in parallel (Numba) per iteration (eps updates MA block)
+        Phi = build_armax_regression_miso_parallel(
+            y_scaled, u_scaled, eps, int(na), nb.astype(np.int64), int(nc), theta.astype(np.int64), val, N
+        )
 
         theta_vec = np.linalg.pinv(Phi) @ y_scaled[val:]
-        Vn = (np.linalg.norm(y_scaled[val:] - Phi @ theta_vec, 2) ** 2) / (2 * N)
+        # Adaptive residual variance (SIMD/parallel) for speed
+        Vn = float(Vn_mat_adaptive(y_scaled[val:], Phi @ theta_vec)) / 2.0
 
         theta_new = theta_vec.copy()
         lamb = 0.5
