@@ -148,11 +148,12 @@ class TestARMAXVariantDifferentiation:
     """
 
     def test_armax_ills_vs_rlls(self, test_data_siso):
-        """Verify ARMAX_ILLS and ARMAX_RLLS produce different results."""
+        """Verify ARMAX with ILLS and RLLS modes produce identical results (RLLS aliases ILLS)."""
         u, y = test_data_siso
 
-        # Run ARMAX_ILLS
-        config_ills = SystemIdentificationConfig(method="ARMAX_ILLS")
+        # Run ARMAX (ILLS)
+        config_ills = SystemIdentificationConfig(method="ARMAX")
+        config_ills.mode = "ILLS"
         config_ills.na = 1
         config_ills.nb = 1
         config_ills.nc = 1
@@ -160,8 +161,9 @@ class TestARMAXVariantDifferentiation:
         config_ills.max_iterations = 50
         model_ills = SystemIdentification(config_ills).identify(y=y, u=u)
 
-        # Run ARMAX_RLLS
-        config_rlls = SystemIdentificationConfig(method="ARMAX_RLLS")
+        # Run ARMAX (RLLS)
+        config_rlls = SystemIdentificationConfig(method="ARMAX")
+        config_rlls.mode = "RLLS"
         config_rlls.na = 1
         config_rlls.nb = 1
         config_rlls.nc = 1
@@ -174,16 +176,17 @@ class TestARMAXVariantDifferentiation:
         diff_B = np.max(np.abs(model_ills.B - model_rlls.B))
 
         assert diff_A < 1e-10 and diff_B < 1e-10, (
-            f"ARMAX_RLLS now aliases ILLS pathway and should produce identical results: "
+            f"ARMAX (RLLS) now aliases ILLS pathway and should produce identical results: "
             f"diff_A={diff_A:.2e}, diff_B={diff_B:.2e}"
         )
 
     def test_armax_ills_vs_opt(self, test_data_siso):
-        """Verify ARMAX_ILLS and ARMAX_OPT produce different results."""
+        """Verify ARMAX ILLS and ARMAX OPT modes produce different results."""
         u, y = test_data_siso
 
-        # Run ARMAX_ILLS
-        config_ills = SystemIdentificationConfig(method="ARMAX_ILLS")
+        # Run ARMAX (ILLS)
+        config_ills = SystemIdentificationConfig(method="ARMAX")
+        config_ills.mode = "ILLS"
         config_ills.na = 1
         config_ills.nb = 1
         config_ills.nc = 1
@@ -191,8 +194,9 @@ class TestARMAXVariantDifferentiation:
         config_ills.max_iterations = 50
         model_ills = SystemIdentification(config_ills).identify(y=y, u=u)
 
-        # Run ARMAX_OPT
-        config_opt = SystemIdentificationConfig(method="ARMAX_OPT")
+        # Run ARMAX (OPT)
+        config_opt = SystemIdentificationConfig(method="ARMAX")
+        config_opt.mode = "OPT"
         config_opt.na = 1
         config_opt.nb = 1
         config_opt.nc = 1
@@ -205,7 +209,7 @@ class TestARMAXVariantDifferentiation:
         diff_B = np.max(np.abs(model_ills.B - model_opt.B))
 
         assert diff_A > 1e-10 or diff_B > 1e-10, (
-            f"ARMAX_ILLS and ARMAX_OPT produced identical results: "
+            f"ARMAX ILLS and ARMAX OPT produced identical results: "
             f"diff_A={diff_A:.2e}, diff_B={diff_B:.2e}"
         )
 
@@ -271,9 +275,6 @@ class TestSignatureIncompatibleAlgorithms:
     @pytest.mark.parametrize(
         "method,params",
         [
-            ("ARMAX_ILLS", {"na": 1, "nb": 1, "nc": 1, "nk": 1}),
-            ("ARMAX_RLLS", {"na": 1, "nb": 1, "nc": 1, "nk": 1}),
-            ("ARMAX_OPT", {"na": 1, "nb": 1, "nc": 1, "nk": 1}),
             ("OE", {"nb": 1, "nf": 1, "nk": 1}),
             ("BJ", {"nb": 1, "nc": 1, "nd": 1, "nf": 1, "nk": 1}),
         ],
