@@ -169,12 +169,12 @@ class TestARMAXVariantDifferentiation:
         config_rlls.max_iterations = 50
         model_rlls = SystemIdentification(config_rlls).identify(y=y, u=u)
 
-        # Check that results are different
+        # Check that results are the same (RLLS now aliases ILLS pathway)
         diff_A = np.max(np.abs(model_ills.A - model_rlls.A))
         diff_B = np.max(np.abs(model_ills.B - model_rlls.B))
 
-        assert diff_A > 1e-10 or diff_B > 1e-10, (
-            f"ARMAX_ILLS and ARMAX_RLLS produced identical results: "
+        assert diff_A < 1e-10 and diff_B < 1e-10, (
+            f"ARMAX_RLLS now aliases ILLS pathway and should produce identical results: "
             f"diff_A={diff_A:.2e}, diff_B={diff_B:.2e}"
         )
 

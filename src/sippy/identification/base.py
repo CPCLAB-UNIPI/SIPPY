@@ -87,12 +87,15 @@ class StateSpaceModel:
         self.identification_info = identification_info or {}
 
         # Try to import harold for State object
-        try:
-            from harold import State
-
-            self.G = State(A, B, C, D, ts)
-        except ImportError:
+        if B.size == 0 or B.shape[1] == 0:
             self.G = None
+        else:
+            try:
+                from harold import State
+
+                self.G = State(A, B, C, D, ts)
+            except ImportError:
+                self.G = None
 
         self.x0 = np.zeros((self.n, 1))
 

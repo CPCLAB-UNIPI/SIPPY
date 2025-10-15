@@ -1,113 +1,59 @@
-"""
-ARMAX (AutoRegressive Moving Average with eXogenous inputs) identification algorithm.
-"""
+"""ARMAX (AutoRegressive Moving Average with eXogenous inputs)."""
 
-import warnings
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-from numpy.linalg import lstsq
 
 from ..base import IdentificationAlgorithm, StateSpaceModel
-from .armax_modes import get_armax_handler
+from .opt_support import (
+    gen_mimo_id,
+    gen_miso_id,
+    armax_mimo_id,
+    armax_miso_id,
+)
+from .ararx import (
+    _normalize_matrix,
+    _normalize_orders,
+    _state_space_from_results,
+    _state_space_from_single_result,
+)
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..iddata import IDData
-
-# Import compiled utilities for performance
-try:
-    from ...utils.compiled_utils import (
-        NUMBA_AVAILABLE,
-        create_regression_matrix_armax_compiled,
-    )
-except ImportError:
-    create_regression_matrix_armax_compiled = None
-    NUMBA_AVAILABLE = False
-
-try:
-    import harold
-
-    # Check if harold has the required components
-    if hasattr(harold, "State") or hasattr(harold, "StateSpace"):
-        HAROLD_AVAILABLE = True
-    else:
-        HAROLD_AVAILABLE = False
-        warnings.warn("harold library incomplete. ARMAX algorithm will be limited.")
-except ImportError:
-    HAROLD_AVAILABLE = False
-    warnings.warn("harold library not available. ARMAX algorithm will be limited.")
 
 
 class ARMAXAlgorithm(IdentificationAlgorithm):
-    """
-    ARMAX (AutoRegressive Moving Average with eXogenous inputs) identification algorithm.
+    """ARMAX identification with master-compatible solvers."""
 
-    The ARMAX model structure is:
-    A(q) y(k) = B(q) u(k-nk) + C(q) e(k) + e(k)
-
-    where:
-    - A(q) = 1 + a1*q^-1 + ... + ana*q^-na (auto-regressive part)
-    - B(q) = b1 + b2*q^-1 + ... + bnb*q^-(nb-1) (exogenous input part)
-    - C(q) = 1 + c1*q^-1 + ... + cnc*q^-nc (moving average noise part)
-    - nk is the input delay (number of samples)
-    - e(k) is white noise
-
-    The ARMAX algorithm estimates parameters using extended least-squares
-    or prediction error methods to handle the non-linear dependence on past noise terms.
-
-    Supported modes:
-    - ILLS: Iterative Least Squares (default)
-    - OPT: Optimization-based using scipy.optimize
-    - RLLS: Recursive Least Squares
-    """
-
-    def __init__(self, mode="ILLS"):
-        """
-        Initialize ARMAX algorithm.
-
-        Parameters:
-        -----------
-        mode : str
-            Algorithm mode: 'ILLS', 'OPT', 'RLLS'
-        """
+    def __init__(self, mode: str = "NLP") -> None:
         super().__init__()
-        self.mode = mode.upper()
-        self.handler = get_armax_handler(self.mode)
-        if self.handler is None:
-            raise ValueError(f"Invalid ARMAX mode: {mode}")
+        self.default_mode = mode.upper()
 
     def get_algorithm_name(self) -> str:
-        """Return algorithm name."""
         return "ARMAX"
 
-    def validate_parameters(self, **kwargs) -> bool:
-        """
-        Validate ARMAX-specific parameters.
-
-        Parameters:
-        -----------
-        **kwargs : dict
-            Parameters to validate including na, nb, nc, nk
-
-        Returns:
-        --------
-        bool
-            True if parameters are valid
-        """
-        na = kwargs.get("na", 1)
-        nb = kwargs.get("nb", 1)
-        nc = kwargs.get("nc", 1)
-        nk = kwargs.get("nk", 1)
-
-        if na <= 0:
-            raise ValueError("AR order (na) must be positive")
-        if nb <= 0:
-            raise ValueError("X order (nb) must be positive")
-        if nc <= 0:
-            raise ValueError("MA order (nc) must be positive")
-        if nk < 0:
-            raise ValueError("Input delay (nk) must be non-negative")
-
+    def validate_parameters(self, **kwargs) -> bool:  # pragma: no cover - simple validation
+        for name in ("na", "nb", "nc"):
+            if name not in kwargs:
+                continue
+            value = kwargs[name]
+            if isinstance(value, (int, np.integer)):
+                if value <= 0:
+                    raise ValueError(f"{name} must be positive")
+            else:
+                arr = np.asarray(value, dtype=int)
+                if np.any(arr <= 0):
+                    raise ValueError(f"{name} entries must be positive")
+        theta = kwargs.get("theta", kwargs.get("nk", 0))
+        if isinstance(theta, (int, np.integer)):
+            if theta < 0:
+                raise ValueError("theta must be non-negative")
+        else:
+            arr = np.asarray(theta, dtype=int)
+            if np.any(arr < 0):
+                raise ValueError("theta entries must be non-negative")
         return True
 
     def identify(
@@ -117,482 +63,109 @@ class ARMAXAlgorithm(IdentificationAlgorithm):
         iddata: Optional["IDData"] = None,
         **kwargs,
     ) -> StateSpaceModel:
-        """
-        Identify ARMAX model from input-output data using the selected algorithm mode.
-
-        Parameters:
-        -----------
-        y : np.ndarray, optional
-            Output data (outputs x time_steps)
-        u : np.ndarray, optional
-            Input data (inputs x time_steps)
-        iddata : IDData, optional
-            Input-output data container
-        **kwargs : dict
-            Configuration parameters including na, nb, nc, nk, max_iterations,
-            convergence_tolerance, armx_mode, forgetting_factor, optimization_method
-
-        Returns:
-        --------
-        model : StateSpaceModel
-            Identified state-space model
-        """
-        # Handle legacy API: identify(data, config_dict) where data has .get_input_array()
-        if (iddata is None and y is not None and u is not None and
-            hasattr(y, 'get_input_array') and hasattr(y, 'get_output_array')):
-            # Legacy compatibility: data, config pattern
-            iddata = y
-            config_dict = u if hasattr(u, 'items') else {}
-            y = None
-            u = None
-            # Update kwargs with config_dict content
-            kwargs.update(config_dict)
-
-        # Validate input arguments
-        if iddata is not None and (y is not None or u is not None):
-            raise ValueError("Provide either iddata or (y, u), but not both")
-        if iddata is None and (y is None or u is None):
-            raise ValueError("Must provide either iddata or both y and u")
-
-        # Extract data if IDData is provided
         if iddata is not None:
-            u = iddata.get_input_array()
+            if y is not None or u is not None:
+                raise ValueError("Provide either iddata or (y, u), not both")
             y = iddata.get_output_array()
-            sample_time = iddata.sample_time
+            u = iddata.get_input_array()
+            sample_time = getattr(iddata, "sample_time", kwargs.get("tsample", 1.0))
         else:
-            # Ensure arrays are 2D
-            y = np.atleast_2d(y)
-            u = np.atleast_2d(u)
+            if y is None or u is None:
+                raise ValueError("ARMAX requires both input and output data")
             sample_time = kwargs.get("tsample", 1.0)
 
-        # Ensure data is 1D for SISO case (remove dimension if needed)
-        if u.ndim > 1 and u.shape[0] == 1:
-            u = u.flatten()
-        if y.ndim > 1 and y.shape[0] == 1:
-            y = y.flatten()
+        y = np.atleast_2d(np.asarray(y, dtype=float))
+        u = np.atleast_2d(np.asarray(u, dtype=float))
 
-        # Validate data compatibility
-        if u.shape[0] != y.shape[0]:
-            raise ValueError(
-                f"Input and output data must have same length. "
-                f"Got u length: {u.shape[0]}, y length: {y.shape[0]}"
-            )
+        ny, n_samples = y.shape
+        nu, _ = u.shape
+        if u.shape[1] != n_samples:
+            raise ValueError("Input and output must share the same number of samples")
 
-        # Extract configuration parameters from kwargs
         na = kwargs.get("na", 1)
         nb = kwargs.get("nb", 1)
         nc = kwargs.get("nc", 1)
-        nk = kwargs.get("nk", 1)
+        theta = kwargs.get("theta", kwargs.get("nk", 0))
+
         max_iterations = kwargs.get("max_iterations", 200)
-        convergence_tolerance = kwargs.get("convergence_tolerance", 1e-6)
+        mode = kwargs.get("mode", kwargs.get("algorithm", self.default_mode)).upper()
+        if mode == "RLLS":
+            mode = "ILLS"
+        if mode == "OPT":
+            mode = "NLP"
+        stability_margin = kwargs.get("stability_margin", kwargs.get("stab_marg", 1.0))
+        enforce_stability = kwargs.get("stability_constraint", kwargs.get("stab_cons", False))
 
-        # Support legacy ARMAX_mod parameter
-        armx_mode = kwargs.get("armx_mode", None)
-        if armx_mode is not None and armx_mode != self.mode:
-            # Override mode if kwargs specifies different one
-            self.mode = armx_mode.upper()
-            self.handler = get_armax_handler(self.mode)
+        if ny == 1:
+            nb_vec = _normalize_matrix(nb, 1, nu, allow_zero=False).ravel()
+            theta_vec = _normalize_matrix(theta, 1, nu, allow_zero=True).ravel()
+            na_val = int(np.squeeze(na))
+            nc_val = int(np.squeeze(nc))
 
-        # Extract mode-specific parameters
-        mode_params = {}
-        if "forgetting_factor" in kwargs:
-            mode_params["forgetting_factor"] = kwargs["forgetting_factor"]
-        if "optimization_method" in kwargs:
-            mode_params["optimization_method"] = kwargs["optimization_method"]
-
-        # Validate parameters
-        self.validate_parameters(na=na, nb=nb, nc=nc, nk=nk)
-
-        # Check data dimensions
-        if y.size != u.size:
-            raise ValueError("Input and output must have same length")
-
-        ny = 1 if y.ndim == 1 else y.shape[0]
-        nu = 1 if u.ndim == 1 else u.shape[0]
-        N = y.size if y.ndim == 1 else y.shape[1]
-
-        # Check for insufficient data early
-        max_order = max(na, nb + nk, nc)
-        if N <= max_order:
-            # Return minimal model for insufficient data
-            return self._create_minimal_model(ny, nu, sample_time)
-
-        # Use mode handler for identification
-        try:
-            model, info = self.handler.identify(
-                u=u,
-                y=y,
-                na=na,
-                nb=nb,
-                nc=nc,
-                nk=nk,
-                max_iterations=max_iterations,
-                convergence_tolerance=convergence_tolerance,
-                **mode_params,
-            )
-
-            if model is None:
-                # Try fallback to basic identification
-                warnings.warn(
-                    f"ARMAX {self.mode} identification failed, trying basic least squares"
+            if mode == "ILLS":
+                result = armax_miso_id(
+                    y=y[0],
+                    u=u,
+                    na=na_val,
+                    nb=nb_vec,
+                    nc=nc_val,
+                    theta=theta_vec,
+                    max_iterations=max_iterations,
                 )
-                return self._fallback_identification(u, y, na, nb, nc, nk, sample_time)
-
-            # Store identification info in model attributes if possible
-            if hasattr(model, "_identification_info"):
-                model._identification_info = info
-
-            return model
-
-        except Exception as e:
-            warnings.warn(
-                f"ARMAX {self.mode} identification failed: {e}, trying fallback"
-            )
-            return self._fallback_identification(u, y, na, nb, nc, nk, sample_time)
-
-    def _fallback_identification(self, u, y, na, nb, nc, nk, sample_time):
-        """Fallback identification using basic least squares."""
-        # Check if MIMO - if so, return minimal model (fallback is SISO-only)
-        if y.ndim > 1 and y.shape[0] > 1:
-            ny = y.shape[0]
-            nu = u.shape[0] if u.ndim > 1 else 1
-            return self._create_minimal_model(ny, nu, sample_time)
-
-        # SISO fallback using basic least squares
-        N = y.size if y.ndim == 1 else y.shape[1]
-        max_lag = max(na + nc, nb + nk - 1)
-        N_eff = N - max_lag
-
-        if N_eff <= 0:
-            return self._create_minimal_model(1, 1, sample_time)
-
-        # Simple ARX estimation (ignoring MA terms)
-        sum_order = na + nb
-        Phi = np.zeros((N_eff, sum_order))
-
-        for i in range(N_eff):
-            Phi[i, 0:na] = -y[i + max_lag - 1 :: -1][0:na]
-            Phi[i, na : na + nb] = u[max_lag + i - 1 :: -1][nk : nb + nk]
-
-        try:
-            theta, residuals, rank, s = lstsq(Phi, y[max_lag:N], rcond=None)
-
-            # Create simple ARX state-space model
-            if HAROLD_AVAILABLE:
+            else:
                 try:
-                    # Simple companion form
-                    A = np.zeros((na, na))
-                    if na > 1:
-                        for i in range(na - 1):
-                            A[i, i + 1] = 1.0
-                    if na > 0:
-                        A[na - 1, :na] = -theta[:na]
-
-                    B = np.zeros((na, 1))
-                    B[na - 1, 0] = theta[na] if nb > 0 else 0.0
-
-                    C = np.zeros((1, na))
-                    if na > 0:
-                        C[0, :na] = 1.0
-
-                    D = np.zeros((1, 1))
-
-                    ss_model = harold.StateSpace(A, B, C, D, dt=sample_time)
-                    return StateSpaceModel(
-                        A=ss_model.a,
-                        B=ss_model.b,
-                        C=ss_model.c,
-                        D=ss_model.d,
-                        K=np.zeros((ss_model.a.shape[0], ss_model.c.shape[0])),
-                        Q=np.eye(ss_model.a.shape[0]) * 0.01,
-                        R=np.eye(ss_model.c.shape[0]) * 0.01,
-                        S=np.zeros((ss_model.a.shape[0], ss_model.c.shape[0])),
-                        ts=sample_time,
-                        Vn=0.01,
+                    result = gen_miso_id(
+                        id_method="ARMAX",
+                        y=y[0],
+                        u=u,
+                        na=na_val,
+                        nb=nb_vec,
+                        nc=nc_val,
+                        nd=0,
+                        nf=0,
+                        theta=theta_vec,
+                        max_iterations=max_iterations,
+                        stability_margin=stability_margin,
+                        enforce_stability=enforce_stability,
                     )
-                except Exception:
-                    pass
+                except RuntimeError as exc:
+                    raise RuntimeError("CasADi is required for ARMAX NLP identification") from exc
+            return _state_space_from_single_result(result, nu, sample_time)
 
-            # Minimal fallback model
-            return self._create_minimal_model(1, 1, sample_time)
+        na_vec = _normalize_orders(na, ny)
+        nc_vec = _normalize_orders(nc, ny)
+        nb_matrix = _normalize_matrix(nb, ny, nu, allow_zero=False)
+        theta_matrix = _normalize_matrix(theta, ny, nu, allow_zero=True)
 
-        except Exception:
-            return self._create_minimal_model(1, 1, sample_time)
-
-    def _create_armax_regression_matrices(self, u, y, na, nb, nc, nk, ny, nu, N):
-        """
-        Create regression matrices Phi and output matrix y for ARMAX identification.
-
-        This function automatically uses the Numba-compiled version when available
-        for improved performance. The extended least-squares approach handles the moving average part.
-
-        Parameters:
-        -----------
-        u, y : ndarray
-            Input and output data
-        na, nb, nc, nk : int
-            Model orders and delay
-        ny, nu : int
-            Number of outputs and inputs
-        N : int
-            Number of data points
-
-        Returns:
-        --------
-        Phi : ndarray
-            Regression matrix
-        y_matrix : ndarray
-            Output matrix
-        """
-        if NUMBA_AVAILABLE and create_regression_matrix_armax_compiled is not None:
-            return create_regression_matrix_armax_compiled(
-                u, y, na, nb, nc, nk, ny, nu, N
+        if mode == "ILLS":
+            results, _ = armax_mimo_id(
+                y=y,
+                u=u,
+                na=na_vec,
+                nb=nb_matrix,
+                nc=nc_vec,
+                theta=theta_matrix,
+                sample_time=sample_time,
+                max_iterations=max_iterations,
             )
         else:
-            # Fallback to original implementation
-            # Determine effective data length
-            max_lag = max(na + nc, nb + nk - 1)
-            N_eff = N - max_lag
-
-            if N_eff <= 0:
-                raise ValueError(
-                    f"Not enough data points. Need at least {max_lag + 1} samples, got {N}"
+            try:
+                results, _ = gen_mimo_id(
+                    id_method="ARMAX",
+                    y=y,
+                    u=u,
+                    na=na_vec,
+                    nb=nb_matrix,
+                    nc=nc_vec,
+                    nd=[0] * ny,
+                    nf=[0] * ny,
+                    theta=theta_matrix,
+                    sample_time=sample_time,
+                    max_iterations=max_iterations,
+                    stability_margin=stability_margin,
+                    enforce_stability=enforce_stability,
                 )
+            except RuntimeError as exc:
+                raise RuntimeError("CasADi is required for ARMAX NLP identification") from exc
 
-            # Initialize regression matrix
-            n_params = na * ny + nb * ny * nu + nc * ny  # AR + X + MA terms
-            Phi = np.zeros((N_eff, n_params))
-
-            # Fill AR part (lagged outputs)
-            for i in range(na):
-                for j in range(ny):
-                    col_idx = i * ny + j
-                    Phi[:, col_idx] = y[j, max_lag - 1 - i : max_lag - 1 - i + N_eff]
-
-            # Fill X part (lagged inputs)
-            for k in range(nb):
-                for i in range(nu):
-                    for j in range(ny):
-                        col_idx = na * ny + k * ny * nu + i * ny + j
-                        delay_idx = max_lag - 1 - (k + nk - 1)
-                        if delay_idx >= 0 and delay_idx + N_eff <= N:
-                            Phi[:, col_idx] = u[i, delay_idx : delay_idx + N_eff]
-
-            # Fill MA part (estimated noise terms)
-            # For ARMAX, we use a simplified approach by assuming noise can be estimated
-            # In practice, this would require iterative estimation
-            for i in range(nc):
-                for j in range(ny):
-                    col_idx = na * ny + nb * ny * nu + i * ny + j
-                    # Initialize with small random values (would need proper estimation)
-                    Phi[:, col_idx] = np.random.randn(N_eff) * 0.01
-
-            # Output matrix - ensure proper flattening for MIMO
-            y_matrix = y[:, max_lag:N]
-
-            return Phi, y_matrix
-
-    def _create_state_space_from_armax(
-        self, A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, Ts
-    ):
-        """
-        Create state-space model from ARMAX parameters using harold.
-
-        Parameters:
-        -----------
-        A_coeffs, B_coeffs, C_coeffs : ndarray
-            AR, X, and MA coefficient arrays
-        na, nb, nc, nk : int
-            Model orders and delay
-        ny, nu : int
-            Number of outputs and inputs
-        Ts : float
-            Sampling time
-
-        Returns:
-        --------
-        model : StateSpaceModel
-            State-space model representation
-        """
-        # Build companion form state-space representation for ARMAX
-        n_states = na + nc  # AR states + MA states
-
-        # A matrix - state transition
-        A = np.zeros((n_states, n_states))
-        if na > 1:
-            for i in range(na - 1):
-                A[i, i + 1] = 1.0
-        if na > 0:
-            A[-nc:, :ny] = -A_coeffs.T
-
-        # Add MA dynamics in bottom block
-        if nc > 0:
-            A[na : na + nc, na : na + nc] = np.eye(nc)
-            A[:na, na : na + nc] = np.zeros((na, nc))
-
-        # B matrix - input coupling
-        B = np.zeros((n_states, nu))
-        if nu > 0:
-            B[:na, :] = B_coeffs.reshape(-1, nu)
-            B[na:, :] = np.zeros((nc, nu))
-
-        # C matrix - output coupling
-        C = np.zeros((ny, n_states))
-        if na > 0:
-            C[:, :na] = np.eye(ny)
-        if nc > 0:
-            C[:, na:] = C_coeffs.T
-
-        # D matrix - direct feedthrough
-        D = np.zeros((ny, nu))
-
-        # Create harold StateSpace object
-        ss_model = harold.StateSpace(A, B, C, D, dt=Ts)
-
-        return StateSpaceModel(
-            A=ss_model.a,
-            B=ss_model.b,
-            C=ss_model.c,
-            D=ss_model.d,
-            K=np.zeros((ss_model.a.shape[0], ss_model.c.shape[0])),
-            Q=np.eye(ss_model.a.shape[0]),
-            R=np.eye(ss_model.c.shape[0]),
-            S=np.zeros((ss_model.a.shape[0], ss_model.c.shape[0])),
-            ts=Ts,
-            Vn=0.01,
-        )
-
-    def _create_mock_model(
-        self, A_coeffs, B_coeffs, C_coeffs, na, nb, nc, nk, ny, nu, Ts
-    ):
-        """
-        Create a mock state-space model when harold is not available.
-
-        Parameters:
-        -----------
-        A_coeffs, B_coeffs, C_coeffs : ndarray
-            AR, X, and MA coefficient arrays
-        na, nb, nc, nk : int
-            Model orders and delay
-        ny, nu : int
-            Number of outputs and inputs
-        Ts : float
-            Sampling time
-
-        Returns:
-        --------
-        model : StateSpaceModel
-            Mock state-space model
-        """
-        n_states = na + nc
-
-        # State matrix (companion form with extension)
-        A = np.zeros((n_states, n_states))
-        if na > 1:
-            for i in range(na - 1):
-                A[i, i + 1] = 1.0
-        if na > 0 and nc > 0:
-            # Handle the assignment properly - A_coeffs is (ny, na)
-            if A_coeffs.shape[0] == ny and A_coeffs.shape[1] >= nc:
-                A[-nc:, :ny] = -A_coeffs[:, :nc].T
-            else:
-                # Fallback assignment
-                for i in range(nc):
-                    for j in range(ny):
-                        A[-nc + i, j] = -A_coeffs[j, i] if A_coeffs.shape[1] > i else 0
-        if nc > 0:
-            A[na : na + nc, na : na + nc] = np.eye(nc)
-
-        # Input matrix
-        B = np.zeros((n_states, nu))
-        if nu > 0 and nb >= na:
-            # Simple case when nb >= na, can use reshape
-            if B_coeffs.shape == (ny, nb * nu):
-                temp_B = B_coeffs[:, : na * nu].reshape(ny, na, nu).mean(axis=0)
-                B[:na, :] = temp_B
-            else:
-                B[:na, :] = B_coeffs[: na * nu].reshape(na, nu)
-        elif nu > 0:
-            # Handle case when nb < na
-            B[:na, :] = 0  # Zero fill if insufficient coefficients
-
-        # Output matrix
-        C = np.zeros((ny, n_states))
-        if na > 0:
-            C[:, :na] = np.eye(ny, na)
-        if nc > 0:
-            # Handle broadcast shape for C_coeffs
-            if C_coeffs.shape == (ny, nc):
-                C[:, na:] = C_coeffs
-            elif C_coeffs.shape == (nc, ny):
-                C[:, na:] = C_coeffs.T
-            else:
-                C[:, na:] = np.eye(ny, nc)
-
-        # Feedthrough matrix
-        D = np.zeros((ny, nu))
-
-        # Validate matrix dimensions
-        if (
-            A.shape != (n_states, n_states)
-            or B.shape != (n_states, nu)
-            or C.shape != (ny, n_states)
-            or D.shape != (ny, nu)
-        ):
-            raise ValueError("Matrix dimension mismatch in state-space model creation")
-
-        return StateSpaceModel(
-            A=A,
-            B=B,
-            C=C,
-            D=D,
-            K=np.zeros((A.shape[0], C.shape[0])),
-            Q=np.eye(A.shape[0]),
-            R=np.eye(C.shape[0]),
-            S=np.zeros((A.shape[0], C.shape[0])),
-            ts=Ts,
-            Vn=0.01,
-        )
-
-    def _create_minimal_model(self, ny, nu, Ts):
-        """
-        Create a minimal state-space model when there's insufficient data.
-
-        Parameters:
-        -----------
-        ny : int
-            Number of outputs
-        nu : int
-            Number of inputs
-        Ts : float
-            Sample time
-
-        Returns:
-        --------
-        model : StateSpaceModel
-            Minimal 1x1 state-space model
-        """
-        # Create minimal 1x1 state-space model
-        A = np.array([[0.01]])  # Small stable pole
-        B = np.zeros((1, nu))
-        C = np.zeros((ny, 1))
-        D = np.zeros((ny, nu))
-
-        # Set up simple connections
-        if nu > 0:
-            B[0, 0] = 1.0 if nu == 1 else 0.1
-        if ny > 0:
-            C[0, 0] = 1.0 if ny == 1 else 0.1
-
-        return StateSpaceModel(
-            A=A,
-            B=B,
-            C=C,
-            D=D,
-            K=np.zeros((1, ny)),
-            Q=np.eye(1) * 0.01,
-            R=np.eye(ny),
-            S=np.zeros((1, ny)),
-            ts=Ts,
-            Vn=0.01,
-        )
+        return _state_space_from_results(results, nu, sample_time)
