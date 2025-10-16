@@ -147,66 +147,65 @@ class FIRAlgorithm(IdentificationAlgorithm):
                 f"Not enough data points. Need at least {nb + nk} samples, got {N}"
             )
 
-        # MIMO case - construct output-specific regression matrices
-        fir_coeffs = np.zeros((ny, nb * nu))
-        residuals_list = []
-
-        # Pre-allocate regression matrices for all outputs (optimization)
-        Phi_all = np.zeros((ny, N_eff, nb * nu))
-
-        for i in range(ny):
-            # Use view into pre-allocated array for output i
-            Phi_i = Phi_all[i, :, :]
-            col = 0
-
-            # Input part: all lagged inputs affect this output
-            for lag in range(nb):
-                for j in range(nu):
-                    delay_idx = N_eff + nk - 1 - lag
-                    if delay_idx >= 0 and delay_idx + N_eff <= N:
-                        Phi_i[:, col] = u[
-                            j, delay_idx - N_eff + 1 : delay_idx - N_eff + N_eff + 1
-                        ]
-                    else:
-                        Phi_i[:, col] = 0
-                    col += 1
-
-            # Solve for output i
-            theta_i, residuals_i, rank_i, s_i = lstsq(
-                Phi_i, y[i, nk + nb - 1 : nk + nb - 1 + N_eff], rcond=None
+        # Prefer compiled regression builder when available
+        if NUMBA_AVAILABLE and create_regression_matrix_fir_compiled is not None:
+            Phi, y_matrix = create_regression_matrix_fir_compiled(
+                np.ascontiguousarray(u), np.ascontiguousarray(y), nb, nk, ny, nu, N
             )
-            residuals_list.append(residuals_i)
-
-            # Extract input coefficients for output i
-            fir_coeffs[i, :] = theta_i
+            fir_coeffs = np.zeros((ny, nb * nu))
+            for i in range(ny):
+                theta_i, _, _, _ = lstsq(Phi, y_matrix[i, :], rcond=None)
+                fir_coeffs[i, :] = theta_i
+        else:
+            # Fallback: construct per-output regression matrices in Python
+            fir_coeffs = np.zeros((ny, nb * nu))
+            for i in range(ny):
+                Phi_i = np.zeros((N_eff, nb * nu))
+                col = 0
+                for lag in range(nb):
+                    for j in range(nu):
+                        delay_idx = N_eff + nk - 1 - lag
+                        if delay_idx >= 0 and delay_idx + N_eff <= N:
+                            Phi_i[:, col] = u[
+                                j,
+                                delay_idx - N_eff + 1 : delay_idx - N_eff + N_eff + 1,
+                            ]
+                        col += 1
+                theta_i, _, _, _ = lstsq(
+                    Phi_i, y[i, nk + nb - 1 : nk + nb - 1 + N_eff], rcond=None
+                )
+                fir_coeffs[i, :] = theta_i
 
         # Compute one-step-ahead predictions (Yid) for identification data
         N_eff_yid = N - nb - nk + 1
         Yid = np.zeros_like(y)
         Yid[:, : nk + nb - 1] = y[:, : nk + nb - 1]  # Copy initial values
 
-        # Pre-allocate regression matrices for all outputs (optimization)
-        Phi_yid_all = np.zeros((ny, N_eff_yid, nb * nu))
-
-        # Compute predictions for each output
-        for i in range(ny):
-            # Use view into pre-allocated array for output i
-            Phi_i = Phi_yid_all[i, :, :]
-            col = 0
-            for lag in range(nb):
-                for j in range(nu):
-                    delay_idx = N_eff_yid + nk - 1 - lag
-                    if delay_idx >= 0 and delay_idx + N_eff_yid <= N:
-                        Phi_i[:, col] = u[
-                            j,
-                            delay_idx - N_eff_yid + 1 : delay_idx
-                            - N_eff_yid
-                            + N_eff_yid
-                            + 1,
-                        ]
-                    col += 1
-
-            Yid[i, nk + nb - 1 :] = np.dot(Phi_i, fir_coeffs[i, :]).flatten()
+        if NUMBA_AVAILABLE and create_regression_matrix_fir_compiled is not None:
+            Phi, _ = create_regression_matrix_fir_compiled(
+                np.ascontiguousarray(u), np.ascontiguousarray(y), nb, nk, ny, nu, N
+            )
+            for i in range(ny):
+                Yid[i, nk + nb - 1 :] = (Phi @ fir_coeffs[i, :]).flatten()
+        else:
+            # Fallback: rebuild Phi per-output
+            Phi_yid_all = np.zeros((ny, N_eff_yid, nb * nu))
+            for i in range(ny):
+                Phi_i = Phi_yid_all[i, :, :]
+                col = 0
+                for lag in range(nb):
+                    for j in range(nu):
+                        delay_idx = N_eff_yid + nk - 1 - lag
+                        if delay_idx >= 0 and delay_idx + N_eff_yid <= N:
+                            Phi_i[:, col] = u[
+                                j,
+                                delay_idx - N_eff_yid + 1 : delay_idx
+                                - N_eff_yid
+                                + N_eff_yid
+                                + 1,
+                            ]
+                        col += 1
+                Yid[i, nk + nb - 1 :] = np.dot(Phi_i, fir_coeffs[i, :]).flatten()
 
         # Create G_tf and H_tf transfer functions
         G_tf, H_tf = self._create_transfer_functions_fir(

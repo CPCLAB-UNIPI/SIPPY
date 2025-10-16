@@ -24,6 +24,7 @@ try:
         reducingOrder_compiled,
         reducingOrder_fast_compiled,
         simulate_ss_system_compiled,
+        ss_lsim_predictor_form_compiled,
         vn_mat_parallel_compiled,
     )
 except ImportError:
@@ -389,21 +390,22 @@ def ss_lsim_predictor_form(A_K, B_K, C, D, K, y, u, x0=None):
     y_hat : ndarray
         Predicted output signals (l x L)
     """
-    m, L = u.shape
-    l, n = C.shape
-    y_hat = np.zeros((l, L))
-    x = np.zeros((n, L + 1))
+    if NUMBA_AVAILABLE and ss_lsim_predictor_form_compiled is not None:
+        return ss_lsim_predictor_form_compiled(A_K, B_K, C, D, K, y, u, x0)
+    else:
+        m, L = u.shape
+        l, n = C.shape
+        y_hat = np.zeros((l, L))
+        x = np.zeros((n, L + 1))
 
-    if x0 is not None:
-        x[:, 0] = x0[:, 0]
+        if x0 is not None:
+            x[:, 0] = x0[:, 0]
 
-    for i in range(0, L):
-        # Predictor form state update: x[i+1] = A_K*x[i] + B_K*u[i] + K*y[i]
-        x[:, i + 1] = np.dot(A_K, x[:, i]) + np.dot(B_K, u[:, i]) + np.dot(K, y[:, i])
-        # Output equation: y_hat[i] = C*x[i] + D*u[i]
-        y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
+        for i in range(0, L):
+            x[:, i + 1] = np.dot(A_K, x[:, i]) + np.dot(B_K, u[:, i]) + np.dot(K, y[:, i])
+            y_hat[:, i] = np.dot(C, x[:, i]) + np.dot(D, u[:, i])
 
-    return x, y_hat
+        return x, y_hat
 
 
 def ssmatrix(data, axis=1):

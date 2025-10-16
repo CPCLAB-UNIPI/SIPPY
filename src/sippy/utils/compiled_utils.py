@@ -278,6 +278,67 @@ def simulate_ss_system_compiled_simd(A, B, C, D, u, x0=None):
     return x, y
 
 
+@jit(parallel=True)
+def ss_lsim_predictor_form_compiled(A_K, B_K, C, D, K, y, u, x0=None):
+    """
+    Compiled predictor-form state-space simulation.
+
+    Dynamics:
+        x[t+1] = A_K x[t] + B_K u[t] + K y[t]
+        y_hat[t] = C x[t] + D u[t]
+
+    Parameters:
+    -----------
+    A_K, B_K, C, D, K : ndarray
+        Predictor-form state-space matrices
+    y : ndarray
+        Measured outputs (l x L)
+    u : ndarray
+        Inputs (m x L)
+    x0 : ndarray, optional
+        Initial state (n x 1)
+
+    Returns:
+    --------
+    x : ndarray (n x (L+1))
+        State trajectory
+    y_hat : ndarray (l x L)
+        Predicted outputs
+    """
+    m, L = u.shape
+    l, n = C.shape
+    y_hat = np.zeros((l, L))
+    x = np.zeros((n, L + 1))
+
+    if x0 is not None:
+        for i in range(n):
+            x[i, 0] = x0[i, 0]
+
+    # Time loop (sequential due to recursion); inner ops parallelized
+    for t in range(L):
+        # Output: y_hat[:, t] = C @ x[:, t] + D @ u[:, t]
+        for i in prange(l):
+            acc = 0.0
+            for j in range(n):
+                acc += C[i, j] * x[j, t]
+            for j in range(m):
+                acc += D[i, j] * u[j, t]
+            y_hat[i, t] = acc
+
+        # State update: x[:, t+1] = A_K x[:, t] + B_K u[:, t] + K y[:, t]
+        for i in prange(n):
+            acc = 0.0
+            for j in range(n):
+                acc += A_K[i, j] * x[j, t]
+            for j in range(m):
+                acc += B_K[i, j] * u[j, t]
+            for j in range(l):
+                acc += K[i, j] * y[j, t]
+            x[i, t + 1] = acc
+
+    return x, y_hat
+
+
 @jit
 def impile_compiled(M1, M2):
     """
@@ -2128,6 +2189,7 @@ __all__ = [
     "ordinate_sequence_compiled",
     "simulate_ss_system_compiled",
     "simulate_ss_system_compiled_simd",
+    "ss_lsim_predictor_form_compiled",
     "impile_compiled",
     "reducingOrder_compiled",
     "Vn_mat_compiled",

@@ -29,6 +29,7 @@ try:
         Z_dot_PIort_compiled,
         covariance_symmetric_compiled,
         information_criterion_compiled,
+        pinv_compiled_svd,
         rescale_compiled,
         subspace_weighted_svd_compiled,
     )
@@ -223,7 +224,15 @@ class SubspaceCoreAlgorithm:
             YfdotPIort_Uf = Z_dot_PIort(Yf, Uf)
             ZpdotPIort_Uf = Z_dot_PIort(Zp, Uf)
 
-        O_i = np.dot(np.dot(YfdotPIort_Uf, pinv(ZpdotPIort_Uf)), Zp)
+        # Use compiled pseudoinverse when available for performance
+        try:
+            if NUMBA_AVAILABLE and pinv_compiled_svd is not None:
+                Zpinv = pinv_compiled_svd(ZpdotPIort_Uf)
+            else:
+                Zpinv = pinv(ZpdotPIort_Uf)
+        except Exception:
+            Zpinv = pinv(ZpdotPIort_Uf)
+        O_i = np.dot(np.dot(YfdotPIort_Uf, Zpinv), Zp)
 
         if weights == "MOESP":
             W1 = None
@@ -317,7 +326,12 @@ class SubspaceCoreAlgorithm:
         else:
             Ob = np.dot(np.linalg.inv(W1), np.dot(U_n, sc.linalg.sqrtm(S_n)))
 
-        X_fd = np.dot(np.linalg.pinv(Ob), O_i)
+        # Fast pinv for Ob
+        try:
+            Ob_pinv = pinv_compiled_svd(Ob) if NUMBA_AVAILABLE and pinv_compiled_svd is not None else np.linalg.pinv(Ob)
+        except Exception:
+            Ob_pinv = np.linalg.pinv(Ob)
+        X_fd = np.dot(Ob_pinv, O_i)
         # Ensure contiguous memory for optimal performance with compiled functions
         X_fd_slice1 = np.ascontiguousarray(X_fd[:, 1:N])
         y_slice = np.ascontiguousarray(y[:, f : f + N - 1])
@@ -328,11 +342,23 @@ class SubspaceCoreAlgorithm:
         Dxterm = impile(X_fd_slice2, u_slice)
 
         if D_required:
-            M = np.dot(Sxterm, np.linalg.pinv(Dxterm))
+            try:
+                Dxinv = pinv_compiled_svd(Dxterm) if NUMBA_AVAILABLE and pinv_compiled_svd is not None else np.linalg.pinv(Dxterm)
+            except Exception:
+                Dxinv = np.linalg.pinv(Dxterm)
+            M = np.dot(Sxterm, Dxinv)
         else:
             M = np.zeros((n + l, n + m))
-            M[0:n, :] = np.dot(Sxterm[0:n], np.linalg.pinv(Dxterm))
-            M[n::, 0:n] = np.dot(Sxterm[n::], np.linalg.pinv(Dxterm[0:n, :]))
+            try:
+                Dxinv = pinv_compiled_svd(Dxterm) if NUMBA_AVAILABLE and pinv_compiled_svd is not None else np.linalg.pinv(Dxterm)
+            except Exception:
+                Dxinv = np.linalg.pinv(Dxterm)
+            M[0:n, :] = np.dot(Sxterm[0:n], Dxinv)
+            try:
+                Dxinv_state = pinv_compiled_svd(Dxterm[0:n, :]) if NUMBA_AVAILABLE and pinv_compiled_svd is not None else np.linalg.pinv(Dxterm[0:n, :])
+            except Exception:
+                Dxinv_state = np.linalg.pinv(Dxterm[0:n, :])
+            M[n::, 0:n] = np.dot(Sxterm[n::], Dxinv_state)
 
         residuals = Sxterm - np.dot(M, Dxterm)
         return Ob, X_fd, M, n, residuals
@@ -374,19 +400,22 @@ class SubspaceCoreAlgorithm:
         if np.max(np.abs(np.linalg.eigvals(M[0:n, 0:n]))) >= 1.0:
             Forced_A = True
             warnings.warn("Forcing A stability")
-            M[0:n, 0:n] = np.dot(
-                np.linalg.pinv(Ob), impile(Ob[l::, :], np.zeros((l, n)))
-            )
+            try:
+                Ob_pinv = pinv_compiled_svd(Ob) if NUMBA_AVAILABLE and pinv_compiled_svd is not None else np.linalg.pinv(Ob)
+            except Exception:
+                Ob_pinv = np.linalg.pinv(Ob)
+            M[0:n, 0:n] = np.dot(Ob_pinv, impile(Ob[l::, :], np.zeros((l, n))))
 
             # Ensure contiguous memory for sliced arrays
             u_slice_det = np.ascontiguousarray(u[:, f : f + N - 1])
             if np.linalg.det(u_slice_det) != 0:
                 X_fd_next = np.ascontiguousarray(X_fd[:, 1:N])
                 X_fd_curr = np.ascontiguousarray(X_fd[:, 0 : N - 1])
-                B_new = np.dot(
-                    X_fd_next - np.dot(M[0:n, 0:n], X_fd_curr),
-                    np.linalg.pinv(u_slice_det),
-                )
+                try:
+                    Uinv = pinv_compiled_svd(u_slice_det) if NUMBA_AVAILABLE and pinv_compiled_svd is not None else np.linalg.pinv(u_slice_det)
+                except Exception:
+                    Uinv = np.linalg.pinv(u_slice_det)
+                B_new = np.dot(X_fd_next - np.dot(M[0:n, 0:n], X_fd_curr), Uinv)
                 M[0:n, n::] = B_new
             else:
                 warnings.warn("Cannot compute B matrix due to singular input data")

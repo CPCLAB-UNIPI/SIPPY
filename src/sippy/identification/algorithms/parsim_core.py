@@ -31,6 +31,7 @@ try:
         matrix_operations_a_compiled,
         parsim_k_matrix_operations_compiled,
         parsim_y_tilde_estimation_compiled,
+        pinv_compiled_svd,
         subspace_weighted_svd_compiled,
     )
 except ImportError:
@@ -126,14 +127,24 @@ class ParsimCoreAlgorithm:
                 Yf, Yp = ordinate_sequence(y, f, p)
                 Uf, Up = ordinate_sequence(u, f, p)
                 Zp = impile(Up, Yp)
-                M = np.dot(Yf[0:l_, :], np.linalg.pinv(impile(Zp, Uf[0:m, :])))
+                M = np.dot(
+                    Yf[0:l_, :],
+                    pinv_compiled_svd(impile(Zp, Uf[0:m, :])) if NUMBA_AVAILABLE else np.linalg.pinv(impile(Zp, Uf[0:m, :])),
+                )
         else:
             # Original implementation
             Yf, Yp = ordinate_sequence(y, f, p)
             Uf, Up = ordinate_sequence(u, f, p)
             Zp = impile(Up, Yp)
-            M = np.dot(Yf[0:l_, :], np.linalg.pinv(impile(Zp, Uf[0:m, :])))
-        Matrix_pinv = np.linalg.pinv(impile(Zp, impile(Uf[0:m, :], Yf[0:l_, :])))
+            M = np.dot(
+                Yf[0:l_, :],
+                pinv_compiled_svd(impile(Zp, Uf[0:m, :])) if NUMBA_AVAILABLE else np.linalg.pinv(impile(Zp, Uf[0:m, :])),
+            )
+        Matrix_pinv = (
+            pinv_compiled_svd(impile(Zp, impile(Uf[0:m, :], Yf[0:l_, :])))
+            if NUMBA_AVAILABLE
+            else np.linalg.pinv(impile(Zp, impile(Uf[0:m, :], Yf[0:l_, :])))
+        )
         Gamma_L = M[:, 0 : (m + l_) * f]
 
         # Defensive check: If M doesn't have enough columns, initialize H_K appropriately
@@ -194,7 +205,10 @@ class ParsimCoreAlgorithm:
         # Estimate A_K carefully
         if l_ * (f - 1) >= n and n > 0:
             try:
-                A_K = np.dot(np.linalg.pinv(Ob_K[0 : l_ * (f - 1), :]), Ob_K[l_:, :])
+                A_K = np.dot(
+                    pinv_compiled_svd(Ob_K[0 : l_ * (f - 1), :]) if NUMBA_AVAILABLE else np.linalg.pinv(Ob_K[0 : l_ * (f - 1), :]),
+                    Ob_K[l_:, :],
+                )
             except (np.linalg.LinAlgError, ValueError):
                 # Fallback to random initialization on linear algebra errors
                 A_K = np.random.randn(n, n) * 0.1
@@ -213,7 +227,10 @@ class ParsimCoreAlgorithm:
         )
 
         # Solve for parameters using least squares
-        vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l_, 1)))
+        vect = np.dot(
+            pinv_compiled_svd(y_sim) if NUMBA_AVAILABLE else np.linalg.pinv(y_sim),
+            y.reshape((L * l_, 1)),
+        )
         Y_estimate = np.dot(y_sim, vect)
         Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
 
@@ -256,7 +273,10 @@ class ParsimCoreAlgorithm:
                 return y_matrix
 
             y_sim = recalc_K(A, C, D, u)
-            vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l_, 1)))
+            vect = np.dot(
+                pinv_compiled_svd(y_sim) if NUMBA_AVAILABLE else np.linalg.pinv(y_sim),
+                y.reshape((L * l_, 1)),
+            )
             Y_estimate = np.dot(y_sim, vect)
             Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
             B = vect[0 : n * m, :].reshape((n, m))
@@ -349,7 +369,9 @@ class ParsimCoreAlgorithm:
         Zp = impile(Up, Yp)
 
         # Initial matrices
-        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:m, :]))
+        Matrix_pinv = (
+            pinv_compiled_svd(impile(Zp, Uf[0:m, :])) if NUMBA_AVAILABLE else np.linalg.pinv(impile(Zp, Uf[0:m, :]))
+        )
         M = np.dot(Yf[0:l_, :], Matrix_pinv)
         Gamma_L = M[:, 0 : (m + l_) * f]
         H = M[:, (m + l_) * f :]
@@ -496,7 +518,9 @@ class ParsimCoreAlgorithm:
         # Initial projection with first block
         # CRITICAL: This is where PARSIM-P differs from PARSIM-S
         # Master lines 637-639
-        Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0:m, :]))
+        Matrix_pinv = (
+            pinv_compiled_svd(impile(Zp, Uf[0:m, :])) if NUMBA_AVAILABLE else np.linalg.pinv(impile(Zp, Uf[0:m, :]))
+        )
         M = np.dot(Yf[0:l_, :], Matrix_pinv)
         Gamma_L = M[:, 0 : (m + l_) * f]
 
@@ -506,7 +530,11 @@ class ParsimCoreAlgorithm:
         for i in range(1, f):
             # Recompute Matrix_pinv with EXPANDING Uf window
             # This is the critical line that makes PARSIM-P different!
-            Matrix_pinv = np.linalg.pinv(impile(Zp, Uf[0 : m * (i + 1), :]))
+            Matrix_pinv = (
+                pinv_compiled_svd(impile(Zp, Uf[0 : m * (i + 1), :]))
+                if NUMBA_AVAILABLE
+                else np.linalg.pinv(impile(Zp, Uf[0 : m * (i + 1), :]))
+            )
             M = np.dot(Yf[l_ * i : l_ * (i + 1), :], Matrix_pinv)
             Gamma_L = impile(Gamma_L, M[:, 0 : (m + l_) * f])
 
@@ -528,7 +556,10 @@ class ParsimCoreAlgorithm:
         )
 
         # Parameter estimation (master lines 652-654)
-        vect = np.dot(np.linalg.pinv(y_sim), y.reshape((L * l_, 1)))
+        vect = np.dot(
+            pinv_compiled_svd(y_sim) if NUMBA_AVAILABLE else np.linalg.pinv(y_sim),
+            y.reshape((L * l_, 1)),
+        )
         Y_estimate = np.dot(y_sim, vect)
         Vn = Vn_mat(y.reshape((L * l_, 1)), Y_estimate)
 
@@ -882,7 +913,10 @@ class ParsimCoreAlgorithm:
         Ob_f = np.dot(U_n, sc.linalg.sqrtm(S_n_diag))
 
         # Estimate A from observability matrix shift property
-        A = np.dot(np.linalg.pinv(Ob_f[0 : l_ * (f - 1), :]), Ob_f[l_:, :])
+        A = np.dot(
+            pinv_compiled_svd(Ob_f[0 : l_ * (f - 1), :]) if NUMBA_AVAILABLE else np.linalg.pinv(Ob_f[0 : l_ * (f - 1), :]),
+            Ob_f[l_:, :],
+        )
 
         # Extract C from first block of observability matrix
         C = Ob_f[0:l_, :]
@@ -902,7 +936,12 @@ class ParsimCoreAlgorithm:
         # Compute Kalman gain K using QR decomposition result
         # K = Ob_f^+ * G_f[l_:, 0:l_] * F^-1
         K = np.dot(
-            np.dot(np.linalg.pinv(Ob_f[0 : l_ * (f - 1), :]), G_f[l_:, 0:l_]),
+            (
+                pinv_compiled_svd(Ob_f[0 : l_ * (f - 1), :])
+                if NUMBA_AVAILABLE
+                else np.linalg.pinv(Ob_f[0 : l_ * (f - 1), :])
+            )
+            @ G_f[l_:, 0:l_],
             np.linalg.inv(F),
         )
 
