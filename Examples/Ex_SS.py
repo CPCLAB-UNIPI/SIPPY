@@ -93,6 +93,13 @@ data_df = pd.DataFrame({"u": U[0], "y": y_tot[0]}, index=time_index)
 data = IDData(data=data_df, inputs=["u"], outputs=["y"], tsample=ts)
 
 METHOD = ['N4SID', 'CVA', 'MOESP']
+# Define distinct line styles for each method to avoid overlap confusion
+line_styles = [
+    {'linestyle': '--', 'linewidth': 2, 'alpha': 0.8},  # N4SID: dashed
+    {'linestyle': '-.', 'linewidth': 2, 'alpha': 0.8},  # CVA: dash-dot
+    {'linestyle': ':', 'linewidth': 3, 'alpha': 0.8},   # MOESP: dotted, thicker
+]
+
 lege = ['System']
 for i in range(len(METHOD)):
     method = METHOD[i]
@@ -100,12 +107,24 @@ for i in range(len(METHOD)):
         # Create a new SystemIdentification instance for each method
         identifier = SystemIdentification()
         sys_id = identifier.identify(y=y_tot, u=U, id_method=method, ss_fixed_order=2)
-        xid, yid = simulate_ss_system(sys_id.A, sys_id.B, sys_id.C, sys_id.D, U, sys_id.x0)
-        plt.plot(Time, yid[0])
+        xid, yid = sys_id.simulate(U)
+
+        # Debug: Check output statistics
+        print(f"\n{method}:")
+        print(f"  yid shape: {yid.shape}")
+        print(f"  yid range: [{yid.min():.3f}, {yid.max():.3f}]")
+        print(f"  yid mean: {yid.mean():.3f}")
+
+        # Plot with distinct line style
+        plt.plot(Time, yid[0], label=method, **line_styles[i])
         lege.append(method)
+        print(f"  ✓ Plotted successfully")
     except Exception as e:
         print(f"Method {method} failed: {e}")
+        import traceback
+        traceback.print_exc()
         lege.append(f"{method} (failed)")
 
+print(f"\nLegend entries: {lege}")
 plt.legend(lege)
 plt.show()

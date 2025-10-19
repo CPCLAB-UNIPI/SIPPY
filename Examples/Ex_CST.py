@@ -206,7 +206,7 @@ _, Y_oe = Id_OE.simulate(U)
 _, Y_bj = Id_BJ.simulate(U)
 _, Y_gen = Id_GEN.simulate(U)
 # SS
-Y_ss, x_ss = Id_SS.simulate(U)
+x_ss, Y_ss = Id_SS.simulate(U)
 
 
 ##### PLOTS
@@ -238,15 +238,21 @@ str_output = ["Ca [kg/m$^3$]", "T [$^o$C]"]
 for i in range(p):
     plt.subplot(p, 1, i + 1)
     plt.plot(Time, Y[i, :])
-    plt.plot(Time, Y_arx[i, :])
-    # plt.plot(Time,Y_arma[i,:])
-    plt.plot(Time, Y_armax[i, :])
-    # plt.plot(Time,Y_ararx[i,:])
-    # plt.plot(Time,Y_ararmax[i,:])
-    plt.plot(Time, Y_oe[i, :])
-    plt.plot(Time, Y_bj[i, :])
-    plt.plot(Time, Y_gen[i, :])
-    plt.plot(Time, Y_ss[i, :])
+
+    # Plot model outputs - handle single-output models (only plot first output)
+    if i < Y_arx.shape[0]:
+        plt.plot(Time, Y_arx[i, :])
+    if i < Y_armax.shape[0]:
+        plt.plot(Time, Y_armax[i, :])
+    if i < Y_oe.shape[0]:
+        plt.plot(Time, Y_oe[i, :])
+    if i < Y_bj.shape[0]:
+        plt.plot(Time, Y_bj[i, :])
+    if i < Y_gen.shape[0]:
+        plt.plot(Time, Y_gen[i, :])
+    if i < Y_ss.shape[0]:
+        plt.plot(Time, Y_ss[i, :])
+
     plt.ylabel("Output " + str(i + 1))
     plt.ylabel(str_output[i])
     plt.legend(["Data", "ARX", "ARMAX", "OE", "BJ", "GEN", "SS"])
@@ -329,7 +335,7 @@ _, Yv_oe = Id_OE.simulate(U_val)
 _, Yv_bj = Id_BJ.simulate(U_val)
 _, Yv_gen = Id_GEN.simulate(U_val)
 # SS
-Yv_ss, x_ss_val = Id_SS.simulate(U_val)
+x_ss_val, Yv_ss = Id_SS.simulate(U_val)
 
 
 ##### PLOTS
@@ -361,16 +367,21 @@ str_output = ["Ca [kg/m$^3$]", "T [$^o$C]"]
 for i in range(p):
     plt.subplot(p, 1, i + 1)
     plt.plot(Time, Y_val[i, :])
-    # plt.plot(Time,Yv_fir[i,:])
-    plt.plot(Time, Yv_arx[i, :])
-    # plt.plot(Time,Yv_arma[i,:])
-    plt.plot(Time, Yv_armax[i, :])
-    # plt.plot(Time,Yv_ararx[i,:])
-    # plt.plot(Time,Yv_ararmax[i,:])
-    plt.plot(Time, Yv_oe[i, :])
-    plt.plot(Time, Yv_bj[i, :])
-    plt.plot(Time, Yv_gen[i, :])
-    plt.plot(Time, Yv_ss[i, :])
+
+    # Plot validation outputs - handle single-output models (only plot first output)
+    if i < Yv_arx.shape[0]:
+        plt.plot(Time, Yv_arx[i, :])
+    if i < Yv_armax.shape[0]:
+        plt.plot(Time, Yv_armax[i, :])
+    if i < Yv_oe.shape[0]:
+        plt.plot(Time, Yv_oe[i, :])
+    if i < Yv_bj.shape[0]:
+        plt.plot(Time, Yv_bj[i, :])
+    if i < Yv_gen.shape[0]:
+        plt.plot(Time, Yv_gen[i, :])
+    if i < Yv_ss.shape[0]:
+        plt.plot(Time, Yv_ss[i, :])
+
     # plt.ylabel("Output " + str(i+1))
     plt.ylabel(str_output[i])
     plt.legend(["Data", "ARX", "ARMAX", "OE", "BJ", "GEN", "SS"])
@@ -380,3 +391,5 @@ for i in range(p):
     plt.xlabel("Time")
     if i == 0:
         plt.title("validation")
+
+plt.show()
