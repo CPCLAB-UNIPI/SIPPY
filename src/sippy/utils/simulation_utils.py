@@ -486,6 +486,8 @@ def get_model_uncertainty(u, y, model):
     Returns the frequency response of a finite impulse response model and
     frequency confidence intervals (95% and 68%).
 
+    Uses shared spectral utilities for power/cross spectrum computation.
+
     Parameters:
     -----------
     u : array-like
@@ -508,38 +510,52 @@ def get_model_uncertainty(u, y, model):
     snr : ndarray
         Signal to noise ratio
     """
-    n = len(u)
+    # Import shared spectral utilities
+    from .spectral_utils import (
+        compute_power_spectrum_welch,
+        compute_cross_spectrum_welch,
+        create_hamming_window,
+        smooth_frequency_response,
+    )
 
+    n = len(u)
     confidence95 = 0.95
     confidence68 = 0.68
     nperseg = 1024
 
+    # Compute model error
     y_estimate = signal.convolve(u, model, mode="full")[: len(u)]
     model_error = y - y_estimate
 
+    # Compute model frequency response (FFT)
     h = fftpack.fft(model, nperseg)[: nperseg // 2]
-    freqs, Pxx = signal.welch(u, nperseg=nperseg)
-    freqs, Pyy = signal.welch(y, nperseg=nperseg)
-    freqs, Pyy_err = signal.welch(model_error, nperseg=nperseg)
-    freqs, Pxy = signal.csd(u, y, nperseg=nperseg)
+    model_bode_mag = np.abs(h)
 
+    # Use shared spectral utilities for Welch-based spectrum computation
+    freqs, Pxx = compute_power_spectrum_welch(u, dt=1.0, nperseg=nperseg)
+    freqs, Pyy = compute_power_spectrum_welch(y, dt=1.0, nperseg=nperseg)
+    freqs, Pyy_err = compute_power_spectrum_welch(model_error, dt=1.0, nperseg=nperseg)
+    freqs, Pxy = compute_cross_spectrum_welch(u, y, dt=1.0, nperseg=nperseg)
+
+    # Compute SNR and data-based frequency response
     snr = Pyy / Pyy_err
     data_bode = Pxy / Pxx
     data_bode_mag = np.abs(data_bode)
 
-    win = np.hamming(16)
-    data_bode_mag_filt_f = (np.convolve(data_bode_mag, win, mode="full") / sum(win))[
+    # Apply smoothing using shared window utility
+    win = create_hamming_window(16, normalize=True)
+    data_bode_mag_filt_f = np.convolve(data_bode_mag, win, mode="full")[
         : len(data_bode_mag)
     ]
-    data_bode_mag_filt_b = (
-        np.convolve(data_bode_mag_filt_f[::-1], win, mode="full") / sum(win)
-    )[: len(data_bode_mag_filt_f)][::-1]
-    snr_filt_f = (np.convolve(np.abs(snr), win, mode="full") / sum(win))[: len(snr)]
-    snr_filt_b = (np.convolve(snr_filt_f[::-1], win, mode="full") / sum(win))[
+    data_bode_mag_filt_b = np.convolve(data_bode_mag_filt_f[::-1], win, mode="full")[
+        : len(data_bode_mag_filt_f)
+    ][::-1]
+    snr_filt_f = np.convolve(np.abs(snr), win, mode="full")[: len(snr)]
+    snr_filt_b = np.convolve(snr_filt_f[::-1], win, mode="full")[
         : len(snr_filt_f)
     ][::-1]
 
-    model_bode_mag = np.abs(h)
+    # Compute confidence intervals
     combined_bode = np.vstack((model_bode_mag, data_bode_mag_filt_b[:-1]))
     se = stats.sem(combined_bode)
     ci95 = se * stats.t.ppf((1 + confidence95) / 2.0, n - 1)
