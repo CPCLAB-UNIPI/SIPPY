@@ -9,15 +9,21 @@ that the package slycot is not well-installed.
 
 """
 
-# Checking path to access other files
-try:
-    from sippy_unipi import system_identification
-except ImportError:
-    import os
-    import sys
+import sys
 
-    sys.path.append(os.pardir)
-    from sippy_unipi import system_identification
+local_root = r"C:\Users\frasc\Desktop\Ricerca\Progetti\Daedalos\SIPPY-1.0.1\SIPPY-1.0.1"
+
+if local_root in sys.path:
+    sys.path.remove(local_root)
+sys.path.insert(0, local_root)
+
+if "sippy_unipi" in sys.modules:
+    del sys.modules["sippy_unipi"]
+
+import sippy_unipi
+print("sippy loaded from:", sippy_unipi.__file__)
+
+from sippy_unipi import *
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,7 +48,7 @@ Time = np.linspace(0, tfin, npts)
 
 # Input sequence
 U = np.zeros((1, npts))
-[U[0], _, _] = fset.GBN_seq(npts, 0.05)
+U[0], _, _, _ = fset.GBN_seq(npts, 0.05)
 
 ##Output
 x, yout = fsetSIM.SS_lsim_process_form(A, B, C, D, U)

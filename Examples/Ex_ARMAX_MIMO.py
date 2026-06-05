@@ -5,22 +5,28 @@ example armax mimo
 case 3 outputs x 4 inputs
 
 """
+import sys
 
-# Checking path to access other files
-try:
-    from sippy_unipi import system_identification
-except ImportError:
-    import os
-    import sys
+local_root = r"C:\Users\frasc\Desktop\Ricerca\Progetti\Daedalos\SIPPY-1.0.1\SIPPY-1.0.1"
 
-    sys.path.append(os.pardir)
-    from sippy_unipi import system_identification
-import control.matlab as cnt
+if local_root in sys.path:
+    sys.path.remove(local_root)
+sys.path.insert(0, local_root)
+
+if "sippy_unipi" in sys.modules:
+    del sys.modules["sippy_unipi"]
+
+import sippy_unipi
+print("sippy loaded from:", sippy_unipi.__file__)
+
+
+import control as cnt
 import matplotlib.pyplot as plt
 import numpy as np
 from tf2ss import lsim
 
 from sippy_unipi import functionset as fset
+from sippy_unipi import *
 
 # 4*3 MIMO system
 # generating transfer functions in z-operator.
@@ -106,10 +112,10 @@ Time = np.linspace(0, tfin, npts)
 # INPUT#
 Usim = np.zeros((4, npts))
 Usim_noise = np.zeros((4, npts))
-[Usim[0, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[-0.33, 0.1])
-[Usim[1, :], _, _] = fset.GBN_seq(npts, 0.03)
-[Usim[2, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[2.3, 5.7])
-[Usim[3, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[8.0, 11.5])
+Usim[0, :], _, _,_ = fset.GBN_seq(npts, 0.03, Range=[-0.33, 0.1])
+Usim[1, :], _, _,_ = fset.GBN_seq(npts, 0.03)
+Usim[2, :], _, _,_= fset.GBN_seq(npts, 0.03, Range=[2.3, 5.7])
+Usim[3, :], _, _,_ = fset.GBN_seq(npts, 0.03, Range=[8.0, 11.5])
 
 # Adding noise
 err_inputH = np.zeros((4, npts))
@@ -272,10 +278,10 @@ Time = np.linspace(0, tfin, npts)
 # (NEW) INPUTS
 U_valid = np.zeros((4, npts))
 Usim_noise = np.zeros((4, npts))
-[U_valid[0, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[0.33, 0.7])
-[U_valid[1, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[-2.0, -1.0])
-[U_valid[2, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[1.3, 2.7])
-[U_valid[3, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[1.0, 5.2])
+U_valid[0, :], _, _,_ = fset.GBN_seq(npts, 0.03, Range=[0.33, 0.7])
+U_valid[1, :], _, _,_ = fset.GBN_seq(npts, 0.03, Range=[-2.0, -1.0])
+U_valid[2, :], _, _,_ = fset.GBN_seq(npts, 0.03, Range=[1.3, 2.7])
+U_valid[3, :], _, _,_ = fset.GBN_seq(npts, 0.03, Range=[1.0, 5.2])
 # Noise
 err_inputH = np.zeros((4, npts))
 err_inputH = fset.white_noise_var(npts, var_list)

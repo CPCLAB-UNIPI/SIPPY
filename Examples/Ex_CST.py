@@ -11,9 +11,24 @@ A Continuous Stirred Tank to be identified from input-output data
 import matplotlib.pyplot as plt
 import numpy as np
 
+import sys
+
+local_root = r"C:\Users\frasc\Desktop\Ricerca\Progetti\Daedalos\SIPPY-1.0.1\SIPPY-1.0.1"
+
+if local_root in sys.path:
+    sys.path.remove(local_root)
+sys.path.insert(0, local_root)
+
+if "sippy_unipi" in sys.modules:
+    del sys.modules["sippy_unipi"]
+
+import sippy_unipi
+print("sippy loaded from:", sippy_unipi.__file__)
+
+from sippy_unipi import *
 from sippy_unipi import functionset as fset
 from sippy_unipi import functionsetSIM as fsetSIM
-from sippy_unipi import system_identification
+
 
 # sampling time
 ts = 1.0  # [min]
@@ -85,13 +100,13 @@ prob_switch_1 = 0.05
 F_min = 0.4
 F_max = 0.6
 Range_GBN_1 = [F_min, F_max]
-[U[0, :], _, _] = fset.GBN_seq(npts, prob_switch_1, Range=Range_GBN_1)
+U[0, :], _, _,_ = fset.GBN_seq(npts, prob_switch_1, Range=Range_GBN_1)
 # Steam Flow rate W = U[1]          [kg/min]
 prob_switch_2 = 0.05
 W_min = 20
 W_max = 40
 Range_GBN_2 = [W_min, W_max]
-[U[1, :], _, _] = fset.GBN_seq(npts, prob_switch_2, Range=Range_GBN_2)
+U[1, :], _, _,_ = fset.GBN_seq(npts, prob_switch_2, Range=Range_GBN_2)
 
 # disturbance inputs as RW (random-walk)
 
@@ -275,13 +290,13 @@ prob_switch_1 = 0.05
 F_min = 0.4
 F_max = 0.6
 Range_GBN_1 = [F_min, F_max]
-[U_val[0, :], _, _] = fset.GBN_seq(npts, prob_switch_1, Range=Range_GBN_1)
+U_val[0, :], _, _,_ = fset.GBN_seq(npts, prob_switch_1, Range=Range_GBN_1)
 # Steam Flow rate W = U[1]          [kg/min]
 prob_switch_2 = 0.05
 W_min = 20
 W_max = 40
 Range_GBN_2 = [W_min, W_max]
-[U_val[1, :], _, _] = fset.GBN_seq(npts, prob_switch_2, Range=Range_GBN_2)
+U_val[1, :], _, _, _ = fset.GBN_seq(npts, prob_switch_2, Range=Range_GBN_2)
 
 # disturbance inputs as RW (random-walk)
 # Input Concentration Ca_in = U[2]  [kg salt/m^3 solution]

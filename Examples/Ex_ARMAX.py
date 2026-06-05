@@ -8,8 +8,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tf2ss import lsim
 
+import sys
+
+local_root = r"C:\Users\frasc\Desktop\Ricerca\Progetti\Daedalos\SIPPY-1.0.1\SIPPY-1.0.1"
+
+if local_root in sys.path:
+    sys.path.remove(local_root)
+sys.path.insert(0, local_root)
+
+if "sippy_unipi" in sys.modules:
+    del sys.modules["sippy_unipi"]
+
+import sippy_unipi
+print("sippy loaded from:", sippy_unipi.__file__)
+
+from sippy_unipi import *
 from sippy_unipi import functionset as fset
-from sippy_unipi import system_identification
 
 ## TEST IDENTIFICATION METHODS for ARMAX model
 
@@ -19,17 +33,18 @@ end_time = 400  # [s]
 npts = int(end_time / sampling_time) + 1
 Time = np.linspace(0, end_time, npts)
 
-# Define Generalize Binary Sequence as input signal
+# Define Generalized Binary Noise (GBN) sequence as input signal
 switch_probability = 0.08  # [0..1]
-[Usim, _, _] = fset.GBN_seq(npts, switch_probability, Range=[-1, 1])
+Usim, _, _,_ = fset.GBN_seq(npts, switch_probability, Range=[-1, 1])
 
 # Define white noise as noise signal
 white_noise_variance = [0.01]
 e_t = fset.white_noise_var(Usim.size, white_noise_variance)[0]
 
-# ## Define the system (ARMAX model)
+#%% Define the system to be identified (as an ARMAX model)
 
-# ### Numerator of noise transfer function has two roots: nc = 2
+# Numerator of noise transfer function 
+# N_H(z) = 1.0 z^14 + 0.3 z^13 + 0.2 z^12
 
 NUM_H = [
     1.0,
@@ -49,7 +64,8 @@ NUM_H = [
     0.0,
 ]
 
-# ### Common denominator between input and noise transfer functions has 4 roots: na = 4
+# Common denominator between input and noise transfer functions  
+# D(z) = 1.0 z^14 - 2.21 z^13 + 1.7494 z^12 - 0.584256 z^11 + 0.0684029 z^10
 
 DEN = [
     1.0,
@@ -69,58 +85,107 @@ DEN = [
     0.0,
 ]
 
-# ### Numerator of input transfer function has 3 roots: nb = 3
+# Numerator of input transfer function has 3 roots: nb = 3 !!!
+# N(z) = 1.5z^2 - 2.07z + 1.3146
 
-NUM = [1.5, -2.07, 1.3146]
+NUM = [1.5,
+       -2.07,
+       1.3146
+]
 
-# ### Define transfer functions
+# Define G and H transfer functions
 
 g_sample = cnt.tf(NUM, DEN, sampling_time)
 h_sample = cnt.tf(NUM_H, DEN, sampling_time)
 
-# ## Time responses
+#%% Input output Identification time responses
 
-# ### Input reponse
-
+# Compute Input reponse
 Y1, Time, Xsim = lsim(g_sample, Usim, Time)
-plt.figure(0)
-plt.plot(Time, Usim)
-plt.plot(Time, Y1)
-plt.xlabel("Time")
-plt.title(r"Time response y$_k$(u) = g$\cdot$u$_k$")
-plt.legend(["u(t)", "y(t)"])
-plt.grid()
+
+plt.figure(figsize=(10, 6))
+
+# Subplot Input
+plt.subplot(2, 1, 1)
+plt.plot(Time, Usim, color='red', linewidth=2)
+plt.ylabel("u(t)", fontsize=12)
+plt.title("Input signal", fontsize=14)
+plt.grid(True)
+plt.tick_params(labelsize=11)
+
+# Subplot Output
+plt.subplot(2, 1, 2)
+plt.plot(Time, Y1, color='green', linewidth=2)
+plt.xlabel("Time [s]", fontsize=12)
+plt.ylabel("y(t)", fontsize=12)
+plt.title(r"Output response $y_k = g \cdot u_k$", fontsize=14)
+plt.grid(True)
+plt.tick_params(labelsize=11)
+
+plt.tight_layout()
 plt.show(block=False)
 
-# ### Noise response
+
+#%% Noise output Identification time responses
 
 Y2, Time, Xsim = lsim(h_sample, e_t, Time)
-plt.figure(1)
-plt.plot(Time, e_t)
-plt.plot(Time, Y2)
-plt.xlabel("Time")
-plt.title(r"Time response y$_k$(e) = h$\cdot$e$_k$")
-plt.legend(["e(t)", "y(t)"])
-plt.grid()
+
+plt.figure(figsize=(10, 6))
+
+# Subplot Noise Input
+plt.subplot(2, 1, 1)
+plt.plot(Time, e_t, color='red', linewidth=2)
+plt.ylabel("e(t)", fontsize=12)
+plt.title("Input signal", fontsize=14)
+plt.grid(True)
+plt.tick_params(labelsize=11)
+
+#  Subplot Noise Output
+plt.subplot(2, 1, 2)
+plt.plot(Time, Y2, color='green', linewidth=2)
+plt.xlabel("Time [s]", fontsize=12)
+plt.ylabel("y(t)", fontsize=12)
+plt.title(r"Output response $y_k = h \cdot e_k$", fontsize=14)
+plt.grid(True)
+plt.tick_params(labelsize=11)
+
+plt.tight_layout()
 plt.show(block=False)
 
-# ## Total output
+
+#%% Total output
 # $$Y_t = Y_1 + Y_2 = G.u + H.e$$
 
 Ytot = Y1 + Y2
 Utot = Usim + e_t
-plt.figure(2)
-plt.plot(Time, Utot)
-plt.plot(Time, Ytot)
-plt.xlabel("Time")
-plt.title(r"Time response y$_k$ = g$\cdot$u$_k$ + h$\cdot$e$_k$")
-plt.legend(["u(t) + e(t)", "y_t(t)"])
-plt.grid()
+
+plt.figure(figsize=(10, 6))
+
+#  Subplot Input (u + e) 
+plt.subplot(2, 1, 1)
+plt.plot(Time, Utot, color='red', linewidth=2)
+plt.ylabel(r"$u(t)+e(t)$", fontsize=12)
+plt.title("Total input signal", fontsize=14)
+plt.grid(True)
+plt.tick_params(labelsize=11)
+
+#  Subplot Output
+plt.subplot(2, 1, 2)
+plt.plot(Time, Ytot, color='green', linewidth=2)
+plt.xlabel("Time [s]", fontsize=12)
+plt.ylabel(r"$y(t)$", fontsize=12)
+plt.title(r"Output response $y_k = g\cdot u_k + h\cdot e_k$", fontsize=14)
+plt.grid(True)
+plt.tick_params(labelsize=11)
+
+plt.tight_layout()
+plt.show(block=False)
 
 
-##### SYSTEM IDENTIFICATION from collected data
 
-# choose identification mode
+#%% SYSTEM IDENTIFICATION from collected data
+
+# Choose order selection mode
 mode = "FIXED"
 
 if mode == "IC":
@@ -131,9 +196,9 @@ if mode == "IC":
         Usim,
         "ARMAX",
         IC="AIC",
-        na_ord=[4, 4],
-        nb_ord=[3, 3],
-        nc_ord=[2, 2],
+        na_ord=[1, 5],
+        nb_ord=[1, 5],
+        nc_ord=[1, 5],
         delays=[11, 11],
         max_iterations=300,
         ARMAX_mod="ILLS",
@@ -144,9 +209,9 @@ if mode == "IC":
         Usim,
         "ARMAX",
         IC="AICc",
-        na_ord=[4, 4],
-        nb_ord=[3, 3],
-        nc_ord=[2, 2],
+        na_ord=[1, 5],
+        nb_ord=[1, 5],
+        nc_ord=[1, 5],
         delays=[11, 11],
         max_iterations=300,
         ARMAX_mod="OPT",
@@ -157,9 +222,9 @@ if mode == "IC":
         Usim,
         "ARMAX",
         IC="BIC",
-        na_ord=[4, 4],
-        nb_ord=[3, 3],
-        nc_ord=[2, 2],
+        na_ord=[1, 5],
+        nb_ord=[1, 5],
+        nc_ord=[1, 5],
         delays=[11, 11],
         max_iterations=300,
         ARMAX_mod="RLLS",
@@ -237,7 +302,7 @@ plt.show(block=False)
 
 switch_probability = 0.07  # [0..1]
 input_range = [0.5, 1.5]
-[U_valid, _, _] = fset.GBN_seq(npts, switch_probability, Range=input_range)
+U_valid, _, _,_ = fset.GBN_seq(npts, switch_probability, Range=input_range)
 white_noise_variance = [0.01]
 e_valid = fset.white_noise_var(U_valid.size, white_noise_variance)[0]
 #
@@ -251,10 +316,10 @@ Ytotvalid = Yvalid1 + Yvalid2
 
 
 # ARMAX - ILLS
-Yv_armaxi = fset.validation(Id_ARMAXi, U_valid, Ytotvalid, Time)
+Yv_armaxi = fset.validation(Id_ARMAXi, U_valid, Ytotvalid, Time, k = 10)
 
 # ARMAX - OPT
-Yv_armaxo = fset.validation(Id_ARMAXo, U_valid, Ytotvalid, Time)
+Yv_armaxo = fset.validation(Id_ARMAXo, U_valid, Ytotvalid, Time, k = 2)
 
 # ARMAX - RLLS
 Yv_armaxr = fset.validation(Id_ARMAXr, U_valid, Ytotvalid, Time)
@@ -279,12 +344,8 @@ plt.legend(["System", "ARMAX-I", "ARMAX-0", "ARMAX-R"])
 plt.grid()
 plt.show(block=False)
 
-# rmse = np.round(np.sqrt(np.mean((Ytotvalid - Yv_armaxi.T) ** 2)), 2)
-EV = 100 * (
-    np.round(
-        (1.0 - np.mean((Ytotvalid - Yv_armaxi) ** 2) / np.std(Ytotvalid)), 2
-    )
-)
+EV = 100 * (1.0 - np.var(Ytotvalid - Yv_armaxi) / np.var(Ytotvalid))
+
 # plt.title("Validation: | RMSE ARMAX_i = {}".format(rmse))
 plt.title(f"Validation: | Explained Variance ARMAX_i = {EV}%")
 

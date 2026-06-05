@@ -5,16 +5,22 @@ example armax mimo
 case 3 outputs x 4 inputs
 
 """
+import sys
 
-# Checking path to access other files
-try:
-    from sippy_unipi import system_identification
-except ImportError:
-    import os
-    import sys
+local_root = r"C:\Users\frasc\Desktop\Ricerca\Progetti\Daedalos\SIPPY-1.0.1\SIPPY-1.0.1"
 
-    sys.path.append(os.pardir)
-    from sippy_unipi import system_identification
+if local_root in sys.path:
+    sys.path.remove(local_root)
+sys.path.insert(0, local_root)
+
+if "sippy_unipi" in sys.modules:
+    del sys.modules["sippy_unipi"]
+
+import sippy_unipi
+print("sippy loaded from:", sippy_unipi.__file__)
+
+from sippy_unipi import system_identification
+from sippy_unipi import *
 import control.matlab as cnt
 import matplotlib.pyplot as plt
 import numpy as np
@@ -103,10 +109,10 @@ Time = np.linspace(0, tfin, npts)
 # INPUT#
 Usim = np.zeros((4, npts))
 Usim_noise = np.zeros((4, npts))
-[Usim[0, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[-0.33, 0.1])
-[Usim[1, :], _, _] = fset.GBN_seq(npts, 0.03)
-[Usim[2, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[2.3, 5.7])
-[Usim[3, :], _, _] = fset.GBN_seq(npts, 0.03, Range=[8.0, 11.5])
+Usim[0, :], _, _, _ = fset.GBN_seq(npts, 0.03, Range=[-0.33, 0.1])
+Usim[1, :], _, _, _ = fset.GBN_seq(npts, 0.03)
+Usim[2, :],  _, _, _  = fset.GBN_seq(npts, 0.03, Range=[2.3, 5.7])
+Usim[3, :],  _, _, _  = fset.GBN_seq(npts, 0.03, Range=[8.0, 11.5])
 
 # Adding noise
 err_inputH = np.zeros((4, npts))

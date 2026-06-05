@@ -30,7 +30,7 @@ Time = np.linspace(0, end_time, npts)
 
 # Define Generalize Binary Sequence as input signal
 switch_probability = 0.08  # [0..1]
-[Usim, _, _] = fset.GBN_seq(npts, switch_probability, Range=[-1, 1])
+Usim, _, _, _ = fset.GBN_seq(npts, switch_probability, Range=[-1, 1])
 
 # Define white noise as noise signal
 white_noise_variance = [0.01]
@@ -242,7 +242,7 @@ plt.show(block=False)
 
 switch_probability = 0.07  # [0..1]
 input_range = [0.5, 1.5]
-[U_valid, _, _] = fset.GBN_seq(npts, switch_probability, Range=input_range)
+U_valid, _, _,_ = fset.GBN_seq(npts, switch_probability, Range=input_range)
 white_noise_variance = [0.01]
 e_valid = fset.white_noise_var(U_valid.size, white_noise_variance)[0]
 #
