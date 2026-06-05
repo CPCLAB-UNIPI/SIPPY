@@ -4,19 +4,19 @@
 
 The main objective of this code is to provide different identification methods
 to build linear models of dynamic systems, starting from input-output collected
-data. The models can be built as transfer functions or state-space models in
+data. The models can be built as transfer functions or state-space models in the 
 discrete-time domain. The Python user has many options in terms of identification
 algorithms and in terms of settings to look for the best model.
-It is originally developed by Giuseppe Armenise at the Department of Civil and Industrial Engineering of University of Pisa under supervision of [Prof. Gabriele Pannocchia](https://people.unipi.it/gabriele_pannocchia/). The identification code is distributed under the LGPL license, meaning the code can be used royalty-free even in commercial applications.
-The developed code is quite simple to use and, having default settings, it can
+It was originally developed by Giuseppe Armenise at the Department of Civil and Industrial Engineering of the University of Pisa under the supervision of [Prof. Gabriele Pannocchia](https://people.unipi.it/gabriele_pannocchia/). The identification code is distributed under the LGPL license, meaning the code can be used royalty-free even in commercial applications.
+The developed code is quite simple to use and, with default settings, it can
 be used by beginners but also by experts, having many adjustable settings that
 can be changed according to the particular case. Furthermore, there are some
-functions that the user can use, e.g. to test if the identified system follows the
+functions that the user can use, e.g., to test if the identified system follows the
 plant data.
 The linear model to be identified can be chosen between:
 
 * input-output structures: FIR, ARX, ARMAX, ARMA, ARARX, ARARMAX, OE, BJ, GEN;
-* state-space structures: N4SID, MOESP, CVA, PARSIM-P, PARSIM-S or PARSIM-K.
+* state-space structures: N4SID, MOESP, CVA, PARSIM-P, PARSIM-S, or PARSIM-K.
 All the proposed structures are available both in the SISO case, for which the information criteria
 are available, and in the MIMO case.
 
@@ -24,16 +24,18 @@ are available, and in the MIMO case.
 
 The code has been implemented in [Python 3.10](https://www.python.org/downloads/) and requires [CasADi](https://web.casadi.org/get/).
 The Slycot package is optional and can speed up validation. It is available at [PyPI](https://pypi.python.org/pypi/slycot/0.2.0) or alternatively as [binaries](https://www.lfd.uci.edu/~gohlke/pythonlibs/).
+Note that the tf2ss package, developed by Marek Wadinger, is also required: 
+this Python library, an alternative to slycot, is for easily converting transfer function representations to state-space forms, supporting MIMO systems.
 
 ## Installation
 
-To install from PyPI, run the following command:
+To install SIPPY from PyPI, run the following command:
 
 ```bash
 pip install sippy_unipi
 ```
 
-To install from the source code, run the following:
+To install SIPPY from the source code, run the following:
 
 ```bash
 git clone https://github.com/CPCLAB-UNIPI/SIPPY.git
@@ -41,7 +43,7 @@ cd SIPPY
 pip install -e .
 ```
 
-We recommend using uv (<https://docs.astral.sh/uv/>) to install the package.
+Finally, SIPPY can be installed using uv (<https://docs.astral.sh/uv/>).
 
 ```bash
 uv sync
@@ -49,7 +51,7 @@ uv sync
 
 ## Structure
 
-SIPPY is distributed as package, with following notable items in the structure:
+SIPPY is distributed as a package, with the following notable items in the structure:
 
 ```plaintext
 ├── user_guide.pdf
