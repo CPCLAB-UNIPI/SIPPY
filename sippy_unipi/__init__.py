@@ -17,7 +17,7 @@ def system_identification(
     y,
     u,
     id_method,
-    centering="None",
+    centering="InitVal",
     IC="None",
     tsample=1.0,
     FIR_orders=[1, 0],
@@ -79,30 +79,37 @@ def system_identification(
 
     # Data centering
     if centering == "InitVal":
-        y_rif = 1.0 * y[:, 0]
-        u_init = 1.0 * u[:, 0]
+        y_cent = 1.0 * y[:, 0]
+        u_cent = 1.0 * u[:, 0]
         for i in range(ylength):
-            y[:, i] = y[:, i] - y_rif
-            u[:, i] = u[:, i] - u_init
+            y[:, i] = y[:, i] - y_cent
+            u[:, i] = u[:, i] - u_cent
     elif centering == "MeanVal":
-        y_rif = np.zeros(ydim)
-        u_mean = np.zeros(udim)
+        y_cent = np.zeros(ydim)
+        u_cent = np.zeros(udim)
         for i in range(ydim):
-            y_rif[i] = np.mean(y[i, :])
+            y_cent[i] = np.mean(y[i, :])
         for i in range(udim):
-            u_mean[i] = np.mean(u[i, :])
+            u_cent[i] = np.mean(u[i, :])
         for i in range(ylength):
-            y[:, i] = y[:, i] - y_rif
-            u[:, i] = u[:, i] - u_mean
+            y[:, i] = y[:, i] - y_cent
+            u[:, i] = u[:, i] - u_cent
     elif centering == "None":
-        y_rif = 0.0 * y[:, 0]
+        y_cent = 0.0 * y[:, 0]
+        u_cent = 0.0 * u[:, 0]
     else:
         # elif centering != 'None':
         sys.stdout.write("\033[0;35m")
         print(
             "Warning! 'Centering' argument is not valid, its value has been reset to 'None'"
         )
-        sys.stdout.write(" ")
+        sys.stdout.write(" ")        
+    
+    # Data scaling
+    y_std = np.std(y, axis=1, keepdims=True)   # shape = (p,1)
+    u_std = np.std(u, axis=1, keepdims=True)   # shape = (m,1)
+    y = y/y_std
+    u = u/u_std
 
     # Defining default values for orders
     na = [0] * ydim
@@ -216,11 +223,11 @@ def system_identification(
 
                 # import arxMIMO
                 # id ARX MIMO (also SISO case)
-                DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid = (
-                    arxMIMO.ARX_MIMO_id(y, u, na, nb, theta, tsample)
+                DENOMINATOR, NUMERATOR, G, H, Vn_tot, Yid, EV, FIT = (
+                    arxMIMO.ARX_MIMO_id(y, u, y_std, u_std, na, nb, theta, tsample)
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 # form model
                 model = arxMIMO.ARX_MIMO_model(
                     na,
@@ -233,6 +240,12 @@ def system_identification(
                     H,
                     Vn_tot,
                     Yid,
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
+                    EV,
+                    FIT
                 )
 
             # Recursive Least Square
@@ -254,6 +267,8 @@ def system_identification(
                     id_method,
                     y,
                     u,
+                    y_std,
+                    u_std,
                     na,
                     nb,
                     nc,
@@ -264,7 +279,7 @@ def system_identification(
                     max_iterations,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_rlsMIMO.GEN_MIMO_model(
                     na,
                     nb,
@@ -280,6 +295,10 @@ def system_identification(
                     G,
                     H,
                     Vn_tot,
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -348,10 +367,10 @@ def system_identification(
                     Vn_tot,
                     Yid,
                 ) = armaxMIMO.ARMAX_MIMO_id(
-                    y, u, na, nb, nc, theta, tsample, max_iterations
+                    y, u,  y_std, u_std, na, nb, nc, theta, tsample, max_iterations
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = armaxMIMO.ARMAX_MIMO_model(
                     na,
                     nb,
@@ -365,6 +384,10 @@ def system_identification(
                     G,
                     H,
                     Vn_tot,
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -387,6 +410,8 @@ def system_identification(
                     id_method,
                     y,
                     u,
+                    y_std,
+                    u_std,
                     na,
                     nb,
                     nc,
@@ -397,7 +422,7 @@ def system_identification(
                     max_iterations,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_rlsMIMO.GEN_MIMO_model(
                     na,
                     nb,
@@ -413,6 +438,10 @@ def system_identification(
                     G,
                     H,
                     Vn_tot,
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -435,6 +464,8 @@ def system_identification(
                     id_method,
                     y,
                     u,
+                    y_std,
+                    u_std,
                     na,
                     nb,
                     nc,
@@ -447,7 +478,7 @@ def system_identification(
                     stab_cons,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 # form model
                 model = io_optMIMO.GEN_MIMO_model(
                     na,
@@ -463,7 +494,10 @@ def system_identification(
                     DENOMINATOR_H,
                     G,
                     H,
-                    Vn_tot,
+                    Vn_tot, centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -538,6 +572,8 @@ def system_identification(
                     id_method,
                     y,
                     u,
+                    y_std,
+                    u_std,
                     na,
                     nb,
                     nc,
@@ -548,7 +584,7 @@ def system_identification(
                     max_iterations,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_rlsMIMO.GEN_MIMO_model(
                     na,
                     nb,
@@ -564,6 +600,10 @@ def system_identification(
                     G,
                     H,
                     Vn_tot,
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -585,7 +625,9 @@ def system_identification(
                 ) = io_optMIMO.GEN_MIMO_id(
                     id_method,
                     y,
-                    u,
+                    u, 
+                    y_std,
+                    u_std,
                     na,
                     nb,
                     nc,
@@ -598,7 +640,7 @@ def system_identification(
                     stab_cons,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 # form model
                 model = io_optMIMO.GEN_MIMO_model(
                     na,
@@ -615,6 +657,10 @@ def system_identification(
                     G,
                     H,
                     Vn_tot,
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -907,7 +953,9 @@ def system_identification(
             ) = io_optMIMO.GEN_MIMO_id(
                 id_method,
                 y,
-                u,
+                u, 
+                y_std,
+                u_std,
                 na,
                 nb,
                 nc,
@@ -920,7 +968,7 @@ def system_identification(
                 stab_cons,
             )
             # recentering
-            Yid = data_recentering(Yid, y_rif, ylength)
+            Yid = data_recentering(Yid, y_cent, ylength)
             # form model
             model = io_optMIMO.GEN_MIMO_model(
                 na,
@@ -936,7 +984,11 @@ def system_identification(
                 DENOMINATOR_H,
                 G,
                 H,
-                Vn_tot,
+                Vn_tot, 
+                centering,
+                y_cent,
+                u_cent,
+                ylength,
                 Yid,
             )
 
@@ -950,7 +1002,9 @@ def system_identification(
 
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.OLSims(
                 y,
-                u,
+                u, 
+                y_std,
+                u_std,
                 SS_f,
                 id_method,
                 SS_threshold,
@@ -960,7 +1014,21 @@ def system_identification(
                 SS_A_stability,
             )
             model = OLSims_methods.SS_model(
-                A, B, C, D, K, Q, R, S, tsample, Vn
+                A,
+                B,
+                C,
+                D,
+                K,
+                Q,
+                R,
+                S,
+                tsample,
+                Vn,
+                id_method,
+                centering,
+                y_cent,
+                u_cent,
+                ylength,                                                
             )
 
         # PARSIM-K
@@ -969,7 +1037,9 @@ def system_identification(
 
             A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_K(
                 y,
-                u,
+                u, 
+                y_std,
+                u_std,
                 SS_f,
                 SS_p,
                 SS_threshold,
@@ -979,7 +1049,21 @@ def system_identification(
                 SS_PK_B_reval,
             )
             model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
+                A,
+                B,
+                C,
+                D,
+                K,
+                A_K,
+                B_K,
+                x0,
+                tsample,
+                Vn,
+                centering,
+                y_cent,
+                u_cent,
+                id_method,
+                ylength,                                       
             )
 
         # PARSIM-S
@@ -988,7 +1072,9 @@ def system_identification(
 
             A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_S(
                 y,
-                u,
+                u, 
+                y_std,
+                u_std,
                 SS_f,
                 SS_p,
                 SS_threshold,
@@ -997,7 +1083,21 @@ def system_identification(
                 SS_D_required,
             )
             model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
+                A,
+                B,
+                C,
+                D,
+                K, 
+                A_K,
+                B_K,
+                x0,
+                tsample,
+                Vn,
+                centering,
+                y_cent,
+                u_cent,
+                id_method,
+                ylength,                                       
             )
 
         # PARSIM-P
@@ -1007,6 +1107,8 @@ def system_identification(
             A_K, C, B_K, D, K, A, B, x0, Vn = Parsim_methods.PARSIM_P(
                 y,
                 u,
+                y_std,
+                u_std,
                 SS_f,
                 SS_p,
                 SS_threshold,
@@ -1015,7 +1117,21 @@ def system_identification(
                 SS_D_required,
             )
             model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
+                A,
+                B,
+                C,
+                D,
+                K,
+                A_K,
+                B_K,
+                x0,
+                tsample,
+                Vn,
+                centering,
+                y_cent,
+                u_cent,
+                id_method,
+                ylength,                                    
             )
 
         # NO method selected
@@ -1068,10 +1184,10 @@ def system_identification(
                     Vn,
                     Yid,
                 ) = arx.select_order_ARX(
-                    y[0], u[0], tsample, na_ord, nb_ord, delays, IC
+                    y[0], u[0], y_std, u_std, tsample, na_ord, nb_ord, delays, IC
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = arx.ARX_model(
                     na,
                     nb,
@@ -1081,7 +1197,11 @@ def system_identification(
                     DENOMINATOR,
                     g_identif,
                     h_identif,
-                    Vn,
+                    Vn, 
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -1114,6 +1234,8 @@ def system_identification(
                     id_method,
                     y[0],
                     u[0],
+                    y_std,
+                    u_std,
                     tsample,
                     na_ord,
                     nb_ord,
@@ -1125,7 +1247,7 @@ def system_identification(
                     max_iterations,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_rls.GEN_model(
                     na,
                     nb,
@@ -1139,6 +1261,10 @@ def system_identification(
                     g_identif,
                     h_identif,
                     Vn,
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -1151,12 +1277,12 @@ def system_identification(
                 # import armax
                 # file updated by people external from CPCLAB
                 model = armax.Armax(
-                    na_ord, nb_ord, nc_ord, delays, tsample, IC, max_iterations
+                    na_ord, nb_ord, nc_ord, delays,  y_std, u_std, tsample, IC, max_iterations
                 )
                 #
-                model.find_best_estimate(y[0], u[0])
+                model.find_best_estimate(y[0], u[0], y_std, u_std)
                 # recentering
-                Yid = data_recentering(model.Yid, y_rif, ylength)
+                Yid = data_recentering(model.Yid, y_cent, ylength)
 
             # Recursive Least Square
             elif ARMAX_mod == "RLLS":
@@ -1183,7 +1309,9 @@ def system_identification(
                 ) = io_rls.select_order_GEN(
                     id_method,
                     y[0],
-                    u[0],
+                    u[0], 
+                    y_std,
+                    u_std,
                     tsample,
                     na_ord,
                     nb_ord,
@@ -1195,7 +1323,7 @@ def system_identification(
                     max_iterations,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_rls.GEN_model(
                     na,
                     nb,
@@ -1209,6 +1337,10 @@ def system_identification(
                     g_identif,
                     h_identif,
                     Vn,
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -1236,7 +1368,9 @@ def system_identification(
                 ) = io_opt.select_order_GEN(
                     id_method,
                     y[0],
-                    u[0],
+                    u[0], 
+                    y_std,
+                    u_std,
                     tsample,
                     na_ord,
                     nb_ord,
@@ -1250,7 +1384,7 @@ def system_identification(
                     stab_cons,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_opt.GEN_model(
                     na,
                     nb,
@@ -1263,7 +1397,11 @@ def system_identification(
                     DENOMINATOR,
                     g_identif,
                     h_identif,
-                    Vn,
+                    Vn, 
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -1301,7 +1439,9 @@ def system_identification(
                 ) = io_rls.select_order_GEN(
                     id_method,
                     y[0],
-                    u[0],
+                    u[0], 
+                    y_std,
+                    u_std,
                     tsample,
                     na_ord,
                     nb_ord,
@@ -1313,7 +1453,7 @@ def system_identification(
                     max_iterations,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_rls.GEN_model(
                     na,
                     nb,
@@ -1326,7 +1466,11 @@ def system_identification(
                     DENOMINATOR,
                     g_identif,
                     h_identif,
-                    Vn,
+                    Vn, 
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -1356,6 +1500,8 @@ def system_identification(
                     id_method,
                     y[0],
                     u[0],
+                    y_std,
+                    u_std,
                     tsample,
                     na_ord,
                     nb_ord,
@@ -1369,7 +1515,7 @@ def system_identification(
                     stab_cons,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_opt.GEN_model(
                     na,
                     nb,
@@ -1382,7 +1528,11 @@ def system_identification(
                     DENOMINATOR,
                     g_identif,
                     h_identif,
-                    Vn,
+                    Vn, 
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
 
@@ -1414,7 +1564,9 @@ def system_identification(
                 ) = io_ex_rls.select_order_GEN(
                     id_method,
                     y[0],
-                    u[0],
+                    u[0], 
+                    y_std,
+                    u_std,
                     tsample,
                     nf_ord,
                     nb_ord,
@@ -1424,7 +1576,7 @@ def system_identification(
                     max_iterations,
                 )
                 # recentering
-                Yid = data_recentering(Yid, y_rif, ylength)
+                Yid = data_recentering(Yid, y_cent, ylength)
                 model = io_ex_rls.GEN_model(
                     na,
                     nb,
@@ -1435,7 +1587,11 @@ def system_identification(
                     DENOMINATOR,
                     g_identif,
                     h_identif,
-                    Vn,
+                    Vn, 
+                    centering,
+                    y_cent,
+                    u_cent,
+                    ylength,
                     Yid,
                 )
             except ImportError:
@@ -1494,7 +1650,9 @@ def system_identification(
             ) = io_opt.select_order_GEN(
                 id_method,
                 y[0],
-                u[0],
+                u[0], 
+                y_std,
+                u_std,
                 tsample,
                 na_ord,
                 nb_ord,
@@ -1508,7 +1666,7 @@ def system_identification(
                 stab_cons,
             )
             # recentering
-            Yid = data_recentering(Yid, y_rif, ylength)
+            Yid = data_recentering(Yid, y_cent, ylength)
             model = io_opt.GEN_model(
                 na,
                 nb,
@@ -1521,7 +1679,11 @@ def system_identification(
                 DENOMINATOR,
                 g_identif,
                 h_identif,
-                Vn,
+                Vn, 
+                centering,
+                y_cent,
+                u_cent,
+                ylength,
                 Yid,
             )
 
@@ -1535,7 +1697,9 @@ def system_identification(
 
             A, B, C, D, Vn, Q, R, S, K = OLSims_methods.select_order_SIM(
                 y,
-                u,
+                u, 
+                y_std,
+                u_std,
                 SS_f,
                 id_method,
                 IC,
@@ -1544,7 +1708,7 @@ def system_identification(
                 SS_A_stability,
             )
             model = OLSims_methods.SS_model(
-                A, B, C, D, K, Q, R, S, tsample, Vn
+                A, B, C, D, K, Q, R, S, tsample, Vn, id_method, centering, y_cent, u_cent, ylength
             )
 
         ## PARSIM-K
@@ -1554,7 +1718,9 @@ def system_identification(
             A_K, C, B_K, D, K, A, B, x0, Vn = (
                 Parsim_methods.select_order_PARSIM_K(
                     y,
-                    u,
+                    u, 
+                    y_std,
+                    u_std,
                     SS_f,
                     SS_p,
                     IC,
@@ -1564,7 +1730,21 @@ def system_identification(
                 )
             )
             model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
+                A,
+                B,
+                C,
+                D,
+                K,
+                A_K,
+                B_K,
+                x0,
+                tsample,
+                Vn,
+                centering,
+                y_cent,
+                u_cent,
+                id_method,
+                ylength,                                       
             )
 
         ## PARSIM-S
@@ -1573,11 +1753,26 @@ def system_identification(
 
             A_K, C, B_K, D, K, A, B, x0, Vn = (
                 Parsim_methods.select_order_PARSIM_S(
-                    y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
+                    y, u, y_std, u_std, SS_f, SS_p, IC, SS_orders, SS_D_required
                 )
             )
             model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
+                A,
+                B,
+                C,
+                D,
+                K,
+                A_K,
+                B_K,
+                x0,
+                tsample,
+                Vn,
+                centering,
+                y_cent,
+                u_cent,
+                id_method,
+                ylength,
+                                                       
             )
 
         # PARSIM-P
@@ -1586,11 +1781,26 @@ def system_identification(
 
             A_K, C, B_K, D, K, A, B, x0, Vn = (
                 Parsim_methods.select_order_PARSIM_P(
-                    y, u, SS_f, SS_p, IC, SS_orders, SS_D_required
+                    y, u, y_std, u_std, SS_f, SS_p, IC, SS_orders, SS_D_required
                 )
             )
             model = Parsim_methods.SS_PARSIM_model(
-                A, B, C, D, K, A_K, B_K, x0, tsample, Vn
+                A,
+                B,
+                C,
+                D,
+                K,
+                A_K,
+                B_K,
+                x0,
+                tsample,
+                Vn,
+                centering,
+                y_cent,
+                u_cent,
+                id_method,
+                ylength,
+                                                   
             )
 
         # NO method selected
@@ -1602,7 +1812,10 @@ def system_identification(
 
 
 # Data recentering
-def data_recentering(y, y_rif, ylength):
+def data_recentering(y, y_cent, ylength):
     for i in range(ylength):
-        y[:, i] = y[:, i] + y_rif
+        y[:, i] = y[:, i] + y_cent
     return y
+
+
+from .validation import ValidationResult, system_validation
