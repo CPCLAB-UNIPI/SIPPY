@@ -24,7 +24,7 @@ are available, and in the MIMO case.
 
 The code has been implemented in [Python 3.10](https://www.python.org/downloads/) and requires [CasADi](https://web.casadi.org/get/).
 The Slycot package is optional and can speed up validation. It is available at [PyPI](https://pypi.python.org/pypi/slycot/0.2.0) or alternatively as [binaries](https://www.lfd.uci.edu/~gohlke/pythonlibs/).
-Note that the tf2ss package, developed by Marek Wadinger, is also required: 
+Note that the [tf2ss](https://github.com/MarekWadinger/tf2ss/tree/main/tf2ss) package, developed by Marek Wadinger, is also required: 
 this Python library, an alternative to slycot, is for easily converting transfer function representations to state-space forms, supporting MIMO systems.
 
 ## Installation
