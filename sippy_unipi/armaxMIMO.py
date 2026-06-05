@@ -4,19 +4,17 @@
 """
 
 import sys
-
+from datetime import datetime
 import control.matlab as cnt
 import numpy as np
-
 from .functionset import rescale
 
 
-def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
+def ARMAX_MISO_id(y, u,  ystd, ustd, na, nb, nc, theta, max_iterations):
     nb = np.array(nb)
     theta = np.array(theta)
     u = 1.0 * np.atleast_2d(u)
     ylength = y.size
-    ystd, y = rescale(y)
     [udim, ulength] = u.shape
     eps = np.zeros(y.size)
     Reached_max = False
@@ -31,9 +29,6 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf,Reached_max
     else:
         nbth = nb + theta
-        Ustd = np.zeros(udim)
-        for j in range(udim):
-            Ustd[j], u[j] = rescale(u[j])
         val = max(na, np.max(nbth), nc)
         # max predictable dimension
         N = ylength - val
@@ -100,7 +95,7 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
             THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])] = (
                 THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])]
                 * ystd
-                / Ustd[k]
+                / ustd[k]
             )
             NUM[k, theta[k] : theta[k] + nb[k]] = THETA[
                 na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])
@@ -109,8 +104,8 @@ def ARMAX_MISO_id(y, u, na, nb, nc, theta, max_iterations):
         return DEN, NUM, NUMH, Vn, y_id, Reached_max
 
 
-# MIMO function
-def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
+# MIMO ARMAX identification function
+def ARMAX_MIMO_id(y, u, ystd, ustd, na, nb, nc, theta, tsample=1.0, max_iterations=100):
     na = np.array(na)
     nb = np.array(nb)
     nc = np.array(nc)
@@ -163,7 +158,15 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         # identification in MISO approach
         for i in range(ydim):
             DEN, NUM, NUMH, Vn, y_id, Reached_max = ARMAX_MISO_id(
-                y[i, :], u, na[i], nb[i, :], nc[i], theta[i, :], max_iterations
+                y[i, :],
+                u,
+                ystd[i,0],
+                ustd,
+                na[i],
+                nb[i, :],
+                nc[i],
+                theta[i, :],
+                max_iterations,
             )
             if Reached_max:
                 print("at ", (i + 1), "° output")
@@ -190,24 +193,12 @@ def ARMAX_MIMO_id(y, u, na, nb, nc, theta, tsample=1.0, max_iterations=100):
         )
 
 
-# creating object ARMAX MIMO model
-class ARMAX_MIMO_model:
-    def __init__(
-        self,
-        na,
-        nb,
-        nc,
-        theta,
-        ts,
-        NUMERATOR,
-        DENOMINATOR,
-        NUMERATOR_H,
-        DENOMINATOR_H,
-        G,
-        H,
-        Vn,
-        Yid,
-    ):
+
+
+# ARMAX MIMO model class and corresponding report class
+class ARMAX_MIMO_model(object):
+    def __init__(self, na, nb, nc, theta, ts, NUMERATOR, DENOMINATOR, NUMERATOR_H, DENOMINATOR_H, G, H, Vn,
+                 centering, y_cent, u_cent, N, Yid):
         self.na = na
         self.nb = nb
         self.nc = nc
@@ -221,3 +212,31 @@ class ARMAX_MIMO_model:
         self.H = H
         self.Vn = Vn
         self.Yid = Yid
+        
+        self.Report = ARMAX_MIMO_Report(centering, method = "ARMAX MIMO")
+        self.Report.set_data_used(y_cent, u_cent, ts, N)
+        
+class ARMAX_MIMO_Report:
+        def __init__(self, centering, method):
+            self.Centering = centering        # 'None', 'InitVal', 'MeanVal'
+            self.Method = method            
+            self.Status = f"Estimated using {method}"
+            self.OptionsUsed = {}             # futuro
+            self.DataUsed = {}                # Used Data informations 
+            self.Fit = None                   # futuro
+            self.Timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        def set_data_used(self, y_cent, u_cent, ts, data_length):
+            Nu = len(u_cent)
+            Ny = len(y_cent)
+
+            self.DataUsed = {
+                "Name": {
+                    "Inputs":  [f"u{i+1}" for i in range(Nu)],
+                    "Outputs": [f"y{i+1}" for i in range(Ny)],
+                },
+                "Length": data_length,   
+                "Ts": ts,
+                "InputCentering": u_cent,
+                "OutputCentering": y_cent
+            }

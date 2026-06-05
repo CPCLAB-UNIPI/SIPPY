@@ -4,11 +4,10 @@
 """
 
 import sys
-
 import control.matlab as cnt
 import numpy as np
-
-from .functionset import information_criterion, rescale
+from datetime import datetime
+from .functionset import information_criterion
 
 
 def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
@@ -166,7 +165,9 @@ def GEN_RLS_id(id_method, y, u, na, nb, nc, nd, nf, theta, max_iterations):
 def select_order_GEN(
     id_method,
     y,
-    u,
+    u,  
+    ystd,
+    ustd,
     tsample=1.0,
     na_ord=[0, 5],
     nb_ord=[1, 5],
@@ -225,8 +226,6 @@ def select_order_GEN(
         sys.exit("Error! y and u must have tha same length")
     #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     else:
-        ystd, y = rescale(y)
-        Ustd, u = rescale(u)
         IC_old = np.inf
         for i_a in range(na_Min, na_MAX):
             for i_b in range(nb_Min, nb_MAX):
@@ -303,7 +302,7 @@ def select_order_GEN(
 
         # rescale NUM coeff
         NUM[theta_min : nb_min + theta_min] = (
-            NUM[theta_min : nb_min + theta_min] * ystd / Ustd
+            NUM[theta_min : nb_min + theta_min] * ystd / ustd
         )
 
         # FdT
@@ -325,24 +324,10 @@ def select_order_GEN(
         )
 
 
-# creating object GEN model
-class GEN_model:
-    def __init__(
-        self,
-        na,
-        nb,
-        nc,
-        nd,
-        nf,
-        theta,
-        ts,
-        NUMERATOR,
-        DENOMINATOR,
-        G,
-        H,
-        Vn,
-        Yid,
-    ):
+# GEN model class and corresponding report class
+class GEN_model(object):
+    def __init__(self, na, nb, nc, nd, nf, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn,
+                 centering, y_cent, u_cent, N, Yid):
         self.na = na
         self.nb = nb
         self.nc = nc
@@ -356,3 +341,31 @@ class GEN_model:
         self.H = H
         self.Vn = Vn
         self.Yid = Yid
+        
+        self.Report = GEN_Report(centering, method = "GEN")
+        self.Report.set_data_used(y_cent, u_cent, ts, N)
+        
+class GEN_Report:
+        def __init__(self, centering, method):
+            self.Centering = centering        # 'None', 'InitVal', 'MeanVal'
+            self.Method = method            
+            self.Status = f"Estimated using {method}"
+            self.OptionsUsed = {}             # futuro
+            self.DataUsed = {}                # Used Data informations 
+            self.Fit = None                   # futuro
+            self.Timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        def set_data_used(self, y_cent, u_cent, ts, data_length):
+            Nu = len(u_cent)
+            Ny = len(y_cent)
+
+            self.DataUsed = {
+                "Name": {
+                    "Inputs":  [f"u{i+1}" for i in range(Nu)],
+                    "Outputs": [f"y{i+1}" for i in range(Ny)],
+                },
+                "Length": data_length,   
+                "Ts": ts,
+                "InputCentering": u_cent,
+                "OutputCentering": y_cent
+            }

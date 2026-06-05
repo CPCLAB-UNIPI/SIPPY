@@ -4,19 +4,17 @@
 """
 
 import sys
-
 import control.matlab as cnt
 import numpy as np
+from datetime import datetime
+from sippy_unipi import functionset as fset
 
-from .functionset import rescale
 
-
-def ARX_MISO_id(y, u, na, nb, theta):
+def ARX_MISO_id(y, u, ystd, ustd, na, nb, theta):
     nb = np.array(nb)
     theta = np.array(theta)
     u = 1.0 * np.atleast_2d(u)
     ylength = y.size
-    ystd, y = rescale(y)
     [udim, ulength] = u.shape
     # checking dimension
     if nb.size != udim:
@@ -29,9 +27,6 @@ def ARX_MISO_id(y, u, na, nb, theta):
     #        return np.array([[1.]]),np.array([[0.]]),np.array([[0.]]),np.inf
     else:
         nbth = nb + theta
-        Ustd = np.zeros(udim)
-        for j in range(udim):
-            Ustd[j], u[j] = rescale(u[j])
         # max predictable dimension
         val = max(na, np.max(nbth))
         N = ylength - val
@@ -64,7 +59,7 @@ def ARX_MISO_id(y, u, na, nb, theta):
             THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])] = (
                 THETA[na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])]
                 * ystd
-                / Ustd[k]
+                / ustd[k]
             )
             NUM[k, theta[k] : theta[k] + nb[k]] = THETA[
                 na + np.sum(nb[0:k]) : na + np.sum(nb[0 : k + 1])
@@ -74,7 +69,7 @@ def ARX_MISO_id(y, u, na, nb, theta):
 
 
 # MIMO function
-def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
+def ARX_MIMO_id(y, u, ystd, ustd, na, nb, theta, tsample=1.0):
     na = np.array(na)
     nb = np.array(nb)
     theta = np.array(theta)
@@ -120,7 +115,7 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
         # identification in MISO approach
         for i in range(ydim):
             DEN, NUM, NUMH, Vn, y_id = ARX_MISO_id(
-                y[i, :], u, na[i], nb[i, :], theta[i, :]
+                y[i, :], u, ystd[i,0], ustd, na[i], nb[i, :], theta[i, :]
             )
             # append values to vectors
             DENOMINATOR.append(DEN.tolist())
@@ -129,17 +124,38 @@ def ARX_MIMO_id(y, u, na, nb, theta, tsample=1.0):
             DENOMINATOR_H.append([DEN.tolist()[0]])
             Vn_tot = Vn_tot + Vn
             Y_id[i, :] = y_id
+            
+        # explained variance percentage on identification data
+        EV = fset.compute_EV(y*ystd, Y_id)
+        # fit percentage on identification data
+        FIT = fset.compute_FIT(y*ystd, Y_id)
         # FdT
         G = cnt.tf(NUMERATOR, DENOMINATOR, tsample)
         H = cnt.tf(NUMERATOR_H, DENOMINATOR_H, tsample)
-        return DENOMINATOR, NUMERATOR, G, H, Vn_tot, Y_id
+        
+        return DENOMINATOR, NUMERATOR, G, H, Vn_tot, Y_id, EV, FIT
 
 
-# creating object ARX MIMO model
-class ARX_MIMO_model:
-    def __init__(
-        self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid
-    ):
+# class ARX MIMO and corresponding report class
+class ARX_MIMO_model(object):
+    def __init__(self,
+                 na,
+                 nb,
+                 theta,
+                 ts,
+                 NUMERATOR,
+                 DENOMINATOR,
+                 G,
+                 H,
+                 Vn,
+                 Yid,
+                 centering,
+                 y_cent,
+                 u_cent,
+                 N,
+                 EV,
+                 FIT
+                 ):
         self.na = na
         self.nb = nb
         self.theta = theta
@@ -150,3 +166,32 @@ class ARX_MIMO_model:
         self.H = H
         self.Vn = Vn
         self.Yid = Yid
+        
+        self.Report = ARX_MIMO_Report(centering, "ARX MIMO", EV, FIT)
+        self.Report.set_data_used(y_cent, u_cent, ts, N)
+    
+class ARX_MIMO_Report:
+    def __init__(self, centering, method, EV, FIT):
+        self.Centering = centering        # 'None', 'InitVal', 'MeanVal'
+        self.Method = method            
+        self.Status = "Estimated using MIMO ARX"
+        self.OptionsUsed = {}             # futuro
+        self.DataUsed = {}                # Used Data informations 
+        self.EV  = EV                     # Explained Variance in percentage
+        self.FIT = FIT                    # Fit percentage
+        self.Timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    def set_data_used(self, y_cent, u_cent, ts, data_length):
+        Nu = len(u_cent)
+        Ny = len(y_cent)
+
+        self.DataUsed = {
+            "Name": {
+                "Inputs":  [f"u{i+1}" for i in range(Nu)],
+                "Outputs": [f"y{i+1}" for i in range(Ny)],
+            },
+            "Length": data_length,   
+            "Ts": ts,
+            "InputCentering": u_cent,
+            "OutputCentering": y_cent
+        }

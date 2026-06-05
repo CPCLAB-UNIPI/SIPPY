@@ -4,11 +4,11 @@
 """
 
 import sys
-
+from tf2ss import forced_response
 import control as cnt
 import numpy as np
-from tf2ss import forced_response
-
+import warnings
+import scipy.linalg as la
 
 # function which generates a sequence of inputs GBN
 # N: sequence length (total number of samples)
@@ -32,6 +32,7 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
     while (np.abs(p_sw - p_swd)) / p_swd > Tol and nit <= nit_max:
         i_fl = 0
         Nsw = 0
+        current_switches = [] 
         for i in range(N - 1):
             gbn[i + 1] = gbn[i]
             # test switch probability
@@ -43,6 +44,7 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
                     # switch and then count it
                     gbn[i + 1] = -gbn[i + 1]
                     Nsw = Nsw + 1
+                    current_switches.append(i + 1) 
         # check actual switch probability
         p_sw = Nmin * (Nsw + 1) / N  # print("p_sw", p_sw);
         # set best iteration
@@ -50,6 +52,7 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
             p_sw_b = p_sw
             Nswb = Nsw
             gbn_b = gbn.copy()
+            i_sw = current_switches.copy() #switching indexes
         # increase iteration number
         nit = nit + 1  # print("nit", nit)
     # rescale GBN
@@ -58,12 +61,13 @@ def GBN_seq(N, p_swd, Nmin=1, Range=[-1.0, 1.0], Tol=0.01, nit_max=30):
             gbn_b[i] = max_Range
         else:
             gbn_b[i] = min_Range
-    return gbn_b, p_sw_b, Nswb
+    # GBN sequence, effective switching probability, number of switches, switching indexes
+    return gbn_b, p_sw_b, Nswb, i_sw 
 
 
 # function which generates a sequence of inputs as Random walk
 # N: sequence length (total number of samples);
-# sigma: standard deviation (mobility) of randow walk
+# sigma: standard deviation (mobility) of random walk
 # rw0: initial value
 def RW_seq(N, rw0, sigma=1):
     rw = rw0 * np.ones(N)
@@ -119,7 +123,7 @@ def white_noise_var(L, Var):
 
 
 # rescaling an array to its standard deviation. It gives the array rescaled: y=y/(standard deviation of y)
-# and thestandard deviation: ex [Ystd,Y]=rescale(Y)
+# and the standard deviation: ex [Ystd,Y]=rescale(Y)
 def rescale(y):
     ystd = np.std(y)
     y_scaled = y / ystd
@@ -144,6 +148,87 @@ def information_criterion(K, N, Variance, method="AIC"):
 
 def mean_square_error(predictions, targets):
     return ((predictions - targets) ** 2).mean()
+
+def compute_FIT(y, y_hat):
+    """
+    Compute FIT percentage.
+
+    FIT% = 100 * (1 - ||Y - Y_hat||_2 / ||Y - mean(Y)||_2)
+
+    Parameters
+    ----------
+    y : array_like
+        Measured output data, shape (N,) or (N, ny)
+    y_hat : array_like
+        Estimated output data, same shape as y
+
+    Returns
+    -------
+    FIT : float
+        Fit percentage.
+    """
+    y = np.asarray(y)
+    y_hat = np.asarray(y_hat)
+
+    if y.shape != y_hat.shape:
+        raise ValueError("ERROR in compute_FIT: y and y_hat must have the same shape")
+
+    # mean over time, per output
+    y_mean = np.mean(y, axis=0)
+    
+    if np.var(y) < np.finfo(np.float64).eps:
+        warnings.warn(
+            "Fit is not defined: y output signal is (almost) constant.",
+            RuntimeWarning
+        )
+        return np.nan
+
+    FIT_perc = 100.0 * (1.0 - np.linalg.norm(y - y_hat) / np.linalg.norm(y - y_mean))
+
+    return FIT_perc
+
+
+def compute_EV(y, y_hat):
+    """
+    Compute EV percentage.
+
+    EV% = 100 * (1 - Var(Y - Y_hat) / Var(Y))
+
+    Parameters
+    ----------
+    y : array_like
+        Measured output data, shape (N,) or (N, ny)
+    y_hat : array_like
+        Estimated output data, same shape as y
+        
+    Remark: The residual can be computed as e = Y - Y_hat
+
+    Returns
+    -------
+    EV : float
+        Fit percentage.
+        
+    """
+    y = np.asarray(y)
+    y_hat = np.asarray(y_hat)
+
+    if y.shape != y_hat.shape:
+        raise ValueError("ERROR in compute_EV: y and y_hat must have the same shape")
+
+    # mean over time, per output
+    y_mean = np.mean(y, axis=0) 
+    
+    if np.var(y) < np.finfo(np.float64).eps:
+        warnings.warn(
+            "Explained Variance is not defined: y output signal is (almost) constant.",
+            RuntimeWarning
+        )
+        return np.nan
+
+    EV_perc = 100.0 * (1.0 - np.var(y - y_hat) / np.var(y - y_mean))
+
+    return EV_perc
+    
 
 
 # Function for model validation (one-step and k-step ahead predictor)
@@ -221,3 +306,4 @@ def validation(SYS, u, y, Time, k=1, centering="None"):
             Yval[i, :] = np.atleast_2d(Y_u + Y_y + y_rif[i])
 
     return Yval
+

@@ -4,11 +4,11 @@
 """
 
 import sys
-
 import control.matlab as cnt
 import numpy as np
-
-from .functionset import information_criterion, rescale
+from datetime import datetime
+from sippy_unipi import functionset as fset
+from .functionset import information_criterion
 
 
 def ARX_id(y, u, na, nb, theta):
@@ -29,6 +29,10 @@ def ARX_id(y, u, na, nb, theta):
     Vn = (np.linalg.norm((y_id0 - y[val::]), 2) ** 2) / (2 * N)
     # adding non-identified outputs
     y_id = np.hstack((y[:val], y_id0))
+    # explained variance percentage on identification data
+    EV = fset.compute_EV(y, y_id)
+    # fit percentage on identification data
+    FIT = fset.compute_FIT(y, y_id)
     NUM = np.zeros(val)
     # numerator
     NUM[theta : nb + theta] = THETA[na::]
@@ -39,12 +43,14 @@ def ARX_id(y, u, na, nb, theta):
     NUMH = np.zeros(val + 1)
     NUMH[0] = 1.0
 
-    return NUM, DEN, NUMH, Vn, y_id
+    return NUM, DEN, NUMH, Vn, y_id, EV, FIT
 
 
 def select_order_ARX(
     y,
     u,
+    ystd,
+    ustd,
     tsample=1.0,
     na_ord=[0, 5],
     nb_ord=[1, 5],
@@ -76,11 +82,9 @@ def select_order_ARX(
         )
     #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     elif y.size != u.size:
-        sys.exit("Error! y and u must have tha same length")
+        sys.exit("Error! y and u must have the same length")
     #        return 0.,0.,0.,0.,0.,0.,0.,np.inf
     else:
-        ystd, y = rescale(y)
-        Ustd, u = rescale(u)
         IC_old = np.inf
         for i in range(na_Min, na_MAX):
             for j in range(nb_Min, nb_MAX):
@@ -106,7 +110,7 @@ def select_order_ARX(
         NUM, DEN, NUMH, Vn, y_id = ARX_id(y, u, na_min, nb_min, theta_min)
         Y_id = np.atleast_2d(y_id) * ystd
         NUM[theta_min : nb_min + theta_min] = (
-            NUM[theta_min : nb_min + theta_min] * ystd / Ustd
+            NUM[theta_min : nb_min + theta_min] * ystd / ustd
         )
         # FdT
         g_identif = cnt.tf(NUM, DEN, tsample)
@@ -124,10 +128,11 @@ def select_order_ARX(
         )
 
 
-# creating object ARX model
+# class ARX and corresponding report class
 class ARX_model:
     def __init__(
-        self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, Yid
+        self, na, nb, theta, ts, NUMERATOR, DENOMINATOR, G, H, Vn, 
+        centering, y_cent, u_cent, N, Yid,
     ):
         self.na = na
         self.nb = nb
@@ -139,3 +144,33 @@ class ARX_model:
         self.H = H
         self.Vn = Vn
         self.Yid = Yid
+        
+        self.Report = ARX_Report(centering, method = "ARX MIMO")
+        self.Report.set_data_used(y_cent, u_cent, ts, N)
+        
+
+class ARX_Report:
+    def __init__(self, centering, method):
+        self.Centering = centering        # 'None', 'InitVal', 'MeanVal'
+        self.Method = method            
+        self.Status = "Estimated using ARX"
+        self.OptionsUsed = {}             # futuro
+        self.DataUsed = {}                # Used Data informations 
+        self.Fit = None                   # futuro
+        self.Timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    def set_data_used(self, y_cent, u_cent, ts, data_length):
+        Nu = len(u_cent)
+        Ny = len(y_cent)
+
+        self.DataUsed = {
+            "Name": {
+                "Inputs":  [f"u{i+1}" for i in range(Nu)],
+                "Outputs": [f"y{i+1}" for i in range(Ny)],
+            },
+            "Length": data_length,   
+            "Ts": ts,
+            "InputCentering": u_cent,
+            "OutputCentering": y_cent
+        }
+        

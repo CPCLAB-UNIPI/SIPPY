@@ -233,7 +233,7 @@ class Armax:
 
         return G_num, G_den, H_num, H_den, Vn, y_id, max_reached
 
-    def find_best_estimate(self, y, u):
+    def find_best_estimate(self, y, u, ystd, ustd):
         """Find best estimate
 
         Find best ARMAX estimate, given measurements and input data.
@@ -244,10 +244,7 @@ class Armax:
         if y.size != u.size:
             raise ValueError("y and u must have tha same length")
 
-        y_std, y = rescale(y)
-        u_std, u = rescale(u)
-
-        if u_std == 0.0:
+        if ustd == 0.0:
             raise ValueError(
                 "model cannot be estimated based on a constant input signal"
             )
@@ -295,12 +292,12 @@ class Armax:
                             )
                             self.Vn, self.Yid, self.max_reached = (
                                 Vn,
-                                np.atleast_2d(y_id) * y_std,
+                                np.atleast_2d(y_id) * ystd,
                                 max_reached,
                             )
 
         G_num_opt[self.delay : self.nb + self.delay] = (
-            G_num_opt[self.delay : self.nb + self.delay] * y_std / u_std
+            G_num_opt[self.delay : self.nb + self.delay] * ystd / ustd
         )
 
         self.G = cnt.tf(G_num_opt, G_den_opt, self.dt)

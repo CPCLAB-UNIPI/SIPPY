@@ -4,15 +4,13 @@
 """
 
 import sys
-
 import control.matlab as cnt
 import numpy as np
 import scipy as sc
 from numpy.linalg import pinv
-
+from datetime import datetime
 from .functionset import (
     information_criterion,
-    rescale,
 )
 from .functionsetSIM import (
     K_calc,
@@ -117,6 +115,8 @@ def extracting_matrices(M, n):
 def OLSims(
     y,
     u,
+    ystd,
+    ustd,
     f,
     weights="N4SID",
     threshold=0.1,
@@ -146,12 +146,6 @@ def OLSims(
             threshold, max_order, fixed_order, f
         )
         N = L - 2 * f + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l_)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l_):
-            Ystd[j], y[j] = rescale(y[j])
         U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l_, weights)
         Ob, X_fd, M, n, residuals = algorithm_1(
             y,
@@ -184,19 +178,21 @@ def OLSims(
 
         K, K_calculated = K_calc(A, C, Q, R, S)
         for j in range(m):
-            B[:, j] = B[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B[:, j] = B[:, j] / ustd[j]
+            D[:, j] = D[:, j] / ustd[j]
         for j in range(l_):
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
+            C[j, :] = C[j, :] * ystd[j]
+            D[j, :] = D[j, :] * ystd[j]
             if K_calculated:
-                K[:, j] = K[:, j] / Ystd[j]
+                K[:, j] = K[:, j] / ystd[j]
         return A, B, C, D, Vn, Q, R, S, K
 
 
 def select_order_SIM(
     y,
     u,
+    ystd,
+    ustd,
     f=20,
     weights="N4SID",
     method="AIC",
@@ -244,12 +240,6 @@ def select_order_SIM(
             max_ord = f + 1
         IC_old = np.inf
         N = L - 2 * f + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l_)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l_):
-            Ystd[j], y[j] = rescale(y[j])
         U_n, S_n, V_n, W1, O_i = SVD_weighted(y, u, f, l_, weights)
         for i in range(min_ord, max_ord):
             Ob, X_fd, M, n, residuals = algorithm_1(
@@ -294,19 +284,36 @@ def select_order_SIM(
         S = Covariances[0:n, n::]
         K, K_calculated = K_calc(A, C, Q, R, S)
         for j in range(m):
-            B[:, j] = B[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B[:, j] = B[:, j] / ustd[j]
+            D[:, j] = D[:, j] / ustd[j]
         for j in range(l_):
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
+            C[j, :] = C[j, :] * ystd[j]
+            D[j, :] = D[j, :] * ystd[j]
             if K_calculated:
-                K[:, j] = K[:, j] / Ystd[j]
+                K[:, j] = K[:, j] / ystd[j]
         return A, B, C, D, Vn, Q, R, S, K
 
 
-# creating object SS model
-class SS_model:
-    def __init__(self, A, B, C, D, K, Q, R, S, ts, Vn):
+# SS model model class and corresponding report
+class SS_model(object):
+    def __init__(self,
+                 A,
+                 B,
+                 C,
+                 D,
+                 K,
+                 Q,
+                 R,
+                 S,
+                 ts,
+                 Vn,
+                 method,
+                 centering,
+                 y_cent,
+                 u_cent,
+                 N,
+                 ):
+        
         self.n = A[:, 0].size
         self.A = A
         self.B = B
@@ -323,8 +330,37 @@ class SS_model:
         try:
             A_K = A - np.dot(K, C)
             B_K = B - np.dot(K, D)
-        except Exception:
+        except:
             A_K = []
             B_K = []
         self.A_K = A_K
         self.B_K = B_K
+        
+        # Add report object and insert the data used
+        self.Report = SSReport(centering, method)
+        self.Report.set_data_used(y_cent,u_cent,ts,N)
+        
+class SSReport:
+    def __init__(self, centering, method):
+        self.Centering = centering        # 'None', 'InitVal', 'MeanVal'
+        self.Method = method              # e.g. 'PARSIM-K, PARSIM-S ...'
+        self.Status = f"Estimated using {method}"
+        self.OptionsUsed = {}             # futuro
+        self.DataUsed = {}                # Used Data informations 
+        self.Fit = None                   # futuro
+        self.Timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def set_data_used(self, y_cent, u_cent, ts, data_length):
+        Nu = len(u_cent)
+        Ny = len(y_cent)
+
+        self.DataUsed = {
+            "Name": {
+                "Inputs":  [f"u{i+1}" for i in range(Nu)],
+                "Outputs": [f"y{i+1}" for i in range(Ny)],
+            },
+            "Length": data_length,     #
+            "Ts": ts,
+            "InputCentering": u_cent,
+            "OutputCentering": y_cent
+        }

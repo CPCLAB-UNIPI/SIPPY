@@ -4,12 +4,12 @@
 """
 
 import sys
-
+from datetime import datetime
 import control.matlab as cnt
 import numpy as np
 import scipy as sc
 
-from .functionset import information_criterion, rescale
+from .functionset import information_criterion
 from .functionsetSIM import (
     SS_lsim_predictor_form,
     SS_lsim_process_form,
@@ -178,7 +178,9 @@ def AK_C_estimating_S_P(U_n, S_n, V_n, l_, f, m, Zp, Uf, Yf):
 
 def PARSIM_K(
     y,
-    u,
+    u, 
+    ystd,
+    ustd,
     f=20,
     p=20,
     threshold=0.1,
@@ -208,12 +210,6 @@ def PARSIM_K(
             threshold, max_order, fixed_order, f
         )
         # N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l_)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l_):
-            Ystd[j], y[j] = rescale(y[j])
         Yf, Yp = ordinate_sequence(y, f, p)
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
@@ -262,19 +258,21 @@ def PARSIM_K(
             x0 = vect[n * m : :, :].reshape((n, 1))
             B_K = B - np.dot(K, D)
         for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B_K[:, j] = B_K[:, j] / ustd[j]
+            D[:, j] = D[:, j] / ustd[j]
         for j in range(l_):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
+            K[:, j] = K[:, j] / ystd[j]
+            C[j, :] = C[j, :] * ystd[j]
+            D[j, :] = D[j, :] * ystd[j]
         B = B_K + np.dot(K, D)
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
 def select_order_PARSIM_K(
     y,
-    u,
+    u, 
+    ystd,
+    ustd,
     f=20,
     p=20,
     method="AIC",
@@ -322,12 +320,6 @@ def select_order_PARSIM_K(
             max_ord = f + 1
         IC_old = np.inf
         # N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l_)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l_):
-            Ystd[j], y[j] = rescale(y[j])
         Yf, Yp = ordinate_sequence(y, f, p)
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
@@ -397,19 +389,21 @@ def select_order_PARSIM_K(
             x0 = vect[n * m : :, :].reshape((n, 1))
             B_K = B - np.dot(K, D)
         for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B_K[:, j] = B_K[:, j] / ustd[j]
+            D[:, j] = D[:, j] / ustd[j]
         for j in range(l_):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
+            K[:, j] = K[:, j] / ystd[j]
+            C[j, :] = C[j, :] * ystd[j]
+            D[j, :] = D[j, :] * ystd[j]
         B = B_K + np.dot(K, D)
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
 def PARSIM_S(
     y,
-    u,
+    u, 
+    ystd,
+    ustd,
     f=20,
     p=20,
     threshold=0.1,
@@ -438,12 +432,6 @@ def PARSIM_S(
             threshold, max_order, fixed_order, f
         )
         # N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l_)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l_):
-            Ystd[j], y[j] = rescale(y[j])
         Yf, Yp = ordinate_sequence(y, f, p)
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
@@ -475,18 +463,18 @@ def PARSIM_S(
             D = np.zeros((l_, m))
             x0 = vect[n * m : :, :].reshape((n, 1))
         for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B_K[:, j] = B_K[:, j] / ustd[j]
+            D[:, j] = D[:, j] / ustd[j]
         for j in range(l_):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
+            K[:, j] = K[:, j] / ystd[j]
+            C[j, :] = C[j, :] * ystd[j]
+            D[j, :] = D[j, :] * ystd[j]
         B = B_K + np.dot(K, D)
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
 def select_order_PARSIM_S(
-    y, u, f=20, p=20, method="AIC", orders=[1, 10], D_required=False
+    y, u, ystd, ustd, f=20, p=20, method="AIC", orders=[1, 10], D_required=False
 ):
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
@@ -528,12 +516,6 @@ def select_order_PARSIM_S(
             max_ord = f + 1
         IC_old = np.inf
         # N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l_)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l_):
-            Ystd[j], y[j] = rescale(y[j])
         Yf, Yp = ordinate_sequence(y, f, p)
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
@@ -584,19 +566,21 @@ def select_order_PARSIM_S(
             D = np.zeros((l_, m))
             x0 = vect[n * m : :, :].reshape((n, 1))
         for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B_K[:, j] = B_K[:, j] / ustd[j]
+            D[:, j] = D[:, j] / ustd[j]
         for j in range(l_):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
+            K[:, j] = K[:, j] / ystd[j]
+            C[j, :] = C[j, :] * ystd[j]
+            D[j, :] = D[j, :] * ystd[j]
         B = B_K + np.dot(K, D)
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
 def PARSIM_P(
     y,
-    u,
+    u, 
+    ystd,
+    ustd,
     f=20,
     p=20,
     threshold=0.1,
@@ -625,12 +609,6 @@ def PARSIM_P(
             threshold, max_order, fixed_order, f
         )
         # N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l_)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l_):
-            Ystd[j], y[j] = rescale(y[j])
         Yf, Yp = ordinate_sequence(y, f, p)
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
@@ -660,18 +638,18 @@ def PARSIM_P(
             D = np.zeros((l_, m))
             x0 = vect[n * m : :, :].reshape((n, 1))
         for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B_K[:, j] = B_K[:, j] / ustd[j]
+            D[:, j] = D[:, j] / ustd[j]
         for j in range(l_):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
+            K[:, j] = K[:, j] / ystd[j]
+            C[j, :] = C[j, :] * ystd[j]
+            D[j, :] = D[j, :] * ystd[j]
         B = B_K + np.dot(K, D)
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
 def select_order_PARSIM_P(
-    y, u, f=20, p=20, method="AIC", orders=[1, 10], D_required=False
+    y, u, ystd, ustd, f=20, p=20, method="AIC", orders=[1, 10], D_required=False
 ):
     y = 1.0 * np.atleast_2d(y)
     u = 1.0 * np.atleast_2d(u)
@@ -713,12 +691,6 @@ def select_order_PARSIM_P(
             max_ord = f + 1
         IC_old = np.inf
         # N = L - f - p + 1
-        Ustd = np.zeros(m)
-        Ystd = np.zeros(l_)
-        for j in range(m):
-            Ustd[j], u[j] = rescale(u[j])
-        for j in range(l_):
-            Ystd[j], y[j] = rescale(y[j])
         Yf, Yp = ordinate_sequence(y, f, p)
         Uf, Up = ordinate_sequence(u, f, p)
         Zp = impile(Up, Yp)
@@ -767,28 +739,59 @@ def select_order_PARSIM_P(
             D = np.zeros((l_, m))
             x0 = vect[n * m : :, :].reshape((n, 1))
         for j in range(m):
-            B_K[:, j] = B_K[:, j] / Ustd[j]
-            D[:, j] = D[:, j] / Ustd[j]
+            B_K[:, j] = B_K[:, j] / ustd[j]
+            D[:, j] = D[:, j] / ustd[j]
         for j in range(l_):
-            K[:, j] = K[:, j] / Ystd[j]
-            C[j, :] = C[j, :] * Ystd[j]
-            D[j, :] = D[j, :] * Ystd[j]
+            K[:, j] = K[:, j] / ystd[j]
+            C[j, :] = C[j, :] * ystd[j]
+            D[j, :] = D[j, :] * ystd[j]
         B = B_K + np.dot(K, D)
         return A_K, C, B_K, D, K, A, B, x0, Vn
 
 
-# creating object SS model
-class SS_PARSIM_model:
-    def __init__(self, A, B, C, D, K, A_K, B_K, x0, ts, Vn):
-        self.n = A[:, 0].size
+# class SS PARSIM model and corresponding report
+class SS_PARSIM_model(object):
+    def __init__(self, A, B, C, D, K, A_K, B_K, x0, ts, Vn, centering, y_cent, u_cent, method, N):
+        
+        self.n = A.shape[0]
         self.A = A
         self.B = B
         self.C = C
         self.D = D
-        self.Vn = Vn
         self.K = K
-        self.G = cnt.ss(A, B, C, D, ts)
+        self.Vn = Vn
         self.ts = ts
         self.x0 = x0
         self.A_K = A_K
         self.B_K = B_K
+        self.G = cnt.ss(A, B, C, D, ts)
+
+        # Add report object and insert the data used
+        self.Report = ParsimReport(centering, method)
+        self.Report.set_data_used(y_cent,u_cent,ts,N)
+
+        
+class ParsimReport:
+    def __init__(self, centering, method):
+        self.Centering = centering        # 'None', 'InitVal', 'MeanVal'
+        self.Method = method              # e.g. 'PARSIM-K, PARSIM-S ...'
+        self.Status = f"Estimated using {method}"
+        self.OptionsUsed = {}             # futuro
+        self.DataUsed = {}                # Used Data informations 
+        self.Fit = None                   # futuro
+        self.Timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def set_data_used(self, y_cent, u_cent, ts, data_length):
+        Nu = len(u_cent)
+        Ny = len(y_cent)
+
+        self.DataUsed = {
+            "Name": {
+                "Inputs":  [f"u{i+1}" for i in range(Nu)],
+                "Outputs": [f"y{i+1}" for i in range(Ny)],
+            },
+            "Length": data_length,     
+            "Ts": ts,
+            "InputCentering": u_cent,
+            "OutputCentering": y_cent
+        }
